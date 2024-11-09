@@ -3,7 +3,9 @@ module CoralFlow
 using Statistics
 
 include("./stats.jl")
+include("./metrics.jl")
 include("./corals/size_classes.jl")
+
 
 export
     truncated_standard_normal_mean,
