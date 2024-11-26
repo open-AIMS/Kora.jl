@@ -16,28 +16,28 @@ Maximum error of 1.5 × 10^{-7}.
    New York: United States Department of Commerce, National Bureau of Standards;
    Dover Publications. p. 297
 """
-function rational_erf(x::Float64)::Float64
-    coef::Float64 = 1.0
+function rational_erf(x::F)::F where {F<:Union{Float32, Float64}}
+    coef::F = 1.0
     if (x < 0)
         x *= -1
         coef = -1
     end
 
     # Use multiplication to avoid slow power function (x^n)
-    x2::Float64 = x * x
-    x3::Float64 = x2 * x
-    x4::Float64 = x3 * x
-    x5::Float64 = x4 * x
-    x6::Float64 = x5 * x
+    x2::F = x * x
+    x3::F = x2 * x
+    x4::F = x3 * x
+    x5::F = x4 * x
+    x6::F = x5 * x
 
-    a1::Float64 = 0.0705230784
-    a2::Float64 = 0.0422820123
-    a3::Float64 = 0.0092705272
-    a4::Float64 = 0.0001520143
-    a5::Float64 = 0.0002765672
-    a6::Float64 = 0.0000430638
+    a1::F = 0.0705230784
+    a2::F = 0.0422820123
+    a3::F = 0.0092705272
+    a4::F = 0.0001520143
+    a5::F = 0.0002765672
+    a6::F = 0.0000430638
 
-    denom = 1.0 + a1 * x + a2 * x2 + a3 * x3 + a4 * x4 + a5 * x5 + a6 * x6
+    denom::F = 1.0 + a1 * x + a2 * x2 + a3 * x3 + a4 * x4 + a5 * x5 + a6 * x6
 
     denom = denom * denom  # power 2
     denom = denom * denom  # power 4
@@ -123,7 +123,7 @@ The mean of the truncated normal distribution
 """
 function truncated_normal_mean(
     normal_mean::F, normal_stdev::F, lower_bound::F, upper_bound::F
-)::F where {F<:Real}
+)::F where {F<:AbstractFloat}
     alpha::F = (lower_bound - normal_mean) / normal_stdev
     beta::F = (upper_bound - normal_mean) / normal_stdev
 
