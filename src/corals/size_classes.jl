@@ -57,3 +57,18 @@ function linear_extensions()::Matrix{Float32}
         0.122478f0 0.217702f0 0.382098f0 0.718781f0 1.24172f0 2.08546f0 1.04f0 0.0f0
     ]
 end
+
+"""
+    survival_rates()::Matrix{Float32}
+
+Survival rates.
+"""
+function survival_rates()::Matrix{Float32}
+    return [
+        0.6f0 0.76f0 0.805f0 0.76f0 0.85f0 0.86f0 0.86f0 0.86f0;    # Tabular Acropora
+        0.6f0 0.76f0 0.77f0 0.875f0 0.83f0 0.90f0 0.90f0 0.90f0;    # Corymbose Acropora
+        0.52f0 0.77f0 0.77f0 0.875f0 0.89f0 0.97621179f0 0.97621179f0 0.97621179f0;                # Corymbose non-Acropora
+        0.72f0 0.87f0 0.77f0 0.98f0 0.996931548f0 0.996931548f0 0.996931548f0 0.996931548f0;        # Small massives and encrusting
+        0.58f0 0.87f0 0.78f0 0.983568572f0 0.984667677f0 0.984667677f0 0.984667677f0 0.984667677f0  # Large massives
+    ]
+end
