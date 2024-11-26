@@ -1,3 +1,6 @@
+const _pi_f32 = Float32(π)
+const _cover_scale = 1.0f0 / 10000.0f0
+
 """
     bin_edges()::Matrix{Float32}
 
@@ -71,4 +74,36 @@ function survival_rates()::Matrix{Float32}
         0.72f0 0.87f0 0.77f0 0.98f0 0.996931548f0 0.996931548f0 0.996931548f0 0.996931548f0;        # Small massives and encrusting
         0.58f0 0.87f0 0.78f0 0.983568572f0 0.984667677f0 0.984667677f0 0.984667677f0 0.984667677f0  # Large massives
     ]
+end
+
+"""
+Convert centimeter diameter to meters area (m^2)
+"""
+function cover_cm_to_m2(diameters::AbstractVector{F})::F where {F<:Float32}
+    result = 0.0f0
+
+    # Use @simd for vectorization, with a fused operation to reduce memory access
+    @simd for d in diameters
+        result += cover_cm_to_m2(d)
+    end
+
+    return result
+end
+function cover_cm_to_m2(d::F)::F where {F<:Float32}
+    return _pi_f32 * (d * d * 0.25f0) * _cover_scale
+end
+function cover_cm_to_m2(diameters::AbstractMatrix{T})::Matrix{T} where {T<:AbstractFloat}
+    return cover_cm_to_m2.(diameters)
+end
+function cover_cm_to_m2!(diameters::AbstractMatrix{T}, cache::AbstractMatrix{T})::Nothing where {T<:AbstractFloat}
+    cache .= cover_cm_to_m2.(diameters)
+
+    return nothing
+end
+
+"""
+Convert area in m^2 to cm^2
+"""
+function cover_m2_to_cm(area::AbstractFloat)::AbstractFloat
+    return 2.0f0 * sqrt(area / _pi_f32) * 100.0f0
 end
