@@ -2,6 +2,28 @@ const _pi_f32 = Float32(π)
 const _cover_scale = 1.0f0 / 10000.0f0
 
 """
+    mature_size_thresholds()::Vector{Float32}
+
+Returns the minimum diameter (cm) at which corals in each functional group typically reach sexual maturity.
+
+Assumed values:
+- Tabular Acropora: ~12.5cm
+- Corymbose Acropora: ~12.5cm
+- Corymbose non-Acropora: ~12.5cm
+- Small massives/encrusting: ~15cm
+- Large massives: ~15-20cm
+"""
+function mature_size_thresholds()::Vector{Float32}
+    return Float32[
+        12.5f0,  # Tabular Acropora
+        12.5f0,  # Corymbose Acropora
+        12.5f0,  # Corymbose non-Acropora
+        15.0f0,  # Small massives and encrusting
+        20.0f0   # Large massives
+    ]
+end
+
+"""
     bin_edges()::Matrix{Float32}
 
 Helper function defining coral colony diameter bin edges. The values are converted from `cm`
@@ -10,11 +32,11 @@ to the desired unit. The default unit is `m`.
 function bin_edges()::Matrix{Float32}
     return Matrix{Float32}(
         [
-            2.5 5.0 7.5 10.0 20.0 40.0 100.0 150.0;
-            2.5 5.0 7.5 10.0 20.0 35.0 50.0 100.0;
-            2.5 5.0 7.5 10.0 15.0 20.0 40.0 50.0;
-            2.5 5.0 7.5 10.0 20.0 40.0 50.0 100.0;
-            2.5 5.0 7.5 10.0 20.0 40.0 50.0 100.0
+            2.5f0 7.5f0 12.5f0 25.0f0 50.0f0 80.0f0 120.0f0 160.0f0;
+            2.5f0 7.5f0 12.5f0 20.0f0 30.0f0 60.0f0 100.0f0 150.0f0;
+            2.5f0 7.5f0 12.5f0 20.0f0 30.0f0 40.0f0 50.0f0 60.0f0;
+            2.5f0 5.0f0 7.5f0 10.0f0 20.0f0 40.0f0 50.0f0 100.0f0;
+            2.5f0 5.0f0 7.5f0 10.0f0 20.0f0 40.0f0 50.0f0 100.0f0
         ]
     )
 end
@@ -46,33 +68,38 @@ function bin_widths()
     return bin_edges()[:, 2:end] .- bin_edges()[:, 1:(end - 1)]
 end
 
+function class_area()
+    edges = bin_edges()
+    return cover_cm_to_m2(edges)
+end
+
 """
     linear_extensions()::Matrix{Float32}
 
-Linear extensions.
+Linear extensions. Data is the mean of functional group derived from ecoRRAP observations.
 """
 function linear_extensions()::Matrix{Float32}
     return [
-        0.609456f0 1.07184f0 2.55149f0 5.07988f0 9.45091f0 16.8505f0 8.0f0 0.0f0;
-        0.768556f0 1.22085f0 1.86447f0 2.82297f0 3.52938f0 3.00422f0 1.5f0 0.0f0;
-        0.190455f0 0.343747f0 0.615467f0 0.97477f0 1.70079f0 2.91729f0 1.45f0 0.0f0;
-        0.318034f0 0.47385f0 0.683729f0 0.710587f0 0.581085f0 0.581085f0 0.3f0 0.0f0;
-        0.122478f0 0.217702f0 0.382098f0 0.718781f0 1.24172f0 2.08546f0 1.04f0 0.0f0
+        2.45124f0  5.07098f0   5.01524f0   6.37291f0   6.72375f0  7.79938f0  0.0f0;
+        2.4296f0   2.86086f0   2.78468f0   2.85766f0   3.14185f0  3.64447f0  0.0f0;
+        1.75738f0  1.68217f0   1.50495f0   1.65701f0   1.65701f0  1.65701f0  0.0f0;
+        1.16048f0  0.747208f0  0.748131f0  0.942616f0  1.33995f0  1.41176f0  0.0f0;
+        1.1934f0   0.747208f0  0.748131f0  0.942616f0  1.33995f0  1.41176f0  0.0f0
     ]
 end
 
 """
     survival_rates()::Matrix{Float32}
 
-Survival rates.
+Survival rates. Data is mean of functional group derived from ecoRRAP observations.
 """
 function survival_rates()::Matrix{Float32}
     return [
-        0.6f0 0.76f0 0.805f0 0.76f0 0.85f0 0.86f0 0.86f0 0.86f0;    # Tabular Acropora
-        0.6f0 0.76f0 0.77f0 0.875f0 0.83f0 0.90f0 0.90f0 0.90f0;    # Corymbose Acropora
-        0.52f0 0.77f0 0.77f0 0.875f0 0.89f0 0.97621179f0 0.97621179f0 0.97621179f0;                # Corymbose non-Acropora
-        0.72f0 0.87f0 0.77f0 0.98f0 0.996931548f0 0.996931548f0 0.996931548f0 0.996931548f0;        # Small massives and encrusting
-        0.58f0 0.87f0 0.78f0 0.983568572f0 0.984667677f0 0.984667677f0 0.984667677f0 0.984667677f0  # Large massives
+        0.687339f0 0.805556f0 0.788961f0 0.807143f0 0.842105f0 0.857143f0 0.857143f0  # Tabular Acropora
+        0.776153f0 0.869252f0 0.908462f0 0.876652f0 0.889706f0 0.889706f0 0.889706f0  # Corymbose Acropora
+        0.781176f0 0.871429f0 0.921466f0 0.916667f0 0.916667f0 0.916667f0 0.916667f0  # Corymbose non-Acropora
+        0.761658f0 0.920049f0 0.955396f0 0.973613f0 0.986486f0 0.984f0    0.972789f0  # Small massives and encrusting
+        0.717391f0 0.920049f0 0.955396f0 0.973613f0 0.986486f0 0.984f0    0.972789f0  # Large massives
     ]
 end
 

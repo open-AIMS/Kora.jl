@@ -4,6 +4,7 @@ authors = ["Takuya Iwanaga <takuyai@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+Bootstrap = "e28b5b4c-05e8-5b66-bc03-6f0c0a0a06e0"
 CurveFit = "5a033b19-8c74-5913-a970-47c3779ef25c"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -19,7 +20,14 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StatsFuns = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
 YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 
+[weakdeps]
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+
+[extensions]
+MakieExt = "Makie"
+
 [compat]
+Bootstrap = "2.4.0"
 CurveFit = "0.6.0"
 Distributed = "1.11.0"
 Distributions = "0.25.112"
