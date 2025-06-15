@@ -270,14 +270,11 @@ function process_ecorrap_models(
     save_models::Bool=true,
     output_dir::String=".",
     plot_validation::Bool=false,
-    target_groups::Union{Vector,Nothing}=nothing,
-    rng::Union{AbstractRNG,Nothing}=nothing
+    target_groups::Vector{String}=CoralFlow.TARGET_GROUPS,
+    rng::AbstractRNG=Random.GLOBAL_RNG
 )
     # Set up shared random number generator
-    if rng === nothing
-        rng = MersenneTwister(seed)
-        Random.seed!(rng, seed)
-    end
+    Random.seed!(rng, seed)
 
     @info "Processing both growth and survival models..."
 
