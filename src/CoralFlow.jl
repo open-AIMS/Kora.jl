@@ -1,21 +1,28 @@
 module CoralFlow
 
-using Random
-using Statistics
-using Bootstrap
+using Printf
+using Serialization
+using OrderedCollections
+using PrettyTables
 
+using Random
+using Statistics, Bootstrap
+using CurveFit, GLM, MLBase
+using Distributions, KernelDensity, StatsBase, StatsFuns
+
+using CSV, DataFrames, YAXArrays
 using FLoops
 
-include("./stats.jl")
-include("./metrics.jl")
-include("./reefs/ReefState.jl")
-include("./corals/size_classes.jl")
-include("./corals/FunctionalModels.jl")
-include("./corals/growth_model.jl")
-include("./corals/mortality_model.jl")
-include("./corals/recruitment.jl")
-include("./reefs/flow_model.jl")
-include("./viz/viz.jl")
+const ASSET_DIR = pkgdir(CoralFlow, "assets")
+
+include("stats.jl")
+include("metrics.jl")
+include("corals/corals.jl")
+include("reefs/ReefState.jl")
+include("reefs/flow_model.jl")
+include("interface/observations.jl")
+include("interface/regressions.jl")
+include("viz/viz.jl")
 
 export
     truncated_standard_normal_mean,
@@ -24,7 +31,7 @@ export
 
 export
     growth_models,
-    survival_models
+    survival_models,
     GrowthModel,
     SurvivalModel
 
@@ -38,13 +45,28 @@ export
     ReefState,
     initialize_reef,
     initialize_coral_population!,
+    generate_example_environment,
     n_timesteps,
     n_locations,
-    n_groups,
-    pop_sample_size
+    n_groups
 
 export
-    population_sample,
-    update_sample!
+    coral_population,
+    update_wild_sample!,
+    update_deployed_sample!,
+    deploy_corals!
+
+# Interface methods for known datasets
+export
+    area_to_diam,
+    get_growth_entries,
+    get_survival_entries,
+    collate_functional_groups,
+    organize_functional_groups
+
+# Methods to fit growth/mortality functions
+export
+    fit_growth_models,
+    fit_survival_models
 
 end  # module CoralFlow
