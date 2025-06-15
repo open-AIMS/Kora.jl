@@ -9,7 +9,7 @@ const TEST_CLASS_STD_ID = :class_test_std
 """
     area_to_diam(area::AbstractFloat)::AbstractFloat
 
-Calculate the diameter of a coral given its area by assuming it is a circle.
+Calculate the diameter of a coral given its area (in cm²) by assuming it is a circle.
 """
 function area_to_diam(area::AbstractFloat)::AbstractFloat
     return sqrt(4.0 * area / π)
