@@ -21,13 +21,7 @@ function CoralFlow.viz.survival_performance_plots(
         n_bins = length(unique(group_df[!, logclass]))
 
         # Training data plot
-        mean_train = try
-            [maximum(group_df[group_df[!, logclass].==i, CoralFlow.TRAIN_CLASS_MEAN_ID]) for i in 1:n_bins]
-        catch
-            Main.@infiltrate
-        end
-
-        Main.@infiltrate
+        mean_train = [maximum(group_df[group_df[!, logclass].==i, CoralFlow.TRAIN_CLASS_MEAN_ID]) for i in 1:n_bins]
         std_train = [maximum(group_df[group_df[!, logclass].==i, CoralFlow.TRAIN_CLASS_STD_ID]) for i in 1:n_bins]
 
         rmse = round(model_fits.performance.train.rmse[group_id]; digits=3)
