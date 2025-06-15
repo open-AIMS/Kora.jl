@@ -1,3 +1,11 @@
+const LOGCLASS_ID = :surv_logclass
+const TRAIN_CLASS = :class_train
+const TRAIN_CLASS_MEAN_ID = :class_train_mean
+const TRAIN_CLASS_STD_ID = :class_train_std
+const TEST_CLASS = :class_test
+const TEST_CLASS_MEAN_ID = :class_test_mean
+const TEST_CLASS_STD_ID = :class_test_std
+
 """
     area_to_diam(area::AbstractFloat)::AbstractFloat
 
@@ -56,8 +64,8 @@ function get_growth_entries(
         x -> length(logdiam_class) - argmax(findall(x .<= logdiam_class)) + 1, growth_data.logdiam
     )
 
-    growth_data[!, :class_train] .= 0
-    growth_data[!, :class_test] .= 0
+    growth_data[!, TRAIN_CLASS] .= 0
+    growth_data[!, TEST_CLASS] .= 0
     for i in 1:length(logdiam_class)
         class_sample = findall(growth_data.growth_logclass .== i)
         n_obs = length(class_sample)
@@ -66,8 +74,8 @@ function get_growth_entries(
 
         train_sample = sample(rng, class_sample, n_train_sample)
         test_sample = setdiff(class_sample, train_sample)
-        growth_data[train_sample, :class_train] .= i
-        growth_data[test_sample, :class_test] .= i
+        growth_data[train_sample, TRAIN_CLASS] .= i
+        growth_data[test_sample, TEST_CLASS] .= i
     end
 
     return growth_data
@@ -106,18 +114,18 @@ function get_survival_entries(
 
     logdiam_class = quantile(survival_data[:, :logdiam], 0.05:0.05:1.0)
 
-    survival_data.surv_logclass = map(
+    survival_data[!, LOGCLASS_ID] = map(
         x -> length(logdiam_class) - argmax(findall(x .<= logdiam_class)) + 1, survival_data.logdiam
     )
 
-    survival_data[!, :class_train] .= 0
-    survival_data[!, :class_test] .= 0
+    survival_data[!, TRAIN_CLASS] .= 0
+    survival_data[!, TEST_CLASS] .= 0
 
-    survival_data[!, :class_train_mean] .= 0.0
-    survival_data[!, :class_test_mean] .= 0.0
+    survival_data[!, TRAIN_CLASS_MEAN_ID] .= 0.0
+    survival_data[!, TEST_CLASS_MEAN_ID] .= 0.0
 
-    survival_data[!, :class_train_std] .= 0.0
-    survival_data[!, :class_test_std] .= 0.0
+    survival_data[!, TRAIN_CLASS_STD_ID] .= 0.0
+    survival_data[!, TEST_CLASS_STD_ID] .= 0.0
     for i in 1:length(logdiam_class)
         class_sample = findall(survival_data.surv_logclass .== i)
         n_obs = length(class_sample)
@@ -126,18 +134,18 @@ function get_survival_entries(
 
         train_sample = sample(rng, class_sample, n_train_sample)
         test_sample = setdiff(class_sample, train_sample)
-        survival_data[train_sample, :class_train] .= i
-        survival_data[test_sample, :class_test] .= i
+        survival_data[train_sample, TRAIN_CLASS] .= i
+        survival_data[test_sample, TEST_CLASS] .= i
 
         train_mean = mean(skipmissing(survival_data[train_sample, :surv]))
         test_mean = mean(skipmissing(survival_data[test_sample, :surv]))
-        survival_data[train_sample, :class_train_mean] .= train_mean
-        survival_data[test_sample, :class_test_mean] .= test_mean
+        survival_data[train_sample, TRAIN_CLASS_MEAN_ID] .= train_mean
+        survival_data[test_sample, TEST_CLASS_MEAN_ID] .= test_mean
 
         train_std = std(skipmissing(survival_data[train_sample, :surv]))
         test_std = std(skipmissing(survival_data[test_sample, :surv]))
-        survival_data[train_sample, :class_train_std] .= train_std
-        survival_data[test_sample, :class_test_std] .= test_std
+        survival_data[train_sample, TRAIN_CLASS_STD_ID] .= train_std
+        survival_data[test_sample, TEST_CLASS_STD_ID] .= test_std
     end
 
     return survival_data

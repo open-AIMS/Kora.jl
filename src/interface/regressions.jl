@@ -9,7 +9,7 @@ function fit_growth_models(groupings::OrderedDict{String,DataFrame}; degree::Int
     for (_, df) in groupings
         isempty(df) && continue
 
-        sub_df = df[df.class_train.>0, :]
+        sub_df = df[df[!, TRAIN_CLASS].>0, :]
 
         x_idx = sortperm(sub_df.diam)
         xi = sub_df.diam[x_idx]
@@ -27,7 +27,7 @@ function fit_growth_models(groupings::OrderedDict{String,DataFrame}; degree::Int
         push!(train_r2, R2(prediction, yi))
 
         # As above, but for test data
-        sub_df = df[df.class_test.>0, :]
+        sub_df = df[df[!, TEST_CLASS].>0, :]
         x_idx = sortperm(sub_df.diam)
         xi = sub_df.diam[x_idx]
         yi = sub_df.diamnext[x_idx]
