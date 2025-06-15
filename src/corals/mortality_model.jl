@@ -278,4 +278,4 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolySurvivalModel)
 end
 
 # Load default survival models
-survival_models = deserialize(joinpath(ASSET_DIR, "models", "survival_models.dat"))
+survival_models = deserialize(joinpath(ASSET_DIR, "models", "Offshore_Northern_survival_models.dat"))
