@@ -22,6 +22,7 @@ include("reefs/ReefState.jl")
 include("reefs/flow_model.jl")
 include("interface/observations.jl")
 include("interface/regressions.jl")
+include("interface/create_models.jl")
 include("viz/viz.jl")
 
 export
