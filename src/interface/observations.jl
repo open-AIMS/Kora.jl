@@ -59,7 +59,7 @@ function get_growth_entries(
     no_partial_mask = growth_data.lin_ext .> 0.0
     growth_data = growth_data[no_partial_mask, :]
 
-    logdiam_class = quantile(growth_data[:, :logdiam], 0.05:0.05:1.0)
+    logdiam_class = quantile(growth_data[:, :logdiam], 0.1:0.1:1.0)
     growth_data.growth_logclass = map(
         x -> length(logdiam_class) - argmax(findall(x .<= logdiam_class)) + 1, growth_data.logdiam
     )
@@ -107,12 +107,12 @@ function get_survival_entries(
     survival_data[!, :diam] .= area_to_diam.(survival_data.size)
 
     # Add log diameter column
-    survival_data[!, :logdiam] .= log.(2, survival_data.diam)
+    survival_data[!, :logdiam] .= log.(survival_data.diam)
 
     # Cast taxa String15 type to string type
     survival_data[!, :taxa] .= String.(survival_data.taxa)
 
-    logdiam_class = quantile(survival_data[:, :logdiam], 0.05:0.05:1.0)
+    logdiam_class = quantile(survival_data[:, :logdiam], 0.1:0.1:1.0)
 
     survival_data[!, LOGCLASS_ID] = map(
         x -> length(logdiam_class) - argmax(findall(x .<= logdiam_class)) + 1, survival_data.logdiam
