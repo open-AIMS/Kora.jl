@@ -33,6 +33,7 @@ end
 
 # Growth models need to account for available space... (see space constraint)
 @inline function growth(model::M, diam::F, reef_cover::F, grp_mod::F, loc_scaler::F)::F where {M,F<:Float32}
+    # Need to get difference so the increase is constrained!
     return diam + (model(diam) - diam) * space_constraint(reef_cover, 20.0f0; x0=grp_mod) * loc_scaler
 end
 function growth!(model::M, diam::Vector{Vector{F}}, reef_cover::Vector{F}, grp_mod::F, loc_scalers::Vector{F})::Nothing where {M,F<:Float32}
