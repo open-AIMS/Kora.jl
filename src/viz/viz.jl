@@ -28,4 +28,8 @@ function survival_regression end
 
 function growth_regression end
 
+# Hook for UnicodePLot extension
+function growth_performance_plots end
+function survival_performance_plots end
+
 end
