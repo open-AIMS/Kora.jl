@@ -1,8 +1,5 @@
-using CurveFit
-
 # Private consts - only used in this file
 const _euler_f32b = Float32(ℯ)
-
 
 """
     growth_inflection_point()::Vector{Float32}
@@ -31,91 +28,93 @@ Modify growth as coral cover approaches total habitable area.
         return 0.0
     end
 
-    return 1.0f0 / (1.0f0 + _euler_f32b^(k*(x - x0)))
+    return 1.0f0 / (1.0f0 + _euler_f32b^(k * (x - x0)))
 end
 
 # Growth models need to account for available space... (see space constraint)
 @inline function growth(model::M, diam::F, reef_cover::F, grp_mod::F, loc_scaler::F)::F where {M,F<:Float32}
     return diam + (model(diam) - diam) * space_constraint(reef_cover, 20.0f0; x0=grp_mod) * loc_scaler
 end
-function growth!(model::M, diam::AbstractMatrix{F}, reef_cover::Vector{F}, grp_mod::F, loc_scalers::Vector{F})::Nothing where {M,F<:Float32}
+function growth!(model::M, diam::Vector{Vector{F}}, reef_cover::Vector{F}, grp_mod::F, loc_scalers::Vector{F})::Nothing where {M,F<:Float32}
     Threads.@threads for i in eachindex(reef_cover)
         # Combine model evaluation, max, and scaling in one pass
-        @inbounds @views diam[i, :][diam[i, :] .!= 0.0f0] = growth.(model, diam[i, :][diam[i, :] .!= 0.0f0], reef_cover[i], grp_mod, loc_scalers[i])
+        @inbounds @views diam[i] .= growth.(model, diam[i], reef_cover[i], grp_mod, loc_scalers[i])
     end
 
     return nothing
 end
 
-function update_size_distribution!(
-    ecostate::ReefState,
-    ts::Int64,
-    loc::Int64,
-    grp::Int64,
-    pop::AbstractArray{Float32},
-    class_diams::Matrix{Float32};
-    rng::AbstractRNG=Random.GLOBAL_RNG
-)::Nothing
-    _pop = pop[loc, :][pop[loc, :] .> 0.0]
-    next_pop = @view(ecostate._pop_cache[loc, :])
-    max_sample_size = size(ecostate.pop_sample, 4)
-
-    # If population is below max sample size, keep everything
-    if length(_pop) <= max_sample_size
-        next_pop[1:length(_pop)] .= _pop
-        if length(_pop) < max_sample_size
-            next_pop[(length(_pop)+1):end] .= 0.0f0
-        end
-    else
-        # Only resample if we exceed max sample size
-        # Use size-stratified sampling to maintain size distribution
-        size_weights = zeros(Float32, length(_pop))
-        for (sz_end, sz_start) in eachrow(class_diams)
-            in_class = sz_start .< _pop .<= sz_end
-            if any(in_class)
-                # Weight by colony size to maintain proper cover representation
-                size_weights[in_class] .= _pop[in_class] ./ sum(_pop[in_class])
-            end
-        end
-
-        # Sample proportionally to maintain size structure
-        sampled_idx = sample(rng, 1:length(_pop), Weights(size_weights), max_sample_size, replace=false)
-        next_pop .= _pop[sampled_idx]
-    end
-
-    update_sample!(ecostate, ts, loc, grp, next_pop)
-
-    return nothing
-end
-
-growth_models = Function[]
-growth_model_coefs = Vector{Float32}[]
-growth_rmse_scores = Float32[]
-growth_r2_scores = Float32[]
-for (xi, yi) in zip(eachrow(CoralFlow.bin_edges()[:, 1:end-1]), eachrow(CoralFlow.linear_extensions()))
-    m = curve_fit(Polynomial, xi, yi, 3)
-    model = x -> x .< xi[1] ? yi[1] : max(m(x), 0.1)
-
-    push!(growth_rmse_scores, CoralFlow.RMSE(model.(xi), yi))
-    push!(growth_r2_scores, CoralFlow.R2(model.(xi), vec(yi)))
-    push!(growth_models, model)
-
-    # Annoyingly, different regression types have different fieldnames.
-    # Although we've settled on `Polynomial` for now, leaving this try/catch in here
-    # in case this changes.
-    try
-        push!(growth_model_coefs, m.coefs)
-    catch err
-        push!(growth_model_coefs, m.coeffs)
-    end
-end
-
-@kwdef struct GrowthModel <: AbstractCoral
+struct PolyGrowthModel <: AbstractCoralBehavior
+    names::Vector{String}
     models::Vector{Function}
-    rmse_scores::Vector{Float64} = []
-    r2_scores::Vector{Float64} = []
+    performance::NamedTuple
 end
 
-function GrowthModel(models)
-    return GrowthModel(models, Float32[], Float32[])
+function Base.show(io::IO, ::MIME"text/plain", x::PolyGrowthModel)
+    title = "\nGrowth Model Performance Metrics"
+    println(io, title)
+    println(io, "─"^length(title))
+
+    pretty_table(
+        io,
+        hcat(x.names, getfield.(x.models, :poly));
+        header=["Group", "Model"]
+    )
+
+    explainer = """
+        RMSE: 0.0 - Inf; Lower is better.
+        R²: -∞ - 1.0; Higher is better.
+        """
+    println(io, explainer)
+
+    data = hcat(
+        x.names,
+        x.performance.train.rmse,
+        x.performance.test.rmse,
+        x.performance.train.r2,
+        x.performance.test.r2,
+    )
+    pretty_table(
+        io, data;
+        header=["Group", "Train RMSE", "Test RMSE", "Train R²", "Test R²"]
+    )
 end
+
+"""
+    PolyGrowthFunction{T<:AbstractFloat}
+
+A callable struct that represents a coral growth model.
+
+# Fields
+- `min_x::T` : Minimum diameter in training data
+- `min_y::T` : Growth at minimum diameter
+- `max_x::T` : Maximum diameter in training data
+- `max_y::T` : Growth at maximum diameter
+- `poly::Polynomial` : Polynomial
+"""
+struct PolyGrowthFunction{T<:AbstractFloat} <: Function
+    min_x::T
+    min_y::T
+    max_x::T
+    max_y::T
+    poly::Polynomial
+
+    function PolyGrowthFunction(xi::Vector{T}, yi::Vector{T}, poly::Polynomial) where T<:AbstractFloat
+        new{T}(xi[1], yi[1], xi[end], yi[end], poly)
+    end
+end
+
+"""Define `PolyGrowthFunction` as a callable."""
+function (f::PolyGrowthFunction)(x::T) where T<:AbstractFloat
+    if x < f.min_x
+        return f.min_y
+    end
+    if x > f.max_x
+        return f.max_y
+    end
+
+    return exp(f.poly(log(x)))
+end
+
+# Load default growth models
+growth_models = deserialize(joinpath(ASSET_DIR, "models", "growth_models.dat"))

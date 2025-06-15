@@ -51,21 +51,3 @@ function larval_production(diam::Float32, grp::Int)::Float32
 
     return a[grp] * diam^b[grp]
 end
-
-"""
-    larval_production(
-        reef_state::ReefState,
-        ts::Int64,
-        loc::Int64,
-        grp::Int64
-    )::Float32
-
-Determine production of larvae for a population at a given location and time.
-Only considers colonies above maturity threshold.
-"""
-function larval_production(reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64)::Int64
-    pop = population_sample(reef_state, ts, loc, grp)
-    threshold = mature_size_thresholds()[grp]
-
-    return floor(Int64, sum([larval_production(d, grp) for d in pop if d >= threshold]))
-end

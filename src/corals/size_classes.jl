@@ -65,7 +65,7 @@ end
 Helper function defining coral colony diameter bin widths.
 """
 function bin_widths()
-    return bin_edges()[:, 2:end] .- bin_edges()[:, 1:(end - 1)]
+    return bin_edges()[:, 2:end] .- bin_edges()[:, 1:(end-1)]
 end
 
 function class_area()
@@ -80,11 +80,11 @@ Linear extensions. Data is the mean of functional group derived from ecoRRAP obs
 """
 function linear_extensions()::Matrix{Float32}
     return [
-        2.45124f0  5.07098f0   5.01524f0   6.37291f0   6.72375f0  7.79938f0  0.0f0;
-        2.4296f0   2.86086f0   2.78468f0   2.85766f0   3.14185f0  3.64447f0  0.0f0;
-        1.75738f0  1.68217f0   1.50495f0   1.65701f0   1.65701f0  1.65701f0  0.0f0;
-        1.16048f0  0.747208f0  0.748131f0  0.942616f0  1.33995f0  1.41176f0  0.0f0;
-        1.1934f0   0.747208f0  0.748131f0  0.942616f0  1.33995f0  1.41176f0  0.0f0
+        2.45124f0 5.07098f0 5.01524f0 6.37291f0 6.72375f0 7.79938f0 0.0f0;
+        2.4296f0 2.86086f0 2.78468f0 2.85766f0 3.14185f0 3.64447f0 0.0f0;
+        1.75738f0 1.68217f0 1.50495f0 1.65701f0 1.65701f0 1.65701f0 0.0f0;
+        1.16048f0 0.747208f0 0.748131f0 0.942616f0 1.33995f0 1.41176f0 0.0f0;
+        1.1934f0 0.747208f0 0.748131f0 0.942616f0 1.33995f0 1.41176f0 0.0f0
     ]
 end
 
@@ -98,13 +98,13 @@ function survival_rates()::Matrix{Float32}
         0.687339f0 0.805556f0 0.788961f0 0.807143f0 0.842105f0 0.857143f0 0.857143f0  # Tabular Acropora
         0.776153f0 0.869252f0 0.908462f0 0.876652f0 0.889706f0 0.889706f0 0.889706f0  # Corymbose Acropora
         0.781176f0 0.871429f0 0.921466f0 0.916667f0 0.916667f0 0.916667f0 0.916667f0  # Corymbose non-Acropora
-        0.761658f0 0.920049f0 0.955396f0 0.973613f0 0.986486f0 0.984f0    0.972789f0  # Small massives and encrusting
-        0.717391f0 0.920049f0 0.955396f0 0.973613f0 0.986486f0 0.984f0    0.972789f0  # Large massives
+        0.761658f0 0.920049f0 0.955396f0 0.973613f0 0.986486f0 0.984f0 0.972789f0  # Small massives and encrusting
+        0.717391f0 0.920049f0 0.955396f0 0.973613f0 0.986486f0 0.984f0 0.972789f0  # Large massives
     ]
 end
 
 """
-Convert centimeter diameter to meters area (m^2)
+Obtain the sum of all area (in m^2) for a given set of diameters.
 """
 function cover_cm_to_m2(diameters::AbstractVector{F})::F where {F<:Float32}
     result = 0.0f0
@@ -116,13 +116,17 @@ function cover_cm_to_m2(diameters::AbstractVector{F})::F where {F<:Float32}
 
     return result
 end
+
+"""
+Convert centimeter diameter to meters area (m^2)
+"""
 function cover_cm_to_m2(d::F)::F where {F<:Float32}
     return _pi_f32 * (d * d * 0.25f0) * _cover_scale
 end
-function cover_cm_to_m2(diameters::AbstractMatrix{T})::Matrix{T} where {T<:AbstractFloat}
+function cover_cm_to_m2(diameters::AbstractArray{T})::AbstractArray{T} where {T<:AbstractFloat}
     return cover_cm_to_m2.(diameters)
 end
-function cover_cm_to_m2!(diameters::AbstractMatrix{T}, cache::AbstractMatrix{T})::Nothing where {T<:AbstractFloat}
+function cover_cm_to_m2!(diameters::AbstractArray{T}, cache::AbstractArray{T})::Nothing where {T<:AbstractFloat}
     cache .= cover_cm_to_m2.(diameters)
 
     return nothing
