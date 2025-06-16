@@ -76,8 +76,8 @@ function CoralFlow.viz.growth_performance_plots(
         model = model_fits[group_id]
         plt_train = scatterplot(yi; title=train_title)
         lineplot!(plt_train, [model(Float64(i)) for i in xi])
-        xlabel!(plt_train, "Log Diameter")
-        ylabel!(plt_train, "Survival")
+        xlabel!(plt_train, "Diameter [cm]")
+        ylabel!(plt_train, "Diameter at t+1 [cm]")
 
         # As above, but for test data
         sub_df = group_df[group_df[!, CoralFlow.TEST_CLASS].>0, :]
@@ -90,7 +90,7 @@ function CoralFlow.viz.growth_performance_plots(
         test_title = "$(target_groups[group_id])\nTest Data\nRMSE: $(rmse) | R²: $(r2)"
         plt_test = scatterplot(yi; title=test_title, name="Training data")
         lineplot!(plt_test, [model(Float64(i)) for i in xi], name="Model")
-        xlabel!(plt_test, "Log Diameter")
+        xlabel!(plt_test, "Diameter [cm]")
         display(UnicodePlots.panel(plt_train) * UnicodePlots.panel(plt_test))
     end
 end
