@@ -156,6 +156,23 @@ function standardize_ecorrap_data!(df::DataFrame)::DataFrame
     # Make all columns lowercase
     rename!(df, Dict(n => lowercase(n) for n in names(df)))
 
+    try
+        rename!(df, :area_t1_sqcm => :size, :area_t2_sqcm => :sizenext)
+    catch
+    end
+
+    try
+        rename!(df, :taxon => :taxa, :survival => :surv)
+    catch
+    end
+
+    # Handle differences between ecorrap data and other combined datasets.
+    df.cluster = lowercase.(df.cluster)
+    df[df.cluster.=="offshore_northern", :cluster] .= "offshore_north"
+    df[df.cluster.=="offshore_central", :cluster] .= "offshore_central"
+    df[df.cluster.=="offshore_southern", :cluster] .= "offshore_south"
+
+
     return df
 end
 
