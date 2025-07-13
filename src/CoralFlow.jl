@@ -7,11 +7,13 @@ using PrettyTables
 
 using Random
 using Statistics, Bootstrap
-using CurveFit, GLM, MLBase
+using CurveFit, GLM, MLBase, Interpolations
 using Distributions, KernelDensity, StatsBase, StatsFuns
 
 using CSV, DataFrames, YAXArrays
 using FLoops
+
+using PrecompileSignatures: @precompile_signatures
 
 const ASSET_DIR = pkgdir(CoralFlow, "assets")
 
@@ -69,5 +71,8 @@ export
 export
     fit_growth_models,
     fit_survival_models
+
+# Auto-generate precompilation signatures
+@precompile_signatures(CoralFlow)
 
 end  # module CoralFlow
