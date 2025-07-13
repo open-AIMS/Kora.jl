@@ -116,9 +116,9 @@ function (f::PolyGrowthFunction)(x::T) where T<:AbstractFloat
     if x < f.min_x
         return f.min_y
     end
-    if x > f.max_x
-        return f.max_y
-    end
+    # if x > f.max_x
+    #     return f.max_y
+    # end
 
     return exp(f.poly(log(x)))
 end
