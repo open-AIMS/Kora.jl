@@ -68,16 +68,22 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolyGrowthModel)
         """
     println(io, explainer)
 
+    performance_matrix = [
+        (getfield(x.performance.train, m), getfield(x.performance.test, m))
+        for m in Symbol.(CoralFlow.ALL_METRICS)
+    ]
+
+    performances = hcat([hcat(t[1], t[2]) for t in performance_matrix]...)
+    perf_heads = [("Train $m", "Test $m") for m in Symbol.(ALL_METRICS)]
+    perf_headers = vcat([vcat(t[1], t[2]) for t in perf_heads]...)
+
     data = hcat(
         x.names,
-        x.performance.train.rmse,
-        x.performance.test.rmse,
-        x.performance.train.r2,
-        x.performance.test.r2,
+        performances
     )
     pretty_table(
         io, data;
-        header=["Group", "Train RMSE", "Test RMSE", "Train R²", "Test R²"]
+        header=["Group", perf_headers...]
     )
 end
 

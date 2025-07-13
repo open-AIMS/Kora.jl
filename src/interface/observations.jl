@@ -1,4 +1,4 @@
-const LOGCLASS_ID = :surv_logclass
+const BIN_ID = :surv_logclass
 const TRAIN_CLASS = :class_train
 const TRAIN_CLASS_MEAN_ID = :class_train_mean
 const TRAIN_CLASS_STD_ID = :class_train_std
@@ -16,7 +16,100 @@ function area_to_diam(area::AbstractFloat)::AbstractFloat
 end
 
 """
-    get_growth_entries(raw_data::DataFrame; rng::AbstractRNG=Random.default_rng())::DataFrame
+    simple_adaptive_binning(data::Vector, n_bins::Int)
+
+Naive approach to adaptive binning, attempts to put n / n_bins samples into each bin.
+
+Approach:
+1. Sort the data
+2. Sequentially assign samples to bins, targeting [n / n_bins] samples
+4. Distribute any remainder samples across the last few bins
+"""
+function simple_adaptive_binning(data::Vector, n_bins::Int64)::Vector{Int64}
+    n = length(data)
+
+    # Determine sampels per bin
+    target_size = n ÷ n_bins  # integer division
+    remainder = n % n_bins
+
+    # Get indices of sorted data
+    sorted_indices = sortperm(data)
+
+    # Create bin assignments for each original data point
+    bin_assignments = Vector{Int64}(undef, n)
+
+    # Assign samples to bins sequentially
+    current_position = 1
+
+    for bin_idx in 1:n_bins
+        # This bin gets target_size + 1 if it's one of the first 'remainder' bins
+        bin_size = target_size + (bin_idx <= remainder ? 1 : 0)
+
+        # Assign the next bin_size samples to this bin
+        for i in 1:bin_size
+            original_index = sorted_indices[current_position]
+            bin_assignments[original_index] = bin_idx
+            current_position += 1
+        end
+    end
+
+    return bin_assignments
+end
+
+"""
+    adaptive_min_sample_binning(data::Vector, min_samples::Int64)::Vector{Int64}
+
+Adaptive binning based on minimum samples per bin.
+Determines the number of bins based on ensuring each bin has at least
+min_samples_per_bin samples.
+
+Approach:
+1. Calculate maximum possible bins: n ÷ min_samples_per_bin
+2. Sort the data
+3. Sequentially assign samples to bins, ensuring minimum sample requirement
+4. Distribute any remainder samples across bins to balance them
+"""
+function adaptive_min_sample_binning(data::Vector, min_samples::Int64)::Vector{Int64}
+    n = length(data)
+
+    # Calculate how many bins we can create with the minimum requirement
+    n_bins = n ÷ min_samples  # this is an integer division
+
+    # Handle edge case where we can't create any bins
+    if n_bins == 0
+        throw(ArgumentError("Not enough data points for minimum bin size. Need at least $min_samples samples, got $n"))
+    end
+
+    # Now we know n_bins, we can use similar logic to your original function
+    target_size = n ÷ n_bins  # This will be >= min_samples_per_bin
+    remainder = n % n_bins
+
+    # Get indices of sorted data
+    sorted_indices = sortperm(data)
+
+    # Create bin assignments for each original data point
+    bin_assignments = Vector{Int64}(undef, n)
+
+    # Assign samples to bins sequentially
+    current_position = 1
+
+    for bin_idx in 1:n_bins
+        # Distribute remainder samples across last few bins
+        bin_size = target_size + (bin_idx <= remainder ? 1 : 0)
+
+        # Assign the next bin_size samples to this bin
+        for i in 1:bin_size
+            original_index = sorted_indices[current_position]
+            bin_assignments[original_index] = bin_idx
+            current_position += 1
+        end
+    end
+
+    return bin_assignments
+end
+
+"""
+    get_growth_entries(raw_data::DataFrame)::DataFrame
 
 Prep data for growth modeling.
 
@@ -27,8 +120,7 @@ This method also marks each relevant row as train/test data.
 Note: This method is sufficient for the dataset with indicated date 2025-05-10.
 """
 function get_growth_entries(
-    raw_data::DataFrame;
-    rng::AbstractRNG=Random.default_rng()
+    raw_data::DataFrame
 )::DataFrame
     raw_data = standardize_ecorrap_data!(raw_data)
 
@@ -59,38 +151,18 @@ function get_growth_entries(
     no_partial_mask = growth_data.lin_ext .> 0.0
     growth_data = growth_data[no_partial_mask, :]
 
-    logdiam_class = quantile(growth_data[:, :logdiam], 0.1:0.1:1.0)
-    growth_data.growth_logclass = map(
-        x -> length(logdiam_class) - argmax(findall(x .<= logdiam_class)) + 1, growth_data.logdiam
-    )
-
-    growth_data[!, TRAIN_CLASS] .= 0
-    growth_data[!, TEST_CLASS] .= 0
-    for i in 1:length(logdiam_class)
-        class_sample = findall(growth_data.growth_logclass .== i)
-        n_obs = length(class_sample)
-        n_train_sample = floor(Int64, n_obs * 0.6)
-        # test_sample = 1.0 - train_sample
-
-        train_sample = sample(rng, class_sample, n_train_sample)
-        test_sample = setdiff(class_sample, train_sample)
-        growth_data[train_sample, TRAIN_CLASS] .= i
-        growth_data[test_sample, TEST_CLASS] .= i
-    end
-
     return growth_data
 end
 
 """
-    get_survival_entries(raw_data::DataFrame; rng::AbstractRNG=Random.default_rng())::DataFrame
+    get_survival_entries(raw_data::DataFrame)::DataFrame
 
 Given the csv from containing all entries of the coral demograph data, remove rows not
 related to the calculation of survival statistics and add diameter and log diameter columns.
 This method also marks each relevant row as train/test data.
 """
 function get_survival_entries(
-    raw_data::DataFrame;
-    rng::AbstractRNG=Random.default_rng()
+    raw_data::DataFrame
 )::DataFrame
     raw_data = standardize_ecorrap_data!(raw_data)
 
@@ -111,42 +183,6 @@ function get_survival_entries(
 
     # Cast taxa String15 type to string type
     survival_data[!, :taxa] .= String.(survival_data.taxa)
-
-    logdiam_class = quantile(survival_data[:, :logdiam], 0.1:0.1:1.0)
-
-    survival_data[!, LOGCLASS_ID] = map(
-        x -> length(logdiam_class) - argmax(findall(x .<= logdiam_class)) + 1, survival_data.logdiam
-    )
-
-    survival_data[!, TRAIN_CLASS] .= 0
-    survival_data[!, TEST_CLASS] .= 0
-
-    survival_data[!, TRAIN_CLASS_MEAN_ID] .= 0.0
-    survival_data[!, TEST_CLASS_MEAN_ID] .= 0.0
-
-    survival_data[!, TRAIN_CLASS_STD_ID] .= 0.0
-    survival_data[!, TEST_CLASS_STD_ID] .= 0.0
-    for i in 1:length(logdiam_class)
-        class_sample = findall(survival_data.surv_logclass .== i)
-        n_obs = length(class_sample)
-        n_train_sample = floor(Int64, n_obs * 0.6)
-        # test_sample = 1.0 - train_sample
-
-        train_sample = sample(rng, class_sample, n_train_sample)
-        test_sample = setdiff(class_sample, train_sample)
-        survival_data[train_sample, TRAIN_CLASS] .= i
-        survival_data[test_sample, TEST_CLASS] .= i
-
-        train_mean = mean(skipmissing(survival_data[train_sample, :surv]))
-        test_mean = mean(skipmissing(survival_data[test_sample, :surv]))
-        survival_data[train_sample, TRAIN_CLASS_MEAN_ID] .= train_mean
-        survival_data[test_sample, TEST_CLASS_MEAN_ID] .= test_mean
-
-        train_std = std(skipmissing(survival_data[train_sample, :surv]))
-        test_std = std(skipmissing(survival_data[test_sample, :surv]))
-        survival_data[train_sample, TRAIN_CLASS_STD_ID] .= train_std
-        survival_data[test_sample, TEST_CLASS_STD_ID] .= test_std
-    end
 
     return survival_data
 end
@@ -214,7 +250,8 @@ end
         target_groups::Vector{String},
         group_map::DataFrame,
         gdf::GroupedDataFrame,
-        cluster_name::String
+        cluster_name::String;
+        n_bins=10
     )::OrderedDict
 
 Organize entries for each functional group of interest into an OrderedDict.
@@ -223,12 +260,86 @@ function organize_functional_groups(
     target_groups::Vector{String},
     group_map::DataFrame,
     gdf::GroupedDataFrame,
-    cluster_name::String
+    cluster_name::String;
+    n_bins=15,
+    rng::AbstractRNG=Random.default_rng()
 )::OrderedDict
     groupings = OrderedDict(
-        fg => collate_functional_groups(fg, group_map, gdf, cluster_name)
+        fg => train_test_split!(collate_functional_groups(fg, group_map, gdf, cluster_name), n_bins; rng)
         for fg in target_groups
     )
 
     return groupings
+end
+
+function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
+    min_samples_per_bin = nrow(df) ÷ n_bins
+    df[!, BIN_ID] = adaptive_min_sample_binning(df.logdiam, min_samples_per_bin)
+
+    # If it is not training data, then the class id will be 0
+    # Same for test data.
+    df[!, TRAIN_CLASS] .= 0
+    df[!, TEST_CLASS] .= 0
+
+    df[!, TRAIN_CLASS_MEAN_ID] .= 0.0
+    df[!, TEST_CLASS_MEAN_ID] .= 0.0
+
+    df[!, TRAIN_CLASS_STD_ID] .= 0.0
+    df[!, TEST_CLASS_STD_ID] .= 0.0
+
+    n_bins = sort(unique(df[!, BIN_ID]))
+    for i in n_bins
+        class_sample = findall(df[!, BIN_ID] .== i)
+        n_obs = length(class_sample)
+        n_train_sample = floor(Int64, n_obs * 0.6)
+        # test_sample = 1.0 - train_sample
+
+        train_sample = sample(rng, class_sample, n_train_sample)
+        test_sample = setdiff(class_sample, train_sample)
+        df[train_sample, TRAIN_CLASS] .= i
+        df[test_sample, TEST_CLASS] .= i
+
+        obs = collect(skipmissing(df[train_sample, :surv]))
+        samp_strat = BalancedSampling(length(obs) ÷ 2)
+        train_mean = bootstrap(
+            mean,
+            obs,
+            samp_strat
+        )
+        train_std = bootstrap(
+            std,
+            obs,
+            samp_strat
+        )
+        df[train_sample, TRAIN_CLASS_MEAN_ID] .= train_mean.t0[1]
+        df[train_sample, TRAIN_CLASS_STD_ID] .= train_std.t0[1]
+
+        obs = collect(skipmissing(df[test_sample, :surv]))
+        samp_strat = BalancedSampling(length(obs) ÷ 2)
+        test_mean = bootstrap(
+            mean,
+            obs,
+            samp_strat
+        )
+        test_std = bootstrap(
+            std,
+            obs,
+            samp_strat
+        )
+        df[test_sample, TEST_CLASS_MEAN_ID] .= test_mean.t0[1]
+        df[test_sample, TEST_CLASS_STD_ID] .= test_std.t0[1]
+    end
+
+    return df
+end
+
+"""
+    scale_feature(data::Vector{<:Real})::Vector{<:Real}
+
+Apply z-score normalization.
+"""
+function scale_feature(X::Vector{<:Real})::Vector{<:Real}
+    X_scaled = (X .- mean(X)) ./ std(X)
+
+    return X_scaled
 end

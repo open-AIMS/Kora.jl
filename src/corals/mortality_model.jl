@@ -264,19 +264,28 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolySurvivalModel)
     explainer = """\n
         RMSE: 0.0 - Inf; Lower is better.
         R²: -∞ - 1.0; Higher is better.
+        Pearson: -1.0 - 1.0: Zero is no correlation, with higher/lower values indicating positive/negative correlation
+        Spearman: -1.0 - 1.0: Zero is no correlation, with higher/lower values indicating positive/negative correlation
+        Kendall: -1.0 - 1.0: Zero is no correlation, with higher/lower values indicating positive/negative correlation
         """
     println(io, explainer)
 
+    performance_matrix = [
+        (getfield(x.performance.train, m), getfield(x.performance.test, m))
+        for m in Symbol.(CoralFlow.ALL_METRICS)
+    ]
+
+    performances = hcat([hcat(t[1], t[2]) for t in performance_matrix]...)
+    perf_heads = [("Train $m", "Test $m") for m in Symbol.(ALL_METRICS)]
+    perf_headers = vcat([vcat(t[1], t[2]) for t in perf_heads]...)
+
     data = hcat(
         x.names,
-        x.performance.train.rmse,
-        x.performance.test.rmse,
-        x.performance.train.r2,
-        x.performance.test.r2,
+        performances
     )
     pretty_table(
         io, data;
-        header=["Group", "Train RMSE", "Test RMSE", "Train R²", "Test R²"]
+        header=["Group", perf_headers...]
     )
 end
 

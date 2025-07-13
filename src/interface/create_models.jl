@@ -73,7 +73,7 @@ function process_growth_models(
     ecorrap_data = CSV.read(ecorrap_data_file, DataFrame; missingstring="NA")
 
     @info "Extracting growth entries..."
-    ecorrap_growth = get_growth_entries(ecorrap_data; rng=rng)
+    ecorrap_growth = get_growth_entries(ecorrap_data)
 
     # Group by taxa and cluster
     growth_gdf = groupby(ecorrap_growth, [:taxa, :cluster])
@@ -175,7 +175,7 @@ function process_survival_models(
     ecorrap_data = CSV.read(ecorrap_data_file, DataFrame; missingstring="NA")
 
     @info "Extracting survival entries..."
-    ecorrap_survival = get_survival_entries(ecorrap_data; rng=rng)
+    ecorrap_survival = get_survival_entries(ecorrap_data)
 
     # Group by taxa and cluster
     survival_gdf = groupby(ecorrap_survival, [:taxa, :cluster])
