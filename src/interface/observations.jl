@@ -251,7 +251,8 @@ end
         group_map::DataFrame,
         gdf::GroupedDataFrame,
         cluster_name::String;
-        n_bins=10
+        n_bins=10,
+        rng::AbstractRNG=Random.default_rng()
     )::OrderedDict
 
 Organize entries for each functional group of interest into an OrderedDict.
@@ -261,7 +262,7 @@ function organize_functional_groups(
     group_map::DataFrame,
     gdf::GroupedDataFrame,
     cluster_name::String;
-    n_bins=15,
+    n_bins=10,
     rng::AbstractRNG=Random.default_rng()
 )::OrderedDict
     groupings = OrderedDict(
@@ -273,8 +274,8 @@ function organize_functional_groups(
 end
 
 function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
-    min_samples_per_bin = nrow(df) ÷ n_bins
-    df[!, BIN_ID] = adaptive_min_sample_binning(df.logdiam, min_samples_per_bin)
+    obs_per_bin = nrow(df) ÷ n_bins
+    df[!, BIN_ID] = adaptive_min_sample_binning(df.logdiam, obs_per_bin)
 
     # If it is not training data, then the class id will be 0
     # Same for test data.

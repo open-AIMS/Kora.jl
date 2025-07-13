@@ -55,6 +55,7 @@ function process_growth_models(
     save_model::Bool=true,
     output_dir::String=".",
     target_groups::Union{Vector,Nothing}=nothing,
+    n_bins::Int64=10,
     seed::Int64=101,
     rng::Union{AbstractRNG,Nothing}=nothing
 )
@@ -85,7 +86,7 @@ function process_growth_models(
 
     # Organize functional groups
     @info "Organizing functional groups for region: $region"
-    growth_groupings = organize_functional_groups(target_groups, functional_group_map, growth_gdf, region)
+    growth_groupings = organize_functional_groups(target_groups, functional_group_map, growth_gdf, region; n_bins=n_bins)
 
     # Fit models
     @info "Fitting growth models (degree=$degree)..."
@@ -162,6 +163,7 @@ function process_survival_models(
     output_dir::String=".",
     plot_validation::Bool=true,
     target_groups::Vector{String}=CoralFlow.TARGET_GROUPS,
+    n_bins=10,
     seed::Int=101,
     rng::Union{AbstractRNG,Nothing}=nothing
 )
@@ -187,7 +189,7 @@ function process_survival_models(
 
     # Organize functional groups
     @info "Organizing functional groups for region: $region"
-    surv_groupings = organize_functional_groups(target_groups, functional_group_map, survival_gdf, region)
+    surv_groupings = organize_functional_groups(target_groups, functional_group_map, survival_gdf, region; n_bins)
 
     # Fit models
     @info "Fitting survival models (degree=$degree)..."
@@ -271,6 +273,7 @@ function process_ecorrap_models(
     output_dir::String=".",
     plot_validation::Bool=false,
     target_groups::Vector{String}=CoralFlow.TARGET_GROUPS,
+    n_bins=10,
     rng::AbstractRNG=Random.GLOBAL_RNG
 )
     # Set up shared random number generator
@@ -287,6 +290,7 @@ function process_ecorrap_models(
         save_model=save_models,
         output_dir=output_dir,
         target_groups=target_groups,
+        n_bins=n_bins,
         rng=rng
     )
 
@@ -300,6 +304,7 @@ function process_ecorrap_models(
         output_dir=output_dir,
         plot_validation=plot_validation,
         target_groups=target_groups,
+        n_bins=n_bins,
         rng=rng
     )
 
