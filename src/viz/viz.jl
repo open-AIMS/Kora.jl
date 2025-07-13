@@ -28,8 +28,11 @@ function survival_regression end
 
 function growth_regression end
 
-# Hook for UnicodePLot extension
+# Hook for UnicodePlotExt
 function growth_performance_plots end
 function survival_performance_plots end
+
+# Additional hooks for MakieExt
+function model_dashboard end
 
 end
