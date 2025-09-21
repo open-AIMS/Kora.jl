@@ -148,84 +148,80 @@ function run_example!(
 
         recruits = fill(Float32[], n_locs, n_grps)  # Reset cache
 
-        for loc in 1:n_locs
-            for grp in 1:n_grps
-                # Some recruitment happens
-                # Calculate across all locations and groups for time `ts`...
-                # TODO: Fix - massives tend to produce very large numbers of recruits
-                # even when the current population is tiny. Could assume these are
-                # external larvae, but that narrative is not internally consistent...
-                # Scale recruitment by cover proportion
-                prod = larval_production(reef_state, maturity_thresholds, prev_ts, loc, grp)
+        for loc in 1:n_locs, grp in 1:n_grps
+            # Some recruitment happens
+            # Calculate across all locations and groups for time `ts`...
+            # TODO: Fix - massives tend to produce very large numbers of recruits
+            # even when the current population is tiny. Could assume these are
+            # external larvae, but that narrative is not internally consistent...
+            # Scale recruitment by cover proportion
+            prod = larval_production(reef_state, maturity_thresholds, prev_ts, loc, grp)
 
-                available_space = max(carrying_cap[loc] - total_covers[loc], 0.0)
+            available_space = max(carrying_cap[loc] - total_covers[loc], 0.0)
 
-                # n% of produced larvae arrive and a proportion (based on available area)
-                # of these can settle
-                # available_prop = available_space / carrying_cap[loc]
-                settlement_prop = min.((available_space * 50), prod * recruitment_proportion)
-                n_loc_recruits = floor(Int64, settlement_prop)
+            # n% of produced larvae arrive and a proportion (based on available area)
+            # of these can settle
+            # available_prop = available_space / carrying_cap[loc]
+            settlement_prop = min.((available_space * 50), prod * recruitment_proportion)
+            n_loc_recruits = floor(Int64, settlement_prop)
 
-                if n_loc_recruits > 0
-                    recruits[loc, grp] = Float32.(rand(rng, recruit_dist, n_loc_recruits))
-                    update_coral_tolerances!(reef_state, ts, loc, grp, n_loc_recruits)
-                else
-                    # Have to update the previous time step's entry as later calculations
-                    # Update tolerances influenced by the new recruits
+            if n_loc_recruits > 0
+                recruits[loc, grp] = Float32.(rand(rng, recruit_dist, n_loc_recruits))
+                update_coral_tolerances!(reef_state, ts, loc, grp, n_loc_recruits)
+            else
+                # Have to update the previous time step's entry as later calculations
+                # Update tolerances influenced by the new recruits
 
-                    # Get "current" tolerance means
-                    wild_mean = reef_state.wild_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
-                    deployed_mean = reef_state.deployed_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
+                # Get "current" tolerance means
+                wild_mean = reef_state.wild_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
+                deployed_mean = reef_state.deployed_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
 
-                    reef_state.wild_dhw_tolerances[ts, loc, grp, At(:mean)] = wild_mean
-                    reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = deployed_mean
-                end
+                reef_state.wild_dhw_tolerances[ts, loc, grp, At(:mean)] = wild_mean
+                reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = deployed_mean
+            end
 
-                # TODO: Distribution should only be affected once juveniles reach maturity
-                if reef_state.deployment_times[ts, loc, grp] > 0
-                    n_deploy = Int64(reef_state.deployment_times[ts, loc, grp])
-                    deploy_corals!(reef_state, ts, loc, n_deploy, grp)
+            # TODO: Distribution should only be affected once juveniles reach maturity
+            if reef_state.deployment_times[ts, loc, grp] > 0
+                n_deploy = Int64(reef_state.deployment_times[ts, loc, grp])
+                deploy_corals!(reef_state, ts, loc, n_deploy, grp)
 
-                    # Currently assuming the mean is not affected...
-                    # reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = val
-                end
+                # Currently assuming the mean is not affected...
+                # reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = val
             end
         end
 
         dhws = env_conditions[ts, :, At(:dhw)].data
         cyclone_cats = env_conditions[ts, :, At(:cyclone_category)].data
 
-        for loc in 1:n_locs
-            for grp in 1:n_grps
-                pop_buffer .= 0.0f0  # Reset buffer
+        for loc in 1:n_locs, grp in 1:n_grps
+            pop_buffer .= 0.0f0  # Reset buffer
 
-                # Fill buffer with existing population and retrieve active population
-                fill_population_buffer!(reef_state, prev_ts, loc, grp, recruits[loc, grp], pop_buffer)
-                with_recruits = pop_buffer[pop_buffer.>0.0f0]
+            # Fill buffer with existing population and retrieve active population
+            fill_population_buffer!(reef_state, prev_ts, loc, grp, recruits[loc, grp], pop_buffer)
+            with_recruits = pop_buffer[pop_buffer.>0.0f0]
 
-                # Background mortality
-                # TODO: apply location specific survival scaler
-                apply_survival!(reef_state, grp, with_recruits)
+            # Background mortality
+            # TODO: apply location specific survival scaler
+            apply_survival!(reef_state, grp, with_recruits)
 
-                # Bleaching mortality
-                new_mean, new_std, area_lost = bleaching_mortality!(
-                    with_recruits,
-                    dhws[loc],
-                    depth_coeffs[loc],
-                    reef_state.wild_dhw_tolerances[ts, loc, grp, :]
-                )
-                reef_state.wild_dhw_tolerances[ts, loc, grp, :] .= (new_mean, new_std)
+            # Bleaching mortality
+            new_mean, new_std, area_lost = bleaching_mortality!(
+                with_recruits,
+                dhws[loc],
+                depth_coeffs[loc],
+                reef_state.wild_dhw_tolerances[ts, loc, grp, :]
+            )
+            reef_state.wild_dhw_tolerances[ts, loc, grp, :] .= (new_mean, new_std)
 
-                # Cyclone mortality
-                # cyclone_probs = cyclone_mortality_prob.(p_sample, [cyclone_cat])
-                # total_probs = cyclone_probs  # TODO: Add other probabilities
-                # survivors_mask = rand(length(p_sample)) .> total_probs
+            # Cyclone mortality
+            # cyclone_probs = cyclone_mortality_prob.(p_sample, [cyclone_cat])
+            # total_probs = cyclone_probs  # TODO: Add other probabilities
+            # survivors_mask = rand(length(p_sample)) .> total_probs
 
-                # update_mortalities!(reef_state, ts, loc, Float32[prop_mort, mean(total_probs)])
+            # update_mortalities!(reef_state, ts, loc, Float32[prop_mort, mean(total_probs)])
 
-                # Apply stratified sampling to respect maximum possible density
-                resample_wild_population!(reef_state, ts, loc, grp, with_recruits, class_diams[grp])
-            end
+            # Apply stratified sampling to respect maximum possible density
+            resample_wild_population!(reef_state, ts, loc, grp, with_recruits, class_diams[grp])
         end
 
         # Survivers grow...
