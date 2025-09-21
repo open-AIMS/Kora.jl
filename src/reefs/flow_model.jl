@@ -261,7 +261,10 @@ end
 
 Run example with constant incoming larvae.
 """
-function run_example(; n_ts=75, n_locs=100, with_dhw=true, area=100.0, pop_density=15.0, growth_models=growth_models, survival_models=survival_models)
+function run_example(;
+    n_ts=75, n_locs=100, with_dhw=true, area=100.0, pop_density=15.0,
+    growth_models=growth_models, survival_models=survival_models
+)
     sample_size = ceil(Int64, area * pop_density) * 2
     reef_state = initialize_reef(;
         n_timesteps=n_ts,
