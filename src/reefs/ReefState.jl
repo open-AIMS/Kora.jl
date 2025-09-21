@@ -465,127 +465,133 @@ function generate_example_environment(
     dhw_threshold::Float32=4.0f0,
     noise_amplitude::Float32=0.9f0
 )
-    # Initialize arrays
-    dhw_data = zeros(Float32, n_timesteps, n_locations)
-    cyclone_data = zeros(Int32, n_timesteps, n_locations)
-
     # Calculate baseline parameters
     years = range(start_year, length=n_timesteps) .- start_year
 
-    for loc in 1:n_locations
-        # Location-specific random offset to create spatial variation
-        spatial_offset = rand(rng) * 0.8f0  # Increased spatial variation
+    # Initialize vectors
+    dhw_data = zeros(Float32, n_timesteps, n_locations)
 
-        # Track consecutive weeks above threshold
-        weeks_above_threshold = 0
+    # For now, we don't generate cyclones, so leave empty.
+    cyclone_data = zeros(Int32, n_timesteps, n_locations)
 
-        # Generate temperature anomaly time series
-        for t in 1:n_timesteps
-            # Long-term warming trend (RCP4.5-like)
-            warming_trend = warming_rate * years[t]
+    if with_dhw
+        for loc in 1:n_locations
+            # Location-specific random offset to create spatial variation
+            spatial_offset = rand(rng) * 0.8f0  # Increased spatial variation
 
-            # Seasonal cycle with increasing amplitude over time
-            seasonal_scaling = 1.0f0 + 0.2f0 * (years[t] / years[end])
-            seasonal_cycle = seasonal_amplitude * seasonal_scaling * sin(2π * (t % 12) / 12)
+            # Track consecutive weeks above threshold
+            weeks_above_threshold = 0
 
-            # Random weather variations with increased variability over time
-            weather_scaling = 1.0f0 + 0.3f0 * (years[t] / years[end])
-            weather_noise = randn(rng) * noise_amplitude * weather_scaling
+            # Generate temperature anomaly time series
+            for t in 1:n_timesteps
+                # Long-term warming trend (RCP4.5-like)
+                warming_trend = warming_rate * years[t]
 
-            # Combined temperature anomaly
-            temp_anomaly = (warming_trend +
-                            seasonal_cycle +
-                            weather_noise +
-                            spatial_offset)
+                # Seasonal cycle with increasing amplitude over time
+                seasonal_scaling = 1.0f0 + 0.2f0 * (years[t] / years[end])
+                seasonal_cycle = seasonal_amplitude * seasonal_scaling * sin(2π * (t % 12) / 12)
 
-            prev_dhw = t > 1 ? dhw_data[t-1, loc] : 0.0f0
+                # Random weather variations with increased variability over time
+                weather_scaling = 1.0f0 + 0.3f0 * (years[t] / years[end])
+                weather_noise = randn(rng) * noise_amplitude * weather_scaling
 
-            # Convert temperature anomaly to DHW with potential acute events
-            if temp_anomaly > dhw_threshold
-                weeks_above_threshold += 1
+                # Combined temperature anomaly
+                temp_anomaly = (
+                    warming_trend +
+                    seasonal_cycle +
+                    weather_noise +
+                    spatial_offset
+                )
 
-                # Base DHW accumulation
-                dhw_accumulation = (temp_anomaly - dhw_threshold) / 4.0f0
+                prev_dhw = t > 1 ? dhw_data[t-1, loc] : 0.0f0
 
-                # Add possibility of acute temperature spikes
-                if weeks_above_threshold >= 2
-                    # Chance of acute event increases with warming trend
-                    acute_probability = min(0.2f0 * (1.0f0 + warming_trend), 0.4f0)
+                # Convert temperature anomaly to DHW with potential acute events
+                if temp_anomaly > dhw_threshold
+                    weeks_above_threshold += 1
 
-                    if rand(rng) < acute_probability
-                        # Generate acute spike with magnitude increasing over time
+                    # Base DHW accumulation
+                    dhw_accumulation = (temp_anomaly - dhw_threshold) / 4.0f0
+
+                    # Add possibility of acute temperature spikes
+                    if weeks_above_threshold >= 2
+                        # Chance of acute event increases with warming trend
+                        acute_probability = min(0.2f0 * (1.0f0 + warming_trend), 0.4f0)
+
+                        if rand(rng) < acute_probability
+                            # Generate acute spike with magnitude increasing over time
+                            time_factor = years[t] / years[end]
+                            base_spike = 3.0f0 + 2.0f0 * time_factor  # Spikes get larger over time
+                            spike_magnitude = rand(rng) * base_spike + 2.0f0
+                            dhw_accumulation += spike_magnitude
+                        end
+                    end
+
+                    # Calculate new DHW with modified decay
+                    # Reduce value for slower decay during heating
+                    base_dhw = prev_dhw * 0.92f0
+                    raw_dhw = base_dhw + dhw_accumulation
+
+                    # Apply soft cap with fluctuations
+                    soft_cap = 20.0f0
+                    if raw_dhw > soft_cap
+                        excess = raw_dhw - soft_cap
+                        damping_factor = 1.0f0 / (1.0f0 + 0.3f0 * excess)
+
+                        # Larger fluctuations in later years
                         time_factor = years[t] / years[end]
-                        base_spike = 3.0f0 + 2.0f0 * time_factor  # Spikes get larger over time
-                        spike_magnitude = rand(rng) * base_spike + 2.0f0
-                        dhw_accumulation += spike_magnitude
-                    end
-                end
+                        max_fluctuation = 4.0f0 + 2.0f0 * time_factor
+                        fluctuation = (rand(rng) - 0.5f0) * min(max_fluctuation, excess * 0.6f0)
 
-                # Calculate new DHW with modified decay
-                base_dhw = prev_dhw * 0.92f0  # Slower decay during heating
-                raw_dhw = base_dhw + dhw_accumulation
-
-                # Apply soft cap with fluctuations
-                if raw_dhw > 20.0f0
-                    excess = raw_dhw - 20.0f0
-                    damping_factor = 1.0f0 / (1.0f0 + 0.3f0 * excess)
-
-                    # Larger fluctuations in later years
-                    time_factor = years[t] / years[end]
-                    max_fluctuation = 4.0f0 + 2.0f0 * time_factor
-                    fluctuation = (rand(rng) - 0.5f0) * min(max_fluctuation, excess * 0.6f0)
-
-                    dhw_data[t, loc] = 20.0f0 + (excess * damping_factor) + fluctuation
-                else
-                    dhw_data[t, loc] = raw_dhw
-                end
-            else
-                # Reset counter and apply faster decay when below threshold
-                weeks_above_threshold = 0
-                dhw_data[t, loc] = max(0.0f0, prev_dhw * 0.7f0)
-            end
-        end
-
-        # Add extreme marine heatwave events
-        n_extreme_events = floor(Int, n_timesteps / 12)  # More frequent events
-        for _ in 1:n_extreme_events
-            event_time = rand(rng, 1:n_timesteps)
-            time_progress = years[event_time] / years[end]
-            event_probability = time_progress * 1.8f0  # Higher probability in later years
-
-            if rand(rng) < event_probability
-                # Duration increases with time
-                base_duration = 2:5
-                extra_duration = rand(rng, 0:floor(Int, 3 * time_progress))
-                event_duration = rand(rng, base_duration) + extra_duration
-
-                # Base magnitude increases with time (8 DHW to 25 DHW)
-                base_magnitude = 8.0f0 + 17.0f0 * time_progress
-                event_magnitude = rand(rng) * 5.0f0 + base_magnitude
-
-                # Add the extreme event with realistic onset/decline
-                for t in event_time:min(event_time + event_duration, n_timesteps)
-                    relative_pos = (t - event_time) / event_duration
-                    if relative_pos <= 0.3f0
-                        # Rapid onset
-                        scaling = relative_pos / 0.3f0
-                    elseif relative_pos >= 0.7f0
-                        # Gradual decline
-                        scaling = 1.0f0 - ((relative_pos - 0.7f0) / 0.3f0)
+                        dhw_data[t, loc] = soft_cap + (excess * damping_factor) + fluctuation
                     else
-                        # Peak
-                        scaling = 1.0f0
+                        dhw_data[t, loc] = raw_dhw
                     end
+                else
+                    # Reset counter and apply faster decay when below threshold
+                    weeks_above_threshold = 0
+                    dhw_data[t, loc] = max(0.0f0, prev_dhw * 0.7f0)
+                end
+            end
 
-                    dhw_value = event_magnitude * scaling
-                    dhw_data[t, loc] = max(dhw_data[t, loc], dhw_value)
+            # Add extreme marine heatwave events
+            # lower denominator for more events
+            n_extreme_events = floor(Int, n_timesteps / 12)
+
+            for _ in 1:n_extreme_events
+                event_time = rand(rng, 1:n_timesteps)
+                time_progress = years[event_time] / years[end]
+                event_probability = time_progress * 1.8f0  # Higher probability in later years
+
+                if rand(rng, Float32) < event_probability
+                    # Duration increases with time
+                    base_duration = 2:5
+                    extra_duration = rand(rng, 0:floor(Int, 3 * time_progress))
+                    event_duration = rand(rng, base_duration) + extra_duration
+
+                    # Base magnitude increases with time (8 - 17 DHW)
+                    base_magnitude = 8.0f0 + 17.0f0 * time_progress
+                    event_magnitude = rand(rng) * 5.0f0 + base_magnitude
+
+                    # Add the extreme event with realistic onset/decline
+                    for t in event_time:min(event_time + event_duration, n_timesteps)
+                        relative_pos = (t - event_time) / event_duration
+                        if relative_pos <= 0.3f0
+                            # Rapid onset
+                            scaling = relative_pos / 0.3f0
+                        elseif relative_pos >= 0.7f0
+                            # Gradual decline
+                            scaling = 1.0f0 - ((relative_pos - 0.7f0) / 0.3f0)
+                        else
+                            # Peak
+                            scaling = 1.0f0
+                        end
+
+                        dhw_value = event_magnitude * scaling
+                        dhw_data[t, loc] = max(dhw_data[t, loc], dhw_value)
+                    end
                 end
             end
         end
-    end
-
-    if !with_dhw
-        dhw_data = zeros(Float32, n_timesteps, n_locations)
     end
 
     # Combine DHW and cyclone data
