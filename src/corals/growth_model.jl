@@ -115,12 +115,16 @@ end
 function (f::PolyGrowthFunction)(x::T) where T<:AbstractFloat
     if x < f.min_x
         return f.min_y
+    elseif x > f.max_x
+        return f.max_y
     end
-    # if x > f.max_x
-    #     return f.max_y
-    # end
 
-    return exp(f.poly(log(x)))
+    y = exp(f.poly(log(x)))
+    if y > f.max_x
+        return f.max_y
+    end
+
+    return y
 end
 
 # Load default growth models
