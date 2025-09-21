@@ -666,14 +666,12 @@ function mature_coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
     thresholds = mature_size_thresholds()
 
     mature_cover = zeros(Float32, n_locs, n_grps)
-    for grp in 1:n_grps
-        for loc in 1:n_locs
-            # Get population sample for this location/group
-            pop = coral_population(reef_state, ts, loc, grp)
+    for grp in 1:n_grps, loc in 1:n_locs
+        # Get population sample for this location/group
+        pop = coral_population(reef_state, ts, loc, grp)
 
-            # Sum cover of colonies above maturity threshold
-            mature_cover[loc, grp] = cover_cm_to_m2(pop[pop.>=thresholds[grp]])
-        end
+        # Sum cover of colonies above maturity threshold
+        mature_cover[loc, grp] = cover_cm_to_m2(pop[pop.>=thresholds[grp]])
     end
 
     return mature_cover
