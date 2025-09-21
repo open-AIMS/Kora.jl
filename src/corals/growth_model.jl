@@ -14,7 +14,7 @@ function growth_inflection_point()::Vector{Float32}
 end
 
 """
-    space_constraint(x, k; x0=0.96)
+    space_constraint(x::F, k::F; x0::F=0.96f0)::F where {F<:Float32}
 
 Modify growth as coral cover approaches total habitable area.
 
@@ -24,8 +24,8 @@ Modify growth as coral cover approaches total habitable area.
 - `x0` : Inflection point where growth begins to be constrained (default: 96% of available area).
 """
 @inline function space_constraint(x::F, k::F; x0::F=0.96f0)::F where {F<:Float32}
-    if x >= 1.0
-        return 0.0
+    if x >= 1.0f0
+        return 0.0f0
     end
 
     return 1.0f0 / (1.0f0 + _euler_f32b^(k * (x - x0)))
