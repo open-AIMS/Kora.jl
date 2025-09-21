@@ -433,14 +433,26 @@ end
     generate_example_environment(
         n_timesteps::Int64,
         n_locations::Int64;
-        rng::AbstractRNG = Random.GLOBAL_RNG,
-        start_year::Int64 = 2020,
+        rng::AbstractRNG=Random.GLOBAL_RNG,
+        start_year::Int64=2020,
         with_dhw=true,
-        warming_rate::Float32 = 0.05f0,
-        seasonal_amplitude::Float32 = 1.0f0,
-        dhw_threshold::Float32 = 2.0f0,
-        noise_amplitude::Float32 = 0.75f0
+        warming_rate::Float32=0.15f0,
+        seasonal_amplitude::Float32=1.2f0,
+        dhw_threshold::Float32=4.0f0,
+        noise_amplitude::Float32=0.9f0
     )
+
+# Arguments
+- `n_timesteps` :
+- `n_locations` :
+- `rng` :
+- `start_year` :
+- `with_dhw` :
+- `warming_rate` :
+- `seasonal_amplitude` :
+- `dhw_threshold` :
+- `noise_amplitude` :
+
 """
 function generate_example_environment(
     n_timesteps::Int64,
@@ -448,10 +460,10 @@ function generate_example_environment(
     rng::AbstractRNG=Random.GLOBAL_RNG,
     start_year::Int64=2020,
     with_dhw=true,
-    warming_rate::Float32=0.15f0,  # Increased to match observed trends
-    seasonal_amplitude::Float32=1.2f0,  # Increased seasonal variation
+    warming_rate::Float32=0.15f0,
+    seasonal_amplitude::Float32=1.2f0,
     dhw_threshold::Float32=4.0f0,
-    noise_amplitude::Float32=0.9f0  # Increased for more variability
+    noise_amplitude::Float32=0.9f0
 )
     # Initialize arrays
     dhw_data = zeros(Float32, n_timesteps, n_locations)
