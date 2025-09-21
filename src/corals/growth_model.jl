@@ -32,14 +32,22 @@ Modify growth as coral cover approaches total habitable area.
 end
 
 # Growth models need to account for available space... (see space constraint)
-@inline function growth(model::M, diam::F, reef_cover::F, grp_mod::F, loc_scaler::F)::F where {M,F<:Float32}
-    # Need to get difference so the increase is constrained!
-    return diam + (model(diam) - diam) * space_constraint(reef_cover, 20.0f0; x0=grp_mod) * loc_scaler
-end
-function growth!(model::M, diam::Vector{Vector{F}}, reef_cover::Vector{F}, grp_mod::F, loc_scalers::Vector{F})::Nothing where {M,F<:Float32}
+function growth!(
+    model::M,
+    diam::Vector{Vector{F}},
+    reef_cover::Vector{F},
+    grp_mod::F,
+    loc_scalers::Vector{F}
+)::Nothing where {M,F<:Float32}
+    # Use explicit loops to avoid broadcast allocations
     Threads.@threads for i in eachindex(reef_cover)
-        # Combine model evaluation, max, and scaling in one pass
-        @inbounds @views diam[i] .= growth.(model, diam[i], reef_cover[i], grp_mod, loc_scalers[i])
+        constraint = space_constraint(reef_cover[i], 20.0f0; x0=grp_mod)
+        scaler = loc_scalers[i]
+
+        for j in eachindex(diam[i])
+            old_diam = diam[i][j]
+            diam[i][j] = old_diam + (model(old_diam) - old_diam) * constraint * scaler
+        end
     end
 
     return nothing
