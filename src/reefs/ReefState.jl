@@ -431,7 +431,7 @@ end
 
 """
     generate_example_environment(
-        n_timesteps::Int64,
+        n_years::Int64,
         n_locations::Int64;
         rng::AbstractRNG=Random.GLOBAL_RNG,
         start_year::Int64=2020,
@@ -442,20 +442,72 @@ end
         noise_amplitude::Float32=0.9f0
     )
 
-# Arguments
-- `n_timesteps` :
-- `n_locations` :
-- `rng` :
-- `start_year` :
-- `with_dhw` :
-- `warming_rate` :
-- `seasonal_amplitude` :
-- `dhw_threshold` :
-- `noise_amplitude` :
+Generate synthetic environmental data for coral reef modeling, specifically Degree Heating
+Weeks (DHW) trajectories that simulate realistic marine heatwave patterns under climate
+change scenarios.
 
+# Extended help
+
+Generate plausible DHW time series by combining multiple environmental components:
+
+1. **Long-term warming trend**: Simulates gradual ocean warming (like RCP4.5 scenarios)
+2. **Seasonal cycles**: Models natural temperature variations throughout the year
+3. **Weather noise**: Adds realistic short-term temperature fluctuations
+4. **Spatial variation**: Creates location-specific temperature offsets
+5. **Acute heatwave events**: Superimposes extreme marine heatwave events
+6. **DHW accumulation**: Converts temperature anomalies to ecologically-relevant DHW values
+
+The DHW calculation follows coral bleaching research where:
+- DHW accumulates when temperatures exceed a threshold (default 4°C above baseline)
+- Values decay over time when temperatures drop
+- Extreme events can cause rapid DHW spikes that lead to mass bleaching
+
+## Temperature Anomaly Construction
+For each location and timestep, the temperature anomaly is built from:
+
+```julia
+temp_anomaly = warming_trend + seasonal_cycle + weather_noise + spatial_offset
+```
+
+Where:
+- **warming_trend**: Linear increase over time (`warming_rate * years_elapsed`)
+- **seasonal_cycle**: Sinusoidal pattern with amplitude that increases over time
+- **weather_noise**: Random normal variations that get larger in later years
+- **spatial_offset**: Location-specific random offset (0 - 0.8°C)
+
+## DHW Accumulation Rules
+- **Above threshold**: DHW accumulates as `(temp_anomaly - threshold) / 4.0`
+- **Below threshold**: DHW decays rapidly (`previous_DHW * 0.7`)
+- **During heating**: DHW decays slowly (`previous_DHW * 0.92`)
+- **Soft cap**: Values above 20 DHW are dampened but can still fluctuate
+
+## Acute Event Generation
+The function adds realistic extreme heatwave events:
+- **Frequency**: ~1 event per year on average (`n_timesteps / 12`)
+- **Probability**: Increases over time (simulating worsening climate)
+- **Duration**: 2-5+ weeks, longer in later years
+- **Intensity**: 8-25+ DHW, stronger in later years
+- **Shape**: Rapid onset (30% of duration) → peak → gradual decline (30% of duration)
+
+## Ecological Realism
+The parameters are tuned based on coral bleaching research:
+- **4 DHW**: Threshold where bleaching typically begins
+- **8+ DHW**: Significant bleaching and mortality expected
+- **20+ DHW**: Severe bleaching events (soft-capped with fluctuations)
+
+# Arguments
+- `n_years`: Number of time steps to simulate (in years)
+- `n_locations`: Number of spatial locations across the reef system
+- `rng`: Random number generator for reproducible results
+- `start_year`: Starting year for the simulation (default: 2020)
+- `with_dhw`: Whether to generate DHW data or return zeros (default: true)
+- `warming_rate`: Rate of long-term warming per year in °C (default: 0.15°C/year)
+- `seasonal_amplitude`: Strength of seasonal temperature cycles (default: 1.2°C)
+- `dhw_threshold`: Temperature threshold above which DHW accumulates (default: 4.0°C)
+- `noise_amplitude`: Magnitude of random weather variations (default: 0.9°C)
 """
 function generate_example_environment(
-    n_timesteps::Int64,
+    n_years::Int64,
     n_locations::Int64;
     rng::AbstractRNG=Random.GLOBAL_RNG,
     start_year::Int64=2020,
@@ -464,15 +516,12 @@ function generate_example_environment(
     seasonal_amplitude::Float32=1.2f0,
     dhw_threshold::Float32=4.0f0,
     noise_amplitude::Float32=0.9f0
-)
+)::YAXArray
     # Calculate baseline parameters
-    years = range(start_year, length=n_timesteps) .- start_year
+    years = range(start_year, length=n_years) .- start_year
 
     # Initialize vectors
-    dhw_data = zeros(Float32, n_timesteps, n_locations)
-
-    # For now, we don't generate cyclones, so leave empty.
-    cyclone_data = zeros(Int32, n_timesteps, n_locations)
+    dhw_data = zeros(Float32, n_years, n_locations)
 
     if with_dhw
         for loc in 1:n_locations
@@ -483,8 +532,8 @@ function generate_example_environment(
             weeks_above_threshold = 0
 
             # Generate temperature anomaly time series
-            for t in 1:n_timesteps
-                # Long-term warming trend (RCP4.5-like)
+            for t in 1:n_years
+                # Long-term warming trend
                 warming_trend = warming_rate * years[t]
 
                 # Seasonal cycle with increasing amplitude over time
@@ -555,10 +604,10 @@ function generate_example_environment(
 
             # Add extreme marine heatwave events
             # lower denominator for more events
-            n_extreme_events = floor(Int, n_timesteps / 12)
+            n_extreme_events = floor(Int, n_years / 12)
 
             for _ in 1:n_extreme_events
-                event_time = rand(rng, 1:n_timesteps)
+                event_time = rand(rng, 1:n_years)
                 time_progress = years[event_time] / years[end]
                 event_probability = time_progress * 1.8f0  # Higher probability in later years
 
@@ -573,7 +622,7 @@ function generate_example_environment(
                     event_magnitude = rand(rng) * 5.0f0 + base_magnitude
 
                     # Add the extreme event with realistic onset/decline
-                    for t in event_time:min(event_time + event_duration, n_timesteps)
+                    for t in event_time:min(event_time + event_duration, n_years)
                         relative_pos = (t - event_time) / event_duration
                         if relative_pos <= 0.3f0
                             # Rapid onset
@@ -594,16 +643,14 @@ function generate_example_environment(
         end
     end
 
-    # Combine DHW and cyclone data
-    env_data = cat(dhw_data, cyclone_data, dims=3)
-
+    # Variable axes
     v_axes = (
-        Dim{:timestep}(1:n_timesteps),
+        Dim{:timestep}(1:n_years),
         Dim{:location}(1:n_locations),
-        Dim{:var}([:dhw, :cyclone_category])
+        # Dim{:var}([:year, :location])
     )
 
-    return YAXArray(v_axes, env_data)
+    return YAXArray(v_axes, dhw_data)
 end
 
 """
