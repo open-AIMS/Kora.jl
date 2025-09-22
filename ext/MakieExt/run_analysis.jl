@@ -8,18 +8,73 @@ function CoralFlow.viz.animate_population(
 )
     f = Figure(size=(800, 600))
     ax = Axis(f[1, 1], xlabel="Diameter [cm]", ylabel="Density")
-    max_val = maximum(reef_state.pop_sample.data[:, loc, grp, :])
+
+    pop_sample = coral_population(reef_state, 1, loc, grp)
+    max_val = maximum(pop_sample)
     xlims!(ax, 0.0, max_val + 20.0)
 
     total_time = n_timesteps(reef_state)
-    obs_points = Observable(coral_population(reef_state, 1, loc, grp))
+    obs_points = Observable(pop_sample)
 
     hist!(ax, obs_points, bins=nbins, normalization=:pdf, color=(:blue, 0.3))
 
-    grp_ids = getAxis(:group, reef_state.pop_sample)
+    grp_ids = getAxis(:group, reef_state.location_scalers)
     grp_name = grp_ids[grp]
     record(f, filename, 2:total_time; framerate=framerate) do t
-        obs_points[] = coral_population(reef_state, t, loc, grp)
+        try
+            obs_points[] = coral_population(reef_state, t, loc, grp)
+        catch
+            obs_points[] = @view [0.0f0][1:1]
+        end
+        ax.title = "Location $(loc) $(grp_name) - Timestep $t"
+
+    end
+end
+
+function CoralFlow.viz.animate_population(
+    reef_state::ReefState,
+    env_conditions::YAXArray,
+    loc::Int64,
+    grp::Int64;
+    nbins=50,
+    framerate=2,
+    filename="size_distribution.gif"
+)
+    f = Figure(size=(800, 800))
+    ax = Axis(f[1:2, 1], xlabel="Diameter [cm]", ylabel="Density")
+    ax2 = Axis(f[3, 1], xlabel="Time", ylabel="DHW")
+
+    pop_sample = coral_population(reef_state, 1, loc, grp)
+    max_val = maximum(pop_sample)
+    xlims!(ax, 0.0, max_val + 20.0)
+
+    total_time = n_timesteps(reef_state)
+    obs_points = Observable{Any}(pop_sample)
+
+    hist!(ax, obs_points, bins=nbins, normalization=:pdf, color=(:blue, 0.3))
+
+    # DHW
+    CoralFlow.viz.dhws!(ax2, env_conditions)
+
+    # Indicate current time
+    current_time = Observable(2)  # Start at timestep 2
+    vlines!(ax2, current_time, color=:red, linewidth=2)
+
+    grp_ids = getAxis(:group, reef_state.location_scalers)
+    grp_name = grp_ids[grp]
+    record(f, filename, 2:total_time; framerate=framerate) do t
+        try
+            obs_points[] = coral_population(reef_state, t, loc, grp)
+            current_time[] = t  # Update the vertical line position
+        catch err
+            if err isa ArgumentError
+                obs_points[] = @view [0.0f0][1:1]
+                current_time[] = t
+            else
+                rethrow(err)
+            end
+        end
+
         ax.title = "Location $(loc) $(grp_name) - Timestep $t"
     end
 end
