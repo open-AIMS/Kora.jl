@@ -11,12 +11,12 @@ Modify susceptibility of corals to bleaching as a function of its diameter.
 - `k` : Steepness parameter, where the larger the value, the faster the drop (suggest k=0.15).
 - `x0` : Inflection point (based on diameter) where bleaching begins to have much less mortality (default: 150cm diameter).
 """
-function bleaching_susceptibility(x::F, k::F; x0::F=150.0f0)::F where {F<:Float32}
+function bleaching_susceptibility(x::F; k::F=0.15f0, x0::F=150.0f0)::F where {F<:Float32}
     return 1.0f0 / (1.0f0 + _euler_f32^(k * (x - x0)))
 end
-function bleaching_susceptibility!(x::AbstractArray{F}, k::F, cache::AbstractArray{F}; x0::F=150.0f0)::Nothing where {F<:Float32}
+function bleaching_susceptibility!(x::AbstractArray{F}, cache::AbstractArray{F}; k::F=0.15f0, x0::F=150.0f0)::Nothing where {F<:Float32}
     Threads.@threads for i in eachindex(x, cache)
-        @inbounds cache[i] = bleaching_susceptibility(x[i], k; x0=x0)
+        @inbounds cache[i] = bleaching_susceptibility(x[i]; k=k, x0=x0)
     end
 
     return nothing
@@ -97,9 +97,10 @@ function bleaching_mortality!(
     # (the reduction in size due to partial mortality or mortality).
     # Using an explicit loop here to avoid temporary allocations
     Threads.@threads for i in eachindex(diams)
-        if diams[i] > 2.5f0
+        # 5.0cm diameter is the assumed size at which corals become susceptible to bleaching
+        if diams[i] > 5.0f0
             # Calculate size-specific mortality modifier
-            diams[i] *= (1.0f0 - (base_affected * bleaching_susceptibility(diams[i], 0.15f0)))
+            diams[i] *= (1.0f0 - (base_affected * bleaching_susceptibility(diams[i])))
         end
     end
 
@@ -126,10 +127,10 @@ Proportion of survival from background mortality.
 # Returns
 Survival from background mortality
 """
-@inline function survival(model::M, diam::F)::Bool where {M,F<:Float32}
+@inline function survival(model::M, diam::Float32)::Bool where {M}
     return rand(Float32) < model(diam)
 end
-function survival!(model::M, diam::AbstractVector{F})::Nothing where {M,F<:Float32}
+function survival!(model::M, diam::AbstractVector{Float32})::Nothing where {M}
     Threads.@threads for i in eachindex(diam)
         @inbounds diam[i] *= survival(model, diam[i])
     end
@@ -231,8 +232,8 @@ struct PolySurvivalFunction{T<:AbstractFloat} <: Function
 end
 
 # Make it callable using complementary log-log link
-function (f::PolySurvivalFunction)(x::T) where T<:AbstractFloat
-    return clamp(f.poly(log(x)), 0.0, 1.0)
+function (f::PolySurvivalFunction)(x::T)::Float32 where T<:AbstractFloat
+    return clamp(f.poly(log(x)), 0.0f0, 1.0f0)
 end
 
 

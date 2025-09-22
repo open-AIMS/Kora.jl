@@ -10,7 +10,7 @@ available hard substrate.
 See: `space_constraint()`
 """
 function growth_inflection_point()::Vector{Float32}
-    return Float32[0.96, 0.96, 0.96, 0.96, 0.96, 0.96]
+    return Float32[0.96f0, 0.96f0, 0.96f0, 0.96f0, 0.96f0, 0.96f0]
 end
 
 """
@@ -120,14 +120,14 @@ struct PolyGrowthFunction{T<:AbstractFloat} <: Function
 end
 
 """Define `PolyGrowthFunction` as a callable."""
-function (f::PolyGrowthFunction)(x::T) where T<:AbstractFloat
+function (f::PolyGrowthFunction)(x::T)::T where T<:AbstractFloat
     if x < f.min_x
         return f.min_y
     elseif x > f.max_x
         return f.max_y
     end
 
-    y = exp(f.poly(log(x)))
+    y::Float32 = exp(f.poly(log(x)))
     if y > f.max_y
         return f.max_y
     end

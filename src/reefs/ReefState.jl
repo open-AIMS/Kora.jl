@@ -132,18 +132,19 @@ end
     return wild + deployed
 end
 
-@inline function wild_population(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::SubArray{Float32}
+@inline function wild_population(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::SubArray
     return @inbounds @views reef_state.wild_population[ts, loc, grp][:]
 end
 
-@inline function deployed_population(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::SubArray{Float32}
+@inline function deployed_population(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::SubArray
     return @inbounds @views reef_state.deployed_population[ts, loc, grp][:]
 end
 
-@inline function coral_population(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::SubArray{Float32}
+@inline function coral_population(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::SubArray
     return coral_population!(reef_state, ts, loc, grp, reef_state._pop_cache[loc, :])
 end
-function coral_population!(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL, cache::AbstractVector)::SubArray{Float32}
+function coral_population!(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL, cache::AbstractVector)::SubArray
+    # TODO: Handle request for sets of groups or locations
     n_wild = total_wild(reef_state, ts, loc, grp)
     n_deployed = total_deployed(reef_state, ts, loc, grp)
 
