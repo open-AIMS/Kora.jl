@@ -88,7 +88,7 @@ function bleaching_mortality!(
     # Apply depth coefficient to affected proportion
     base_affected = affected_prop .* depth_coeff
     if base_affected == 0.0f0
-        return μ, stdev, 0.0
+        return μ, stdev, 0.0f0
     end
 
     diam_cache = copy(diams)
