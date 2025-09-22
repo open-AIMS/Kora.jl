@@ -22,6 +22,8 @@ function bootstrap_juvenile_cover_timeseries end
 
 function juvenile_cover! end
 
+function population_count! end
+
 function timeseries end
 
 function survival_regression end
