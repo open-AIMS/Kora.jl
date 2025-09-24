@@ -303,6 +303,29 @@ function size_distribution()::Vector{LogNormal}
     ]
 end
 
+"""
+    initialize_coral_population!(
+        reef_state::ReefState,
+        loc::Int64,
+        target_pop_size::Int64;
+        group_proportions::Vector{Float32}=[0.1f0, 0.2f0, 0.25f0, 0.2f0, 0.25f0],
+        rng::AbstractRNG=Random.GLOBAL_RNG
+    )::Nothing
+
+    initialize_coral_population!(
+        reef_state::ReefState;
+        rng::AbstractRNG=Random.GLOBAL_RNG
+    )
+
+Initialize a coral population.
+
+# Arguments
+- `reef_state` : ReefState
+- `loc` : Location to generate population for
+- `target_pop_size` : Target number of colonies
+- `group_proportions` : Proportion of cover each coral group takes up
+- `rng` : Random number generator
+"""
 function initialize_coral_population!(
     reef_state::ReefState,
     loc::Int64,
@@ -310,7 +333,6 @@ function initialize_coral_population!(
     group_proportions::Vector{Float32}=[0.1f0, 0.2f0, 0.25f0, 0.2f0, 0.25f0],
     rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
-
     # Verify proportions sum to 1
     if !isapprox(sum(group_proportions), 1.0f0, atol=1e-6)
         throw(ArgumentError("Group proportions must sum to 1.0"))
@@ -358,7 +380,7 @@ end
 """
     deploy_corals!(reef_state, ts, loc, n, grp)
 
-At a given time and location, deploy `n` of coral `grp`.
+"At a given time and location, deploy `n` of coral `grp`.
 
 # Arguments
 - `reef_state` : ReefState
