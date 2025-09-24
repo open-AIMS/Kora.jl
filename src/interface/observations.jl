@@ -168,7 +168,10 @@ function get_survival_entries(
 
     # Construct masks to remove unused and missing data
     for_survival = raw_data[:, :survival_use] .== "yes"
+    for_survival[ismissing.(for_survival)] .= 0
+
     non_missing_size_mask = raw_data.size .!= "NA"
+    non_missing_size_mask[ismissing.(non_missing_size_mask)] .= 0
 
     # Remove missing and unused data
     survival_data::DataFrame = raw_data[
