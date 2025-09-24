@@ -40,7 +40,7 @@ Process EcoRRAP data to create growth models for coral functional groups.
 results = process_growth_models(
     "EcoRRAP data for IPM_250510.csv",
     "ecorrap to cscape species.csv";
-    region = "Offshore_Central"
+    region="Offshore_Central"
 )
 
 growth_models = results.growth_fits
@@ -50,6 +50,7 @@ function process_growth_models(
     ecorrap_data_file::String,
     functional_group_file::String;
     region::String="Offshore_Central",
+    reef::Union{String,Nothing}=nothing,
     degree::Int64=2,
     plot_validation::Bool=true,
     save_model::Bool=true,
@@ -76,8 +77,12 @@ function process_growth_models(
     @info "Extracting growth entries..."
     ecorrap_growth = get_growth_entries(ecorrap_data)
 
-    # Group by taxa and cluster
-    growth_gdf = groupby(ecorrap_growth, [:taxa, :cluster])
+    # Group by taxa and cluster (and reef if provided)
+    growth_gdf = if isnothing(reef)
+        groupby(ecorrap_growth, [:taxa, :cluster])
+    else
+        groupby(ecorrap_growth, [:taxa, :cluster, :reef])
+    end
 
     # Load functional group mapping
     @info "Loading functional group mapping from: $functional_group_file"
@@ -86,7 +91,7 @@ function process_growth_models(
 
     # Organize functional groups
     @info "Organizing functional groups for region: $region"
-    growth_groupings = organize_functional_groups(target_groups, functional_group_map, growth_gdf, region; n_bins=n_bins)
+    growth_groupings = organize_functional_groups(target_groups, functional_group_map, growth_gdf, region; reef, n_bins)
 
     # Fit models
     @info "Fitting growth models (degree=$degree)..."
@@ -158,6 +163,7 @@ function process_survival_models(
     ecorrap_data_file::String,
     functional_group_file::String;
     region::String="Offshore_Central",
+    reef::Union{String,Nothing}=nothing,
     degree::Int=2,
     save_model::Bool=true,
     output_dir::String=".",
@@ -172,24 +178,30 @@ function process_survival_models(
         rng = Random.seed!(seed)
     end
 
+    missing_entries = ["NA", ""]
+
     # Load and process EcoRRAP data
     @info "Loading EcoRRAP data from: $ecorrap_data_file"
-    ecorrap_data = CSV.read(ecorrap_data_file, DataFrame; missingstring="NA")
+    ecorrap_data = CSV.read(ecorrap_data_file, DataFrame; missingstring=missing_entries)
 
     @info "Extracting survival entries..."
     ecorrap_survival = get_survival_entries(ecorrap_data)
 
     # Group by taxa and cluster
-    survival_gdf = groupby(ecorrap_survival, [:taxa, :cluster])
+    if isnothing(reef)
+        survival_gdf = groupby(ecorrap_survival, [:taxa, :cluster])
+    else
+        survival_gdf = groupby(ecorrap_survival, [:taxa, :cluster, :reef])
+    end
 
     # Load functional group mapping
     @info "Loading functional group mapping from: $functional_group_file"
-    functional_group_map = CSV.read(functional_group_file, DataFrame; missingstring="NA")
+    functional_group_map = CSV.read(functional_group_file, DataFrame; missingstring=missing_entries)
     functional_group_map.Code .= String.(functional_group_map.Code)
 
     # Organize functional groups
     @info "Organizing functional groups for region: $region"
-    surv_groupings = organize_functional_groups(target_groups, functional_group_map, survival_gdf, region; n_bins)
+    surv_groupings = organize_functional_groups(target_groups, functional_group_map, survival_gdf, region; reef, n_bins)
 
     # Fit models
     @info "Fitting survival models (degree=$degree)..."
@@ -219,6 +231,7 @@ end
         ecorrap_data_file::String,
         functional_group_file::String;
         region::String="Offshore_Central",
+        reef=nothing,
         growth_degree::Int=2,
         survival_degree::Int=2,
         save_models::Bool=true,
@@ -236,6 +249,7 @@ This function combines the individual model creation functions for convenience.
 - `ecorrap_data_file::String`: Path to the EcoRRAP CSV data file
 - `functional_group_file::String`: Path to the functional group mapping CSV file
 - `region::String`: Region to process (default: "Offshore_Central")
+- `reef`: Reef to process
 - `growth_degree::Int`: Polynomial degree for growth models (default: 2)
 - `survival_degree::Int`: Polynomial degree for survival models (default: 2)
 - `save_models::Bool`: Whether to serialize models to disk (default: true)
@@ -266,6 +280,7 @@ function process_ecorrap_models(
     ecorrap_data_file::String,
     functional_group_file::String;
     region::String="Offshore_Central",
+    reef=nothing,
     growth_degree::Int=2,
     survival_degree::Int=2,
     seed::Int=101,
@@ -285,6 +300,7 @@ function process_ecorrap_models(
     growth_results = process_growth_models(
         ecorrap_data_file, functional_group_file;
         region=region,
+        reef=reef,
         degree=growth_degree,
         seed=seed,
         save_model=save_models,
@@ -298,6 +314,7 @@ function process_ecorrap_models(
     survival_results = process_survival_models(
         ecorrap_data_file, functional_group_file;
         region=region,
+        reef=reef,
         degree=survival_degree,
         seed=seed,
         save_model=save_models,

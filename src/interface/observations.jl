@@ -220,13 +220,15 @@ end
         target::String,
         group_map::DataFrame,
         src_gdf::GroupedDataFrame,
-        cluster_name::String
+        cluster_name::String;
+        reef_name::Union{String,Nothing}=nothing
     )
 
 - `target` : Target functional group to collate data for
 - `group_map` : Identified mapping between species and the functional group
 - `src_gdf` : Data grouped for each taxa and cluster
 - `cluster_name` : Name of target cluster as defined in `src_gdf`
+- `reef_name` : Name of target reef as defined in `src_gdf`
 
 Collate data for functional groups in the indicated cluster.
 """
@@ -234,18 +236,30 @@ function collate_functional_groups(
     target::String,
     group_map::DataFrame,
     src_gdf::GroupedDataFrame,
-    cluster_name::String
+    cluster_name::String;
+    reef_name::Union{String,Nothing}=nothing
 )
     valid_group_codes = group_map[occursin.(target, group_map.Cscape_group), :Code]
 
     # Filter for only group codes that exist
-    valid_codes = filter(code -> haskey(src_gdf, (code, cluster_name)), valid_group_codes)
+    if isnothing(reef_name)
+        valid_codes = filter(code -> haskey(src_gdf, (code, cluster_name)), valid_group_codes)
+    else
+        valid_codes = filter(code -> haskey(src_gdf, (code, cluster_name, reef_name)), valid_group_codes)
+    end
+
     if isempty(valid_codes)
         msg = "No valid codes found for target group '$(target)' in cluster '$(cluster_name)'"
         throw(ArgumentError(msg))
     end
 
-    return reduce(vcat, src_gdf[(code, cluster_name)] for code in valid_codes)
+    if isnothing(reef_name)
+        res = reduce(vcat, src_gdf[(code, cluster_name)] for code in valid_codes)
+    else
+        res = reduce(vcat, src_gdf[(code, cluster_name, reef_name)] for code in valid_codes)
+    end
+
+    return res
 end
 
 """
@@ -254,6 +268,7 @@ end
         group_map::DataFrame,
         gdf::GroupedDataFrame,
         cluster_name::String;
+        reef::Union{String,Nothing}=nothing,
         n_bins=10,
         rng::AbstractRNG=Random.default_rng()
     )::OrderedDict
@@ -265,11 +280,12 @@ function organize_functional_groups(
     group_map::DataFrame,
     gdf::GroupedDataFrame,
     cluster_name::String;
+    reef::Union{String,Nothing}=nothing,
     n_bins=10,
     rng::AbstractRNG=Random.default_rng()
 )::OrderedDict
     groupings = OrderedDict(
-        fg => train_test_split!(collate_functional_groups(fg, group_map, gdf, cluster_name), n_bins; rng)
+        fg => train_test_split!(collate_functional_groups(fg, group_map, gdf, cluster_name; reef_name=reef), n_bins; rng)
         for fg in target_groups
     )
 
