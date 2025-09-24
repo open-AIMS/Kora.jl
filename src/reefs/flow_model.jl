@@ -127,14 +127,12 @@ function run_example!(
 
     # Convenience var
     carrying_cap = reef_state.carrying_capacity
+    total_possible_colonies = carrying_cap .* reef_state.density
 
     # Group modifiers that adjusts when growth slows down as it approaches a
     # proportionate limit relative to available space
     inflection_points = growth_inflection_point()
     maturity_thresholds = mature_size_thresholds()
-
-    # Used to determine available space, which affects settlement rate, etc.
-    total_covers::Vector{Float32} = coral_cover(reef_state, 1)
 
     recruits = fill(Float32[], n_locs, n_grps)
     depth_coeffs = depth_coefficient.(reef_state.depths)
@@ -145,6 +143,9 @@ function run_example!(
 
     for ts in timesteps[2:end]
         prev_ts = ts - 1
+
+        # Used to determine available space, which affects settlement rate, etc.
+        total_covers::Vector{Float32} = coral_cover(reef_state, prev_ts)
 
         recruits = fill(Float32[], n_locs, n_grps)  # Reset cache
 
@@ -157,20 +158,27 @@ function run_example!(
             # Scale recruitment by cover proportion
             prod = larval_production(reef_state, maturity_thresholds, prev_ts, loc, grp)
 
-            available_space = max(carrying_cap[loc] - total_covers[loc], 0.0)
-
-            # n% of produced larvae arrive and a proportion (based on available area)
-            # of these can settle
-            # available_prop = available_space / carrying_cap[loc]
-            settlement_prop = min.((available_space * 50), prod * recruitment_proportion)
-            n_loc_recruits = floor(Int64, settlement_prop)
+            # Only allow recruitment if density threshold has not been reached
+            # Note this is natural recruitment. Deployments are handled separately.
+            all_pop = total_population(reef_state, prev_ts, loc)
+            avail_d_for_recruitment = all_pop < total_possible_colonies[loc]
+            if avail_d_for_recruitment
+                available_space = max(carrying_cap[loc] - total_covers[loc], 0.0)
+                # n% of produced larvae arrive and a proportion (based on available area)
+                # of these can settle
+                # available_prop = available_space / carrying_cap[loc]
+                settlement_prop = min.((available_space * 50), prod * recruitment_proportion)
+                n_loc_recruits = floor(Int64, settlement_prop)
+            else
+                n_loc_recruits = 0
+            end
 
             if n_loc_recruits > 0
                 recruits[loc, grp] = Float32.(rand(rng, recruit_dist, n_loc_recruits))
                 update_coral_tolerances!(reef_state, ts, loc, grp, n_loc_recruits)
             else
                 # Have to update the previous time step's entry as later calculations
-                # Update tolerances influenced by the new recruits
+                # update tolerances influenced by the new recruits
 
                 # Get "current" tolerance means
                 wild_mean = reef_state.wild_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
@@ -196,8 +204,9 @@ function run_example!(
         for loc in 1:n_locs, grp in 1:n_grps
             pop_buffer .= 0.0f0  # Reset buffer
 
-            # Fill buffer with existing population and retrieve active population
             fill_population_buffer!(reef_state, prev_ts, loc, grp, recruits[loc, grp], pop_buffer)
+
+            # Diameters for entire population including recruits
             with_recruits = pop_buffer[pop_buffer.>0.0f0]
 
             # Background mortality
@@ -218,9 +227,8 @@ function run_example!(
             # total_probs = cyclone_probs  # TODO: Add other probabilities
             # survivors_mask = rand(length(p_sample)) .> total_probs
 
-            # update_mortalities!(reef_state, ts, loc, Float32[prop_mort, mean(total_probs)])
-
-            # Apply stratified sampling to respect maximum possible density
+            # Apply stratified sampling to maintain tracking of corals at expected
+            # max density.
             resample_wild_population!(reef_state, ts, loc, grp, with_recruits, class_diams[grp])
         end
 
