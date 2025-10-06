@@ -162,9 +162,12 @@ end
 """
     get_survival_entries(raw_data::DataFrame)::DataFrame
 
-Given the csv from containing all entries of the coral demograph data, remove rows not
+Given the CSV from containing all entries of the coral demograph data, remove rows not
 related to the calculation of survival statistics and add diameter and log diameter columns.
 This method also marks each relevant row as train/test data.
+
+Survival model is trained/calibrated on data found in the `sizenext`/`diamnext` columns.
+(i.e., observed size at mortality event).
 """
 function get_survival_entries(
     raw_data::DataFrame
@@ -175,16 +178,20 @@ function get_survival_entries(
     for_survival = raw_data[:, :survival_use] .== "yes"
     for_survival[ismissing.(for_survival)] .= 0
 
-    non_missing_size_mask = raw_data.size .!= "NA"
-    non_missing_size_mask[ismissing.(non_missing_size_mask)] .= 0
+    # If data is "missing" in the sizenext column, fill with data in `size` column
+    # as we make survival predictions based on the data in `diamnext` (based on `sizenext`)
+    missing_sizenext = ismissing.(raw_data.sizenext)
+    raw_data[missing_sizenext, :sizenext] .= raw_data[missing_sizenext, :size]
 
-    # Remove missing and unused data
-    survival_data::DataFrame = raw_data[
-        for_survival.&&non_missing_size_mask, :
-    ]
+    zero_size = raw_data.sizenext .== 0.0
+    raw_data[zero_size, :sizenext] .= raw_data[zero_size, :size]
+
+    # Only keep data marked for use for survival regressions
+    survival_data::DataFrame = raw_data[for_survival, :]
 
     # Insert diameter column
     survival_data[!, :diam] .= area_to_diam.(survival_data.size)
+    survival_data[!, :diamnext] .= area_to_diam.(survival_data.sizenext)
 
     # Add log diameter column
     survival_data[!, :logdiam] .= log.(survival_data.diam)

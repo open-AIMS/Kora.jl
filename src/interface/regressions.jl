@@ -76,9 +76,10 @@ function fit_survival_models(groupings::OrderedDict{String,DataFrame}; degree::I
 
         sub_df = df[df.class_train.>0, :]
 
-        x_idx = sortperm(sub_df.diam)
-        xi = sub_df.diam[x_idx]
-        yi = sub_df.class_train_mean[x_idx]
+        # Fit model based on observed size at time of mortality (`diamnext`)
+        x_idx = sortperm(sub_df.diamnext)
+        xi = sub_df.diamnext[x_idx]
+        yi = sub_df[x_idx, TRAIN_CLASS_MEAN_ID]
 
         # Fit model
         m = curve_fit(Polynomial, log.(xi), yi, degree)
@@ -97,8 +98,8 @@ function fit_survival_models(groupings::OrderedDict{String,DataFrame}; degree::I
 
         # Repeat above for test data
         sub_df = df[df.class_test.>0, :]
-        x_idx = sortperm(sub_df.diam)
-        xi = sub_df.diam[x_idx]
+        x_idx = sortperm(sub_df.diamnext)
+        xi = sub_df.diamnext[x_idx]
         yi = sub_df.class_test_mean[x_idx]
         prediction = model.(xi)
 
