@@ -239,11 +239,6 @@ function run_example!(
 
         # Survivers grow...
         for grp in 1:n_grps
-            # Copy previous data to current time step for growth
-            # (Only deployed corals here, as wild corals are handled previously)
-            # update_wild_sample!(reef_state, ts, :, grp, reef_state.wild_population[ts, :, grp])
-            # update_deployed_sample!(reef_state, ts, :, grp, reef_state.deployed_population[ts, :, grp])
-
             # Wild population
             apply_growth!(
                 reef_state,
@@ -253,6 +248,9 @@ function run_example!(
                 total_covers ./ reef_state.carrying_capacity,
             )
 
+            # Update total cover
+            total_covers = coral_cover(reef_state, ts)
+
             # Deployed population
             apply_growth!(
                 reef_state,
@@ -261,9 +259,10 @@ function run_example!(
                 reef_state.deployed_population[ts, :, grp],
                 total_covers ./ reef_state.carrying_capacity,
             )
-        end
 
-        total_covers = coral_cover(reef_state, ts)
+            # Update total cover
+            total_covers = coral_cover(reef_state, ts)
+        end
     end
 
     return nothing
