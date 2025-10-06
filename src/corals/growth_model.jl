@@ -122,13 +122,17 @@ end
 """Define `PolyGrowthFunction` as a callable."""
 function (f::PolyGrowthFunction)(x::T)::T where T<:AbstractFloat
     if x < f.min_x
-        return f.min_y
-    elseif x > f.max_x
+        # Handle recruits smaller than observed (random growth between 0.1 and 2.0cm)
+        return x + rand(0.1:0.0001:2.0)
+    end
+
+    if x > f.max_x
         return f.max_y
     end
 
     y::Float32 = exp(f.poly(log(x)))
     if y > f.max_y
+        # Constrain to max observed size
         return f.max_y
     end
 
