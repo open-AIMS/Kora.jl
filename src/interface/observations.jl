@@ -332,7 +332,7 @@ function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
         df[test_sample, TEST_CLASS] .= i
 
         obs = collect(skipmissing(df[train_sample, :surv]))
-        samp_strat = BalancedSampling(length(obs) ÷ 2)
+        samp_strat = BalancedSampling(1000)
         train_mean = bootstrap(
             mean,
             obs,
@@ -347,7 +347,6 @@ function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
         df[train_sample, TRAIN_CLASS_STD_ID] .= train_std.t0[1]
 
         obs = collect(skipmissing(df[test_sample, :surv]))
-        samp_strat = BalancedSampling(length(obs) ÷ 2)
         test_mean = bootstrap(
             mean,
             obs,
