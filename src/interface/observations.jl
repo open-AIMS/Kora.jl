@@ -223,7 +223,6 @@ function standardize_ecorrap_data!(df::DataFrame)::DataFrame
     df[df.cluster.=="offshore_central", :cluster] .= "offshore_central"
     df[df.cluster.=="offshore_southern", :cluster] .= "offshore_south"
 
-
     return df
 end
 
@@ -236,6 +235,7 @@ end
         reef_name::Union{String,Nothing}=nothing
     )
 
+# Arguments
 - `target` : Target functional group to collate data for
 - `group_map` : Identified mapping between species and the functional group
 - `src_gdf` : Data grouped for each taxa and cluster
