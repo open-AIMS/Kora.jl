@@ -271,6 +271,8 @@ function collate_functional_groups(
         res = reduce(vcat, src_gdf[(code, cluster_name, reef_name)] for code in valid_codes)
     end
 
+    res[!, :Cscape_group] .= target
+
     return res
 end
 
