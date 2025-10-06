@@ -139,5 +139,10 @@ function (f::PolyGrowthFunction)(x::T)::T where T<:AbstractFloat
     return y
 end
 
-# Load default growth models
-growth_models = deserialize(joinpath(ASSET_DIR, "models", "Offshore_Northern_growth_models.dat"))
+growth_models = try
+    # Load default growth models
+    deserialize(joinpath(ASSET_DIR, "models", "offshore_north_growth_models.dat"))
+catch
+    @warn "Pre-defined growth models could not be loaded."
+    nothing
+end
