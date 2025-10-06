@@ -324,9 +324,21 @@ function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
         class_sample = findall(df[!, BIN_ID] .== i)
         n_obs = length(class_sample)
         n_train_sample = floor(Int64, n_obs * 0.6)
-        # test_sample = 1.0 - train_sample
 
-        train_sample = sample(rng, class_sample, n_train_sample)
+        train_sample = sample(rng, class_sample, n_train_sample, replace=false)
+
+        # Ensure largest obs in this bin is in the training sample
+        idx_of_largest = argmax(df[df[!, BIN_ID].==i, :diam])
+        if idx_of_largest ∉ train_sample
+            append!(train_sample, idx_of_largest)
+        end
+
+        # Ensure smallest obs in this bin is in the training sample
+        idx_of_smallest = argmin(df[df[!, BIN_ID].==i, :diam])
+        if idx_of_smallest ∉ train_sample
+            append!(train_sample, idx_of_smallest)
+        end
+
         test_sample = setdiff(class_sample, train_sample)
         df[train_sample, TRAIN_CLASS] .= i
         df[test_sample, TEST_CLASS] .= i
