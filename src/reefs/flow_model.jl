@@ -104,7 +104,8 @@ function run_example!(
     n_grps::Int64 = n_groups(reef_state)
 
     # Assumed proportion of larvae contributing to coral recruitment
-    recruitment_proportion = 0.07f0
+    recruitment_proportion = 0.06f0
+    self_seeding_proportion = 0.3f0
 
     # Deployment per group
     # Assuming a 200m study area, this comes to ~7 deployments per m²
@@ -157,6 +158,7 @@ function run_example!(
             # external larvae, but that narrative is not internally consistent...
             # Scale recruitment by cover proportion
             prod = larval_production(reef_state, maturity_thresholds, prev_ts, loc, grp)
+            prod = prod * self_seeding_proportion * recruitment_proportion
 
             # Only allow recruitment if density threshold has not been reached
             # Note this is natural recruitment. Deployments are handled separately.
@@ -164,10 +166,13 @@ function run_example!(
             avail_d_for_recruitment = all_pop < total_possible_colonies[loc]
             if avail_d_for_recruitment
                 available_space = max(carrying_cap[loc] - total_covers[loc], 0.0)
+                prod = (prod / reef_state.carrying_capacity[loc]) * available_space
                 # n% of produced larvae arrive and a proportion (based on available area)
                 # of these can settle
-                # available_prop = available_space / carrying_cap[loc]
-                settlement_prop = min.((available_space * 50), prod * recruitment_proportion)
+                settlement_prop = min.(
+                    (available_space * 50),
+                    prod
+                )
                 n_loc_recruits = floor(Int64, settlement_prop)
             else
                 n_loc_recruits = 0
