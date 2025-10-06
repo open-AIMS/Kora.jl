@@ -288,7 +288,7 @@ function process_ecorrap_models(
     output_dir::String=".",
     plot_validation::Bool=false,
     target_groups::Vector{String}=CoralFlow.TARGET_GROUPS,
-    n_bins=10,
+    n_bins=15,
     rng::AbstractRNG=Random.GLOBAL_RNG
 )
     # Set up shared random number generator
