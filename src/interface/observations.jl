@@ -327,6 +327,7 @@ function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
         n_obs = length(class_sample)
         n_train_sample = floor(Int64, n_obs * 0.6)
 
+        # For test/train splitting, we do *not* want to sample with replacement.
         train_sample = sample(rng, class_sample, n_train_sample, replace=false)
 
         # Ensure largest obs in this bin is in the training sample
