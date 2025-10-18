@@ -52,7 +52,7 @@ function process_growth_models(
     region::String="Offshore_Central",
     reef::Union{String,Nothing}=nothing,
     degree::Int64=2,
-    plot_validation::Bool=true,
+    plot_validation::Bool=false,
     save_model::Bool=true,
     output_dir::String=".",
     target_groups::Union{Vector,Nothing}=nothing,
@@ -305,6 +305,7 @@ function process_ecorrap_models(
         seed=seed,
         save_model=save_models,
         output_dir=output_dir,
+        plot_validation=plot_validation,
         target_groups=target_groups,
         n_bins=n_bins,
         rng=rng

@@ -80,7 +80,6 @@ function CoralFlow.viz.growth_performance_plots(
         score_text = build_metric_display(model_fits.performance.train, group_id)
         train_title = "$(target_groups[group_id])\nTraining Data\n$(score_text)"
 
-        # Main.@infiltrate
         model = model_fits[group_id]
         plt_train = scatterplot(yi; title=train_title)
         lineplot!(plt_train, [model(Float64(i)) for i in xi])
