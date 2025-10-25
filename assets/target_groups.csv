@@ -1,6 +1,6 @@
-functional_group
-acro_table
-acro_corym
-corym_non_acro
-small_massive
-large_massive
+functional_group, group_name
+acro_table, "tabular Acropora"
+acro_corym, "corymbose Acropora"
+corym_non_acro, "corymbose non-Acropora"
+small_massive, "Small Massives"
+large_massive, "Large Massives"
