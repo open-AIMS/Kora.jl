@@ -350,27 +350,37 @@ end
 """
 Helper function to save growth model to disk.
 """
-function _save_growth_model(growth_fits, output_dir::String; fn::String="growth_models")
+function _save_growth_model(
+    growth_fits, output_dir::String; fn::String="growth_models"
+)::Nothing
     growth_path = _make_filepath(output_dir, fn)
 
     @info "Saving growth models to: $growth_path"
     serialize(growth_path, growth_fits)
+
+    return nothing
 end
 
 """
 Helper function to save survival model to disk.
 """
-function _save_survival_model(surv_fits, output_dir::String; fn::String="survival_models")
+function _save_survival_model(
+    surv_fits, output_dir::String; fn::String="survival_models"
+)::Nothing
     survival_path = _make_filepath(output_dir, fn)
 
     @info "Saving survival models to: $survival_path"
     serialize(survival_path, surv_fits)
+
+    return nothing
 end
 
 """
 Helper function to save both models to disk.
 """
-function _save_models(growth_fits, surv_fits, output_dir::Union{String,Nothing})
+function _save_models(growth_fits, surv_fits, output_dir::Union{String,Nothing})::Nothing
     _save_growth_model(growth_fits, output_dir)
     _save_survival_model(surv_fits, output_dir)
+
+    return nothing
 end
