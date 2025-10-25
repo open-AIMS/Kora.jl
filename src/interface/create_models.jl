@@ -55,19 +55,14 @@ function process_growth_models(
     plot_validation::Bool=false,
     save_model::Bool=true,
     output_dir::String=".",
-    target_groups::Union{Vector,Nothing}=nothing,
+    target_groups::Union{Vector,Nothing}=CoralFlow.TARGET_GROUPS,
     n_bins::Int64=10,
     seed::Int64=101,
     rng::Union{AbstractRNG,Nothing}=nothing
 )
-    # Set up random number generator
-    if rng === nothing
+    # Set up random number generator if not provided
+    if isnothing(rng)
         rng = Random.seed!(seed)
-    end
-
-    # Use default target groups if not provided
-    if target_groups === nothing
-        target_groups = CoralFlow.TARGET_GROUPS
     end
 
     # Load and process EcoRRAP data
@@ -91,7 +86,9 @@ function process_growth_models(
 
     # Organize functional groups
     @info "Organizing functional groups for region: $region"
-    growth_groupings = organize_functional_groups(target_groups, functional_group_map, growth_gdf, region; reef, n_bins)
+    growth_groupings = organize_functional_groups(
+        target_groups, functional_group_map, growth_gdf, region; reef, n_bins
+    )
 
     # Fit models
     @info "Fitting growth models (degree=$degree)..."
@@ -196,12 +193,16 @@ function process_survival_models(
 
     # Load functional group mapping
     @info "Loading functional group mapping from: $functional_group_file"
-    functional_group_map = CSV.read(functional_group_file, DataFrame; missingstring=missing_entries)
+    functional_group_map = CSV.read(
+        functional_group_file, DataFrame; missingstring=missing_entries
+    )
     functional_group_map.Code .= String.(functional_group_map.Code)
 
     # Organize functional groups
     @info "Organizing functional groups for region: $region"
-    surv_groupings = organize_functional_groups(target_groups, functional_group_map, survival_gdf, region; reef, n_bins)
+    surv_groupings = organize_functional_groups(
+        target_groups, functional_group_map, survival_gdf, region; reef, n_bins
+    )
 
     # Fit models
     @info "Fitting survival models (degree=$degree)..."
@@ -210,7 +211,9 @@ function process_survival_models(
     # Generate validation plots if requested and extension is available
     if plot_validation && (length(methods(CoralFlow.viz.survival_performance_plots)) > 0)
         @info "Generating validation plots..."
-        CoralFlow.viz.survival_performance_plots(surv_groupings, surv_fits; target_groups=target_groups)
+        CoralFlow.viz.survival_performance_plots(
+            surv_groupings, surv_fits; target_groups=target_groups
+        )
     end
 
     # Save model if requested
