@@ -102,16 +102,20 @@ function adaptive_min_sample_binning(data::Vector, min_samples::Int64)::Vector{I
     # Assign samples to bins sequentially
     current_position = 1
 
-    for bin_idx in 1:n_bins
-        # Distribute remainder samples across last few bins
-        bin_size = target_size + (bin_idx <= remainder ? 1 : 0)
+    if remainder == 0
+        bin_size = target_size
+    end
 
-        # Assign the next bin_size samples to this bin
-        for i in 1:bin_size
-            original_index = sorted_indices[current_position]
-            bin_assignments[original_index] = bin_idx
-            current_position += 1
+    for bin_idx in 1:n_bins
+        if remainder != 0
+            # Distribute remainder samples across first few bins
+            bin_size = target_size + (bin_idx <= remainder ? 1 : 0)
         end
+
+        # Assign samples to this bin
+        this_bin = sorted_indices[current_position:(current_position + bin_size - 1)]
+        bin_assignments[this_bin] .= bin_idx
+        current_position = (current_position + bin_size)
     end
 
     return bin_assignments
