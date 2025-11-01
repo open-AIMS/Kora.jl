@@ -82,7 +82,11 @@ function adaptive_min_sample_binning(data::Vector, min_samples::Int64)::Vector{I
 
     # Handle edge case where we can't create any bins
     if n_bins == 0
-        throw(ArgumentError("Not enough data points for minimum bin size. Need at least $min_samples samples, got $n"))
+        throw(
+            ArgumentError(
+                "Not enough data points for minimum bin size. Need at least $min_samples samples, got $n"
+            )
+        )
     end
 
     # Now we know n_bins, we can use similar logic to your original function
@@ -136,7 +140,7 @@ function get_growth_entries(
 
     # Remove missing and unused data
     growth_data::DataFrame = raw_data[
-        growth_mask.&&survived_mask.&&non_missing_size_mask, :
+        growth_mask .&& survived_mask .&& non_missing_size_mask, :
     ]
 
     # Add diameter column and diameter Next column
@@ -202,7 +206,6 @@ function get_survival_entries(
     return survival_data
 end
 
-
 function standardize_ecorrap_data!(df::DataFrame)::DataFrame
     # Make all columns lowercase
     rename!(df, Dict(n => lowercase(n) for n in names(df)))
@@ -219,9 +222,9 @@ function standardize_ecorrap_data!(df::DataFrame)::DataFrame
 
     # Handle differences between ecorrap data and other combined datasets.
     df.cluster = lowercase.(df.cluster)
-    df[df.cluster.=="offshore_northern", :cluster] .= "offshore_north"
-    df[df.cluster.=="offshore_central", :cluster] .= "offshore_central"
-    df[df.cluster.=="offshore_southern", :cluster] .= "offshore_south"
+    df[df.cluster .== "offshore_northern", :cluster] .= "offshore_north"
+    df[df.cluster .== "offshore_central", :cluster] .= "offshore_central"
+    df[df.cluster .== "offshore_southern", :cluster] .= "offshore_south"
 
     return df
 end
@@ -255,9 +258,13 @@ function collate_functional_groups(
 
     # Filter for only group codes that exist
     if isnothing(reef_name)
-        valid_codes = filter(code -> haskey(src_gdf, (code, cluster_name)), valid_group_codes)
+        valid_codes = filter(
+            code -> haskey(src_gdf, (code, cluster_name)), valid_group_codes
+        )
     else
-        valid_codes = filter(code -> haskey(src_gdf, (code, cluster_name, reef_name)), valid_group_codes)
+        valid_codes = filter(
+            code -> haskey(src_gdf, (code, cluster_name, reef_name)), valid_group_codes
+        )
     end
 
     if isempty(valid_codes)
@@ -299,7 +306,11 @@ function organize_functional_groups(
     rng::AbstractRNG=Random.default_rng()
 )::OrderedDict
     groupings = OrderedDict(
-        fg => train_test_split!(collate_functional_groups(fg, group_map, gdf, cluster_name; reef_name=reef), n_bins; rng)
+        fg => train_test_split!(
+            collate_functional_groups(fg, group_map, gdf, cluster_name; reef_name=reef),
+            n_bins;
+            rng
+        )
         for fg in target_groups
     )
 
@@ -328,16 +339,16 @@ function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
         n_train_sample = floor(Int64, n_obs * 0.6)
 
         # For test/train splitting, we do *not* want to sample with replacement.
-        train_sample = sample(rng, class_sample, n_train_sample, replace=false)
+        train_sample = sample(rng, class_sample, n_train_sample; replace=false)
 
         # Ensure largest obs in this bin is in the training sample
-        idx_of_largest = argmax(df[df[!, BIN_ID].==i, :diam])
+        idx_of_largest = argmax(df[df[!, BIN_ID] .== i, :diam])
         if idx_of_largest ∉ train_sample
             append!(train_sample, idx_of_largest)
         end
 
         # Ensure smallest obs in this bin is in the training sample
-        idx_of_smallest = argmin(df[df[!, BIN_ID].==i, :diam])
+        idx_of_smallest = argmin(df[df[!, BIN_ID] .== i, :diam])
         if idx_of_smallest ∉ train_sample
             append!(train_sample, idx_of_smallest)
         end
