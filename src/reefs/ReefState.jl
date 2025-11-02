@@ -1,6 +1,5 @@
 const SEL = Union{Int64,Colon}  # Defined selector type
 
-
 struct ReefState{
     F<:AbstractFloat,
     P<:Function,
@@ -30,7 +29,7 @@ struct ReefState{
 end
 
 function Base.show(io::IO, ::MIME"text/plain", x::ReefState)
-    println(io, "TODO: Nice printing of ReefState")
+    return println(io, "TODO: Nice printing of ReefState")
 end
 
 @inline function n_timesteps(reef_state::ReefState)::Int64
@@ -89,13 +88,22 @@ end
     return t
 end
 
-function fill_population_buffer!(reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64, recruits::Vector{Float32}, pop_buffer::AbstractVector{Float32})::Nothing
+function fill_population_buffer!(
+    reef_state::ReefState,
+    ts::Int64,
+    loc::Int64,
+    grp::Int64,
+    recruits::Vector{Float32},
+    pop_buffer::AbstractVector{Float32}
+)::Nothing
     n_wild = total_wild(reef_state, ts, loc, grp)
     pop_buffer[1:n_wild] .= wild_population(reef_state, ts, loc, grp)
 
     n_deployed = total_deployed(reef_state, ts, loc, grp)
     if n_deployed > 0
-        pop_buffer[n_wild+1:n_wild+n_deployed] .= deployed_population(reef_state, ts, loc, grp)
+        pop_buffer[(n_wild + 1):(n_wild + n_deployed)] .= deployed_population(
+            reef_state, ts, loc, grp
+        )
     end
 
     n_recruits = length(recruits)
@@ -103,9 +111,10 @@ function fill_population_buffer!(reef_state::ReefState, ts::Int64, loc::Int64, g
         total_n = n_wild + n_deployed + n_recruits
         if total_n > length(pop_buffer)
             rec_n = length(pop_buffer) - (n_wild + n_deployed)
-            pop_buffer[n_wild+n_deployed+1:end] .= recruits[1:rec_n]
+            pop_buffer[(n_wild + n_deployed + 1):end] .= recruits[1:rec_n]
         else
-            pop_buffer[n_wild+n_deployed+1:n_wild+n_deployed+n_recruits] .= recruits
+            pop_buffer[(n_wild + n_deployed + 1):(n_wild + n_deployed + n_recruits)] .=
+                recruits
         end
     end
 
@@ -132,18 +141,26 @@ end
     return wild + deployed
 end
 
-@inline function wild_population(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::SubArray
+@inline function wild_population(
+    reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL
+)::SubArray
     return @inbounds @views reef_state.wild_population[ts, loc, grp][:]
 end
 
-@inline function deployed_population(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::SubArray
+@inline function deployed_population(
+    reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL
+)::SubArray
     return @inbounds @views reef_state.deployed_population[ts, loc, grp][:]
 end
 
-@inline function coral_population(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::SubArray
+@inline function coral_population(
+    reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL
+)::SubArray
     return coral_population!(reef_state, ts, loc, grp, reef_state._pop_cache[loc, :])
 end
-function coral_population!(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL, cache::AbstractVector)::SubArray
+function coral_population!(
+    reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL, cache::AbstractVector
+)::SubArray
     # TODO: Handle request for sets of groups or locations
     n_wild = total_wild(reef_state, ts, loc, grp)
     n_deployed = total_deployed(reef_state, ts, loc, grp)
@@ -151,36 +168,48 @@ function coral_population!(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL, c
     cache[1:n_wild] .= wild_population(reef_state, ts, loc, grp)
 
     if n_deployed > 0
-        cache[n_wild+1:n_wild+n_deployed] .= deployed_population(reef_state, ts, loc, grp)
+        cache[(n_wild + 1):(n_wild + n_deployed)] .= deployed_population(
+            reef_state, ts, loc, grp
+        )
     end
 
-    return @inbounds @view(cache[1:(n_wild+n_deployed)])
+    return @inbounds @view(cache[1:(n_wild + n_deployed)])
 end
 
-function update_wild_sample!(reef_state::ReefState, ts::SEL, loc::SEL, group::SEL, pop::AbstractVector)::Nothing
+function update_wild_sample!(
+    reef_state::ReefState, ts::SEL, loc::SEL, group::SEL, pop::AbstractVector
+)::Nothing
     @inbounds reef_state.wild_population[ts, loc, group] = pop
 
     return nothing
 end
 
-function update_deployed_sample!(reef_state::ReefState, ts::SEL, loc::SEL, group::SEL, pop::AbstractVector)::Nothing
+function update_deployed_sample!(
+    reef_state::ReefState, ts::SEL, loc::SEL, group::SEL, pop::AbstractVector
+)::Nothing
     @inbounds reef_state.deployed_population[ts, loc, group] = pop
 
     return nothing
 end
 
-function update_dhw_tol_mean!(reef_state::ReefState, ts::Int64, grp::Int64, vals::AbstractVector{Float32})::Nothing
+function update_dhw_tol_mean!(
+    reef_state::ReefState, ts::Int64, grp::Int64, vals::AbstractVector{Float32}
+)::Nothing
     reef_state.wild_dhw_tolerances.data[ts, :, grp, 1] = vals
 
     return nothing
 end
-function update_dhw_tol_mean!(reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64, val::Float32)::Nothing
+function update_dhw_tol_mean!(
+    reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64, val::Float32
+)::Nothing
     reef_state.wild_dhw_tolerances.data[ts, loc, grp, 1] = val
 
     return nothing
 end
 
-function update_dhw_tol_std!(reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64, val::Float32)::Nothing
+function update_dhw_tol_std!(
+    reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64, val::Float32
+)::Nothing
     reef_state.wild_dhw_tolerances.data[ts, loc, grp, 2] = val
 
     return nothing
@@ -217,7 +246,7 @@ function initialize_reef(;
         Dim{:timestep}(1:n_timesteps),
         Dim{:location}(1:n_locs),
         Dim{:group}(group_names),
-        Dim{:factor}([:mean, :stdev]),
+        Dim{:factor}([:mean, :stdev])
     )
     wild_dhw_tol = YAXArray(dhw_ax, zeros(Float32, n_timesteps, n_locs, n_groups, 2))
     deployed_dhw_tol = YAXArray(dhw_ax, zeros(Float32, n_timesteps, n_locs, n_groups, 2))
@@ -229,7 +258,9 @@ function initialize_reef(;
         Dim{:group}(group_names),
         Dim{:mortality}(mort_names)
     )
-    mort = YAXArray(mort_ax, zeros(Float32, n_timesteps, n_locs, n_groups, length(mort_names)))
+    mort = YAXArray(
+        mort_ax, zeros(Float32, n_timesteps, n_locs, n_groups, length(mort_names))
+    )
 
     if !(depths isa Vector)
         depths = fill(depths, n_locs)
@@ -244,7 +275,11 @@ function initialize_reef(;
     if area isa Real
         area = fill(Float32(area), n_locs)
     elseif !(area isa Vector{<:Real})
-        throw(ArgumentError("Area must be a single value or a vector indicating area of each location"))
+        throw(
+            ArgumentError(
+                "Area must be a single value or a vector indicating area of each location"
+            )
+        )
     end
 
     if density isa Integer
@@ -290,7 +325,7 @@ function reset!(reef_state::ReefState)
     reef_state.deployed_population[2:end, :, :] .= [Float32[]]
 
     reef_state.wild_dhw_tolerances[2:end, :, :, 1] .= 0.0f0
-    reef_state.deployed_dhw_tolerances[2:end, :, :, 1] .= 0.0f0
+    return reef_state.deployed_dhw_tolerances[2:end, :, :, 1] .= 0.0f0
 end
 
 function size_distribution()::Vector{LogNormal}
@@ -334,7 +369,7 @@ function initialize_coral_population!(
     rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
     # Verify proportions sum to 1
-    if !isapprox(sum(group_proportions), 1.0f0, atol=1e-6)
+    if !isapprox(sum(group_proportions), 1.0f0; atol=1e-6)
         throw(ArgumentError("Group proportions must sum to 1.0"))
     end
 
@@ -396,7 +431,18 @@ function deploy_corals!(reef_state, ts, loc, n, grp; rng=Random.GLOBAL_RNG)
     dist = truncated(size_dist, 0.0, maximum(edges[grp, :]))
     deploy_sample = convert.(Float32, rand(rng, dist, n))
 
-    update_deployed_sample!(reef_state, ts, loc, grp, deploy_sample)
+    return update_deployed_sample!(reef_state, ts, loc, grp, deploy_sample)
+end
+
+function update_pop_cache!(reef_state, current_diams, loc)::Nothing
+    next_pop = @view(reef_state._pop_cache[loc, :])
+
+    reef_state._pop_cache[loc, 1:length(current_diams)] .= current_diams
+    if length(current_diams) < length(next_pop)
+        next_pop[(length(current_diams) + 1):end] .= 0.0f0
+    end
+
+    return nothing
 end
 
 """
@@ -422,14 +468,12 @@ function resample_wild_population!(
     rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
     next_pop = @view(reef_state._pop_cache[loc, :])
-    max_sample_size = Int64(reef_state.carrying_capacity[loc] * reef_state.density[loc]) * 20
+    max_sample_size =
+        Int64(reef_state.carrying_capacity[loc] * reef_state.density[loc]) * 20
 
     # If population is below max sample size, keep everything
     if length(diams) <= max_sample_size
-        next_pop[1:length(diams)] .= diams
-        if length(diams) < max_sample_size
-            next_pop[(length(diams)+1):end] .= 0.0f0
-        end
+        update_pop_cache!(reef_state, diams)
     else
         # Only resample if we exceed max sample size
         # Use size-stratified sampling to maintain size distribution
@@ -443,11 +487,13 @@ function resample_wild_population!(
         end
 
         # Sample proportionally to maintain size structure
-        sampled_idx = sample(rng, 1:length(diams), Weights(size_weights), max_sample_size, replace=false)
+        sampled_idx = sample(
+            rng, 1:length(diams), Weights(size_weights), max_sample_size; replace=false
+        )
         next_pop .= diams[sampled_idx]
     end
 
-    update_wild_sample!(reef_state, ts, loc, grp, next_pop[next_pop.>0.0])
+    update_wild_sample!(reef_state, ts, loc, grp, next_pop[next_pop .> 0.0])
 
     return nothing
 end
@@ -541,7 +587,7 @@ function generate_example_environment(
     noise_amplitude::Float32=0.9f0
 )::YAXArray
     # Calculate baseline parameters
-    years = range(start_year, length=n_years) .- start_year
+    years = range(start_year; length=n_years) .- start_year
 
     # Initialize vectors
     dhw_data = zeros(Float32, n_years, n_locations)
@@ -561,7 +607,8 @@ function generate_example_environment(
 
                 # Seasonal cycle with increasing amplitude over time
                 seasonal_scaling = 1.0f0 + 0.2f0 * (years[t] / years[end])
-                seasonal_cycle = seasonal_amplitude * seasonal_scaling * sin(2π * (t % 12) / 12)
+                seasonal_cycle =
+                    seasonal_amplitude * seasonal_scaling * sin(2π * (t % 12) / 12)
 
                 # Random weather variations with increased variability over time
                 weather_scaling = 1.0f0 + 0.3f0 * (years[t] / years[end])
@@ -575,7 +622,7 @@ function generate_example_environment(
                     spatial_offset
                 )
 
-                prev_dhw = t > 1 ? dhw_data[t-1, loc] : 0.0f0
+                prev_dhw = t > 1 ? dhw_data[t - 1, loc] : 0.0f0
 
                 # Convert temperature anomaly to DHW with potential acute events
                 if temp_anomaly > dhw_threshold
@@ -612,9 +659,11 @@ function generate_example_environment(
                         # Larger fluctuations in later years
                         time_factor = years[t] / years[end]
                         max_fluctuation = 4.0f0 + 2.0f0 * time_factor
-                        fluctuation = (rand(rng) - 0.5f0) * min(max_fluctuation, excess * 0.6f0)
+                        fluctuation =
+                            (rand(rng) - 0.5f0) * min(max_fluctuation, excess * 0.6f0)
 
-                        dhw_data[t, loc] = soft_cap + (excess * damping_factor) + fluctuation
+                        dhw_data[t, loc] =
+                            soft_cap + (excess * damping_factor) + fluctuation
                     else
                         dhw_data[t, loc] = raw_dhw
                     end
@@ -669,7 +718,7 @@ function generate_example_environment(
     # Variable axes
     v_axes = (
         Dim{:timestep}(1:n_years),
-        Dim{:location}(1:n_locations),
+        Dim{:location}(1:n_locations)
         # Dim{:var}([:year, :location])
     )
 
@@ -718,8 +767,8 @@ end
 Retrieve coral cover by group.
 """
 function group_cover(reef_state::ReefState)::Matrix{Float32}
-    tmp = sum(CoralFlow.cover_cm_to_m2.(reef_state.pop_sample).data, dims=(2, 4))
-    return dropdims(tmp, dims=(2, 4))
+    tmp = sum(CoralFlow.cover_cm_to_m2.(reef_state.pop_sample).data; dims=(2, 4))
+    return dropdims(tmp; dims=(2, 4))
 end
 
 """
@@ -741,7 +790,7 @@ function mature_coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
         pop = coral_population(reef_state, ts, loc, grp)
 
         # Sum cover of colonies above maturity threshold
-        mature_cover[loc, grp] = cover_cm_to_m2(pop[pop.>=thresholds[grp]])
+        mature_cover[loc, grp] = cover_cm_to_m2(pop[pop .>= thresholds[grp]])
     end
 
     return mature_cover
