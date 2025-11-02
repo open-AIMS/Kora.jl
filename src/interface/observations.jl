@@ -58,12 +58,12 @@ function adaptive_min_sample_binning(data::Vector, min_samples::Int64)::Vector{I
     # Create bin assignments for each original data point
     bin_assignments = Vector{Int64}(undef, n)
 
-    # Assign samples to bins sequentially
-    current_position = 1
-
     if remainder == 0
         bin_size = target_size
     end
+
+    # Assign samples to bins sequentially
+    current_position = 1
 
     for bin_idx in 1:n_bins
         if remainder != 0
