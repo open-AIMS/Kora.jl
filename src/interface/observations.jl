@@ -21,47 +21,6 @@ function area_to_diam(_::Missing)::Missing
 end
 
 """
-    simple_adaptive_binning(data::Vector, n_bins::Int)
-
-Naive approach to adaptive binning, attempts to put n / n_bins samples into each bin.
-
-Approach:
-1. Sort the data
-2. Sequentially assign samples to bins, targeting [n / n_bins] samples
-4. Distribute any remainder samples across the last few bins
-"""
-function simple_adaptive_binning(data::Vector, n_bins::Int64)::Vector{Int64}
-    n = length(data)
-
-    # Determine sampels per bin
-    target_size = n ÷ n_bins  # integer division
-    remainder = n % n_bins
-
-    # Get indices of sorted data
-    sorted_indices = sortperm(data)
-
-    # Create bin assignments for each original data point
-    bin_assignments = Vector{Int64}(undef, n)
-
-    # Assign samples to bins sequentially
-    current_position = 1
-
-    for bin_idx in 1:n_bins
-        # This bin gets target_size + 1 if it's one of the first 'remainder' bins
-        bin_size = target_size + (bin_idx <= remainder ? 1 : 0)
-
-        # Assign the next bin_size samples to this bin
-        for i in 1:bin_size
-            original_index = sorted_indices[current_position]
-            bin_assignments[original_index] = bin_idx
-            current_position += 1
-        end
-    end
-
-    return bin_assignments
-end
-
-"""
     adaptive_min_sample_binning(data::Vector, min_samples::Int64)::Vector{Int64}
 
 Adaptive binning based on minimum samples per bin.
