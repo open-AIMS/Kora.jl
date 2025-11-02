@@ -5,7 +5,9 @@ Calculate mixing proportions between wild and deployed populations based on thei
 
 Returns (wild_proportion, deployed_proportion)
 """
-function calculate_inheritance_proportions(reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64)::Tuple{Float32,Float32}
+function calculate_inheritance_proportions(
+    reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64
+)::Tuple{Float32,Float32}
     # Calculate cover for each population
     wild_pop = wild_population(reef_state, ts, loc, grp)
     deployed_pop = deployed_population(reef_state, ts, loc, grp)
@@ -86,7 +88,7 @@ function update_coral_tolerances!(
     new_grp_mean = Float32((recruit_mean * prop) + (prev_mean_mixed * (1.0 - prop)))
 
     # Update tolerances influenced by the new recruits
-    update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
+    return update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
 end
 
 """
@@ -187,7 +189,9 @@ function run_example!(
 
                 # Get "current" tolerance means
                 wild_mean = reef_state.wild_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
-                deployed_mean = reef_state.deployed_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
+                deployed_mean = reef_state.deployed_dhw_tolerances[
+                    prev_ts, loc, grp, At(:mean)
+                ]
 
                 reef_state.wild_dhw_tolerances[ts, loc, grp, At(:mean)] = wild_mean
                 reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = deployed_mean
@@ -209,10 +213,12 @@ function run_example!(
         for loc in 1:n_locs, grp in 1:n_grps
             pop_buffer .= 0.0f0  # Reset buffer
 
-            fill_population_buffer!(reef_state, prev_ts, loc, grp, recruits[loc, grp], pop_buffer)
+            fill_population_buffer!(
+                reef_state, prev_ts, loc, grp, recruits[loc, grp], pop_buffer
+            )
 
             # Diameters for entire population including recruits
-            with_recruits = pop_buffer[pop_buffer.>0.0f0]
+            with_recruits = pop_buffer[pop_buffer .> 0.0f0]
 
             # Background mortality
             # TODO: apply location specific survival scaler
@@ -245,7 +251,7 @@ function run_example!(
                 grp,
                 inflection_points[grp],
                 reef_state.wild_population[ts, :, grp],
-                total_covers ./ reef_state.carrying_capacity,
+                total_covers ./ reef_state.carrying_capacity
             )
 
             # Update total cover
@@ -257,7 +263,7 @@ function run_example!(
                 grp,
                 inflection_points[grp],
                 reef_state.deployed_population[ts, :, grp],
-                total_covers ./ reef_state.carrying_capacity,
+                total_covers ./ reef_state.carrying_capacity
             )
 
             # Update total cover
