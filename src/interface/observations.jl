@@ -304,17 +304,17 @@ function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
         # For test/train splitting, we do *not* want to sample with replacement.
         train_sample = sample(rng, class_sample, n_train_sample; replace=false)
 
-        # Ensure largest obs in this bin is in the training sample
-        idx_of_largest = argmax(df[df[!, BIN_ID] .== i, :diam])
-        if idx_of_largest ∉ train_sample
-            append!(train_sample, idx_of_largest)
-        end
+        # # Ensure largest obs in this bin is in the training sample
+        # idx_of_largest = argmax(df[df[!, BIN_ID] .== i, :diam])
+        # if idx_of_largest ∉ train_sample
+        #     append!(train_sample, idx_of_largest)
+        # end
 
-        # Ensure smallest obs in this bin is in the training sample
-        idx_of_smallest = argmin(df[df[!, BIN_ID] .== i, :diam])
-        if idx_of_smallest ∉ train_sample
-            append!(train_sample, idx_of_smallest)
-        end
+        # # Ensure smallest obs in this bin is in the training sample
+        # idx_of_smallest = argmin(df[df[!, BIN_ID] .== i, :diam])
+        # if idx_of_smallest ∉ train_sample
+        #     append!(train_sample, idx_of_smallest)
+        # end
 
         test_sample = setdiff(class_sample, train_sample)
         df[train_sample, TRAIN_CLASS] .= i
