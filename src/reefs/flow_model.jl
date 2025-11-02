@@ -144,6 +144,7 @@ function run_example!(
     # Clear any existing results
     reset!(reef_state)
 
+    # TODO: Refactor into `run_timestep()`
     for ts in timesteps[2:end]
         prev_ts = ts - 1
 
@@ -240,7 +241,14 @@ function run_example!(
 
             # Apply stratified sampling to maintain tracking of corals at expected
             # max density.
-            resample_wild_population!(reef_state, ts, loc, grp, with_recruits, class_diams[grp])
+            # Now unnecessary as we're constraining to max density anyway
+            # resample_wild_population!(
+            #     reef_state, ts, loc, grp, with_recruits, class_diams[grp]
+            # )
+            update_pop_cache!(reef_state, with_recruits, loc)
+
+            next_pop = @view(reef_state._pop_cache[loc, :])
+            update_wild_sample!(reef_state, ts, loc, grp, next_pop[next_pop .> 0.0])
         end
 
         # Survivers grow...
