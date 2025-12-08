@@ -218,14 +218,14 @@ end
 function initialize_reef(;
     n_timesteps=75,
     n_locs=100,
-    n_groups=5,
+    group_names=CoralFlow.TARGET_GROUPS,
     density::Union{Int64,Vector{Int64}}=25,  # Density per unit area
     area=90.0,
     depths::Union{Float64,Vector{Float64}}=9.0,
     growth_models::AbstractCoralBehavior=CoralFlow.growth_models,
     survival_models::AbstractCoralBehavior=CoralFlow.survival_models
 )
-    group_names = Symbol.(["group$(i)" for i in 1:n_groups])
+    n_groups = length(group_names)
 
     loc_ax = (
         Dim{:scaler}([:growth, :mortality]),
@@ -366,15 +366,13 @@ function initialize_coral_population!(
     loc::Int64,
     target_pop_size::Int64;
     group_proportions::Vector{Float32}=[0.1f0, 0.2f0, 0.25f0, 0.2f0, 0.25f0],
+    size_dist=size_distribution(),
     rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
     # Verify proportions sum to 1
     if !isapprox(sum(group_proportions), 1.0f0; atol=1e-6)
         throw(ArgumentError("Group proportions must sum to 1.0"))
     end
-
-    # Keep the same size distributions as before
-    size_dist = size_distribution()
 
     edges = bin_edges()
     for grp in 1:n_groups(reef_state)

@@ -14,7 +14,9 @@ Modify susceptibility of corals to bleaching as a function of its diameter.
 function bleaching_susceptibility(x::F; k::F=0.15f0, x0::F=150.0f0)::F where {F<:Float32}
     return 1.0f0 / (1.0f0 + _euler_f32^(k * (x - x0)))
 end
-function bleaching_susceptibility!(x::AbstractArray{F}, cache::AbstractArray{F}; k::F=0.15f0, x0::F=150.0f0)::Nothing where {F<:Float32}
+function bleaching_susceptibility!(
+    x::AbstractArray{F}, cache::AbstractArray{F}; k::F=0.15f0, x0::F=150.0f0
+)::Nothing where {F<:Float32}
     Threads.@threads for i in eachindex(x, cache)
         @inbounds cache[i] = bleaching_susceptibility(x[i]; k=k, x0=x0)
     end
@@ -139,14 +141,18 @@ function survival!(model::M, diam::AbstractVector{Float32})::Nothing where {M}
 end
 
 function log_likelihood(y_true, y_pred)
-    return sum(y_true .* log.(y_pred .+ eps(Float32)) .+
-               (1 .- y_true) .* log.(1 .- y_pred .+ eps(Float32)))
+    return sum(
+        y_true .* log.(y_pred .+ eps(Float32)) .+
+        (1 .- y_true) .* log.(1 .- y_pred .+ eps(Float32))
+    )
 end
 
 function null_log_likelihood(y_true)
     p_null = mean(y_true)
-    return sum(y_true .* log(p_null) .+
-               clamp.(1 .- y_true, 0.0, 1.0) .* log(clamp.(1 .- p_null, 0.0, 1.0)))
+    return sum(
+        y_true .* log(p_null) .+
+        clamp.(1 .- y_true, 0.0, 1.0) .* log(clamp.(1 .- p_null, 0.0, 1.0))
+    )
 end
 
 function mcfadden_r2(y_true, y_pred)
@@ -198,8 +204,12 @@ function Base.show(io::IO, ::MIME"text/plain", x::LogisticSurvivalModel)
     for i in eachindex(x.models)
         println(io, "\nGroup: $(group_names[i])")
         println(io, "RMSE:     $(Printf.@sprintf("%.3f", x.rmse_scores[i]))")
-        println(io, "McFadden's R²:     $(Printf.@sprintf("%.3f", x.mcfadden_r2_scores[i]))")
-        println(io, "Log Likelihood:     $(Printf.@sprintf("%.3f", x.log_likelihood_scores[i]))")
+        println(
+            io, "McFadden's R²:     $(Printf.@sprintf("%.3f", x.mcfadden_r2_scores[i]))"
+        )
+        println(
+            io, "Log Likelihood:     $(Printf.@sprintf("%.3f", x.log_likelihood_scores[i]))"
+        )
         println(io, "Brier Score:       $(Printf.@sprintf("%.3f", x.brier_scores[i]))")
 
         # println(io, "\nConfusion Matrix (threshold = $(x.thresholds[i])):")
@@ -226,8 +236,10 @@ struct PolySurvivalFunction{T<:AbstractFloat} <: Function
     max_y::T
     poly::Polynomial
 
-    function PolySurvivalFunction(xi::Vector{T}, yi::Vector{T}, poly::Polynomial) where T<:AbstractFloat
-        new{T}(xi[1], yi[1], xi[end], yi[end], poly)
+    function PolySurvivalFunction(
+        xi::Vector{T}, yi::Vector{T}, poly::Polynomial
+    ) where T<:AbstractFloat
+        return new{T}(xi[1], yi[1], xi[end], yi[end], poly)
     end
 end
 
@@ -235,7 +247,6 @@ end
 function (f::PolySurvivalFunction)(x::T)::Float32 where T<:AbstractFloat
     return clamp(f.poly(log(x)), 0.0f0, 1.0f0)
 end
-
 
 """
     PolySurvivalModel <: AbstractCoralBehavior
@@ -284,7 +295,7 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolySurvivalModel)
         x.names,
         performances
     )
-    pretty_table(
+    return pretty_table(
         io, data;
         header=["Group", perf_headers...]
     )

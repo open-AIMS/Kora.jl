@@ -25,10 +25,10 @@ end
 
 Adaptive binning based on minimum samples per bin.
 Determines the number of bins based on ensuring each bin has at least
-min_samples_per_bin samples.
+`min_samples_per_bin` samples.
 
 Approach:
-1. Calculate maximum possible bins: n ÷ min_samples_per_bin
+1. Calculate maximum possible bins: n ÷ `min_samples_per_bin`
 2. Sort the data
 3. Sequentially assign samples to bins, ensuring minimum sample requirement
 4. Distribute any remainder samples across bins to balance them
@@ -81,28 +81,27 @@ function adaptive_min_sample_binning(data::Vector, min_samples::Int64)::Vector{I
 end
 
 """
-    get_growth_entries(raw_data::DataFrame)::DataFrame
+    get_growth_entries(standardized_data::DataFrame)::DataFrame
 
-Prep data for growth modeling.
+Prep data for growth modeling based on data standardized to known format.
 
 Removes rows not related to the calculation of growth statistics and adds diameter, log
 diameter and linear extension columns to the datset of coral demographics.
 This method also marks each relevant row as train/test data.
 
 Note: This method is sufficient for the dataset with indicated date 2025-05-10.
-"""
-function get_growth_entries(
-    raw_data::DataFrame
-)::DataFrame
-    raw_data = standardize_ecorrap_data!(raw_data)
 
+See also:
+- `standardize_ecorrap_data!()`
+"""
+function get_growth_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
-    growth_mask = raw_data.growth_use .== "yes"
-    survived_mask = raw_data.survival_use .== "yes"
-    non_missing_size_mask = raw_data.size .!= "NA"
+    growth_mask = standardized_data.growth_use .== "yes"
+    survived_mask = standardized_data.survival_use .== "yes"
+    non_missing_size_mask = standardized_data.size .!= "NA"
 
     # Remove missing and unused data
-    growth_data::DataFrame = raw_data[
+    growth_data::DataFrame = standardized_data[
         growth_mask .&& survived_mask .&& non_missing_size_mask, :
     ]
 
@@ -127,38 +126,40 @@ function get_growth_entries(
 end
 
 """
-    get_survival_entries(raw_data::DataFrame)::DataFrame
+    get_survival_entries(standardized_data::DataFrame)::DataFrame
 
-Given the CSV from containing all entries of the coral demograph data, remove rows not
-related to the calculation of survival statistics and add diameter and log diameter columns.
-This method also marks each relevant row as train/test data.
+Given the standardized dataframe from containing all entries of the coral demograph data,
+remove rows not related to the calculation of survival statistics and add diameter and log
+diameter columns. This method also marks each relevant row as train/test data.
 
-Survival model is trained/calibrated on data found in the `sizenext`/`diamnext` columns.
+Survival model is trained/calibrated on data found in the `sizenext`/`diam_mort` columns.
 (i.e., observed size at mortality event).
-"""
-function get_survival_entries(
-    raw_data::DataFrame
-)::DataFrame
-    raw_data = standardize_ecorrap_data!(raw_data)
 
+See also:
+- `standardize_ecorrap_data!()`
+"""
+function get_survival_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
-    for_survival = raw_data[:, :survival_use] .== "yes"
+    for_survival = standardized_data[:, :survival_use] .== "yes"
     for_survival[ismissing.(for_survival)] .= 0
 
     # If data is "missing" in the sizenext column, fill with data in `size` column
-    # as we make survival predictions based on the data in `diamnext` (based on `sizenext`)
-    missing_sizenext = ismissing.(raw_data.sizenext)
-    raw_data[missing_sizenext, :sizenext] .= raw_data[missing_sizenext, :size]
+    # as we make survival predictions based on the data in `diam_mort` (based on `sizenext`)
+    # We fill entries that are "missing" with entries from `size`
+    missing_sizenext = ismissing.(standardized_data.sizenext)
+    standardized_data[missing_sizenext, :sizenext] .= standardized_data[
+        missing_sizenext, :size
+    ]
 
-    zero_size = raw_data.sizenext .== 0.0
-    raw_data[zero_size, :sizenext] .= raw_data[zero_size, :size]
+    zero_size = standardized_data.sizenext .== 0.0
+    standardized_data[zero_size, :sizenext] .= standardized_data[zero_size, :size]
 
     # Only keep data marked for use for survival regressions
-    survival_data::DataFrame = raw_data[for_survival, :]
+    survival_data::DataFrame = standardized_data[for_survival, :]
 
     # Insert diameter column
     survival_data[!, :diam] .= area_to_diam.(survival_data.size)
-    survival_data[!, :diamnext] .= area_to_diam.(survival_data.sizenext)
+    survival_data[!, :diam_mort] .= area_to_diam.(survival_data.sizenext)
 
     # Add log diameter column
     survival_data[!, :logdiam] .= log.(survival_data.diam)

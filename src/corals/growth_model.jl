@@ -89,7 +89,7 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolyGrowthModel)
         x.names,
         performances
     )
-    pretty_table(
+    return pretty_table(
         io, data;
         header=["Group", perf_headers...]
     )
@@ -114,8 +114,10 @@ struct PolyGrowthFunction{T<:AbstractFloat} <: Function
     max_y::T
     poly::Polynomial
 
-    function PolyGrowthFunction(xi::Vector{T}, yi::Vector{T}, poly::Polynomial) where T<:AbstractFloat
-        new{T}(xi[1], yi[1], xi[end], yi[end], poly)
+    function PolyGrowthFunction(
+        xi::Vector{T}, yi::Vector{T}, poly::Polynomial
+    ) where T<:AbstractFloat
+        return new{T}(xi[1], yi[1], xi[end], yi[end], poly)
     end
 end
 
@@ -130,7 +132,7 @@ function (f::PolyGrowthFunction)(x::T)::T where T<:AbstractFloat
         return f.max_y
     end
 
-    y::Float32 = exp(f.poly(log(x)))
+    y::Float32 = max(exp(f.poly(log(x))), x)
     if y > f.max_y
         # Constrain to max observed size
         return f.max_y

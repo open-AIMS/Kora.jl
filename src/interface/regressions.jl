@@ -22,6 +22,7 @@ function fit_growth_models(
 
         # Fit model
         m = curve_fit(Polynomial, log.(xi), log.(yi), degree)
+        # m = curve_fit(Polynomial, xi, yi, degree)
 
         # Create growth function
         model = PolyGrowthFunction(xi, yi, m)
@@ -84,9 +85,9 @@ function fit_survival_models(
 
         sub_df = df[df[!, TRAIN_CLASS] .> 0, :]
 
-        # Fit model based on observed size at time of mortality (`diamnext`)
-        x_idx = sortperm(sub_df.diamnext)
-        xi = sub_df.diamnext[x_idx]
+        # Fit model based on observed size at time of mortality (`diam_mort`)
+        x_idx = sortperm(sub_df.diam_mort)
+        xi = sub_df.diam_mort[x_idx]
         yi = sub_df[x_idx, TRAIN_CLASS_MEAN_ID]
 
         # Fit model
@@ -106,8 +107,8 @@ function fit_survival_models(
 
         # Repeat above for test data
         sub_df = df[df.class_test .> 0, :]
-        x_idx = sortperm(sub_df.diamnext)
-        xi = sub_df.diamnext[x_idx]
+        x_idx = sortperm(sub_df.diam_mort)
+        xi = sub_df.diam_mort[x_idx]
         yi = sub_df.class_test_mean[x_idx]
         prediction = model.(xi)
 

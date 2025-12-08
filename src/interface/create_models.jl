@@ -69,8 +69,17 @@ function process_growth_models(
     @info "Loading EcoRRAP data from: $ecorrap_data_file"
     ecorrap_data = CSV.read(ecorrap_data_file, DataFrame; missingstring="NA")
 
+    # Standardize data
+    ecorrap_data = standardize_ecorrap_data!(ecorrap_data)
+
     @info "Extracting growth entries..."
     ecorrap_growth = get_growth_entries(ecorrap_data)
+
+    if !isnothing(reef)
+        if reef ∉ ecorrap_growth.reef
+            throw(ArgumentError("Reef $reef not in provided data file"))
+        end
+    end
 
     # Group by taxa and cluster (and reef if provided)
     growth_gdf = if isnothing(reef)
@@ -102,7 +111,11 @@ function process_growth_models(
 
     # Save model if requested
     if save_model
-        _save_growth_model(growth_fits, output_dir; fn="$(region)_growth_models")
+        fn = "$(region)"
+        if !isnothing(reef)
+            fn *= "_$(reef)"
+        end
+        _save_growth_model(growth_fits, output_dir; fn="$(fn)_growth_models")
     end
 
     @info "Growth model processing complete!"
@@ -181,6 +194,9 @@ function process_survival_models(
     @info "Loading EcoRRAP data from: $ecorrap_data_file"
     ecorrap_data = CSV.read(ecorrap_data_file, DataFrame; missingstring=missing_entries)
 
+    # Standardize data
+    ecorrap_data = standardize_ecorrap_data!(ecorrap_data)
+
     @info "Extracting survival entries..."
     ecorrap_survival = get_survival_entries(ecorrap_data)
 
@@ -218,7 +234,11 @@ function process_survival_models(
 
     # Save model if requested
     if save_model
-        _save_survival_model(surv_fits, output_dir; fn="$(region)_survival_models")
+        fn = "$(region)"
+        if !isnothing(reef)
+            fn *= "_$(reef)"
+        end
+        _save_survival_model(surv_fits, output_dir; fn="$(fn)_survival_models")
     end
 
     @info "Survival model processing complete!"

@@ -97,7 +97,11 @@ end
 Run example with constant incoming larvae.
 """
 function run_example!(
-    reef_state::ReefState, env_conditions::YAXArray; rng::AbstractRNG=Random.GLOBAL_RNG
+    reef_state::ReefState,
+    env_conditions::YAXArray;
+    recruits=0.06f0,
+    self_seed=0.3f0,
+    rng::AbstractRNG=Random.GLOBAL_RNG
 )
     reset!(reef_state)
 
@@ -106,8 +110,8 @@ function run_example!(
     n_grps::Int64 = n_groups(reef_state)
 
     # Assumed proportion of larvae contributing to coral recruitment
-    recruitment_proportion = 0.06f0
-    self_seeding_proportion = 0.3f0
+    recruitment_proportion = recruits
+    self_seeding_proportion = self_seed
 
     # Deployment per group
     # Assuming a 200m study area, this comes to ~7 deployments per m²
@@ -156,9 +160,7 @@ function run_example!(
         for loc in 1:n_locs, grp in 1:n_grps
             # Some recruitment happens
             # Calculate across all locations and groups for time `ts`...
-            # TODO: Fix - massives tend to produce very large numbers of recruits
-            # even when the current population is tiny. Could assume these are
-            # external larvae, but that narrative is not internally consistent...
+
             # Scale recruitment by cover proportion
             prod = larval_production(reef_state, maturity_thresholds, prev_ts, loc, grp)
             prod = prod * self_seeding_proportion * recruitment_proportion
