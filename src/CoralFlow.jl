@@ -19,8 +19,7 @@ const ASSET_DIR = pkgdir(CoralFlow, "assets")
 include("stats.jl")
 include("metrics.jl")
 include("corals/corals.jl")
-include("reefs/ReefState.jl")
-include("reefs/flow_model.jl")
+include("reefs/Model.jl")
 include("interface/observations.jl")
 include("interface/regressions.jl")
 include("interface/create_models.jl")
@@ -70,6 +69,14 @@ export
 export
     fit_growth_models,
     fit_survival_models
+
+# Methods for calibration
+export
+    assign_scalers!,
+    set_population!,
+    run_example,
+    run_example!,
+    run_ensemble!
 
 # Auto-generate precompilation signatures
 @precompile_signatures(CoralFlow)

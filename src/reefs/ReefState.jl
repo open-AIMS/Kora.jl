@@ -176,6 +176,34 @@ function coral_population!(
     return @inbounds @view(cache[1:(n_wild + n_deployed)])
 end
 
+# Non-bootstrapped cover functions
+function group_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
+    n_grp = n_groups(reef_state)
+    means = zeros(Float32, n_grp)
+
+    for grp in 1:n_grp
+        for loc in 1:n_locations(reef_state)
+            pop = coral_population(reef_state, ts, loc, grp)
+            means[grp] += sum(cover_cm_to_m2.(pop))
+        end
+        means[grp] /= n_locations(reef_state)
+    end
+
+    return means
+end
+
+function group_cover_timeseries(reef_state::ReefState)::Matrix{Float32}
+    n_ts = n_timesteps(reef_state)
+    n_grp = n_groups(reef_state)
+    covers = zeros(Float32, n_ts, n_grp)
+
+    for ts in 1:n_ts
+        covers[ts, :] = group_cover(reef_state, ts)
+    end
+
+    return covers
+end
+
 function update_wild_sample!(
     reef_state::ReefState, ts::SEL, loc::SEL, group::SEL, pop::AbstractVector
 )::Nothing
@@ -497,6 +525,120 @@ function resample_wild_population!(
 end
 
 """
+    coral_cover(reef_state::ReefState)::Matrix{Float32}
+    coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
+    coral_cover(reef_state::ReefState, ts::Int64, loc::Int64)::Float32
+
+Determine coral cover.
+"""
+function coral_cover(reef_state::ReefState)::Vector{Float32}
+    covers = zeros(Float32, n_timesteps(reef_state))
+    for ts in axes(covers, 1)
+        @inbounds covers[ts] = sum(coral_cover(reef_state, ts))
+    end
+
+    return covers
+end
+function coral_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
+    loc_covers = reef_state._location_buffer
+    Threads.@threads for loc in eachindex(loc_covers)
+        @inbounds loc_covers[loc] = coral_cover(reef_state, ts, loc)
+    end
+
+    return loc_covers
+end
+function coral_cover(reef_state::ReefState, ts::Int64, loc::Int64)::Float32
+    total = 0.0f0
+    for grp in 1:n_groups(reef_state)
+        total += sum(cover_cm_to_m2(reef_state.wild_population[ts, loc, grp]))
+        total += sum(cover_cm_to_m2(reef_state.deployed_population[ts, loc, grp]))
+    end
+
+    return total
+end
+function coral_cover(diams::AbstractVector{<:AbstractFloat})
+    return sum(cover_cm_to_m2.(diams))
+end
+
+"""
+    group_cover(reef_state::ReefState)::Matrix{Float32}
+
+Retrieve coral cover by group.
+"""
+function group_cover(reef_state::ReefState)::Matrix{Float32}
+    tmp = sum(CoralFlow.cover_cm_to_m2.(reef_state.pop_sample).data; dims=(2, 4))
+    return dropdims(tmp; dims=(2, 4))
+end
+
+"""
+    mature_coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
+
+Calculate the cover of sexually mature corals for each location and functional group.
+
+Returns:
+- Matrix{Float32} with dimensions (n_locations, n_groups) containing mature coral cover in m²
+"""
+function mature_coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
+    n_locs = n_locations(reef_state)
+    n_grps = n_groups(reef_state)
+    thresholds = mature_size_thresholds()
+
+    mature_cover = zeros(Float32, n_locs, n_grps)
+    for grp in 1:n_grps, loc in 1:n_locs
+        # Get population sample for this location/group
+        pop = coral_population(reef_state, ts, loc, grp)
+
+        # Sum cover of colonies above maturity threshold
+        mature_cover[loc, grp] = cover_cm_to_m2(pop[pop .>= thresholds[grp]])
+    end
+
+    return mature_cover
+end
+
+"""
+Temporary mock function to determine cover of new recruits
+"""
+function recruit_cover(recruits::Array{Float32})::Vector{Float32}
+    loc_cover = zeros(Float32, axes(recruits, 1))  # zeros for each location
+    tmp_cover = cover_cm_to_m2.(recruits)
+    @floop for i in eachindex(loc_cover)
+        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
+    end
+
+    return loc_cover
+end
+function recruit_cover(recruits::Matrix{Vector{Float32}})::Vector{Float32}
+    loc_cover = zeros(Float32, axes(recruits, 1))  # zeros for each location
+    tmp_cover = cover_cm_to_m2.(recruits)
+    @floop for i in eachindex(loc_cover)
+        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
+    end
+
+    return loc_cover
+end
+
+function recruit_cover(ecostate::ReefState, recruits::Array{Float32})
+    loc_cover = ecostate._recruit_buffer
+
+    tmp_cover = cover_cm_to_m2.(recruits)
+    @floop for i in eachindex(loc_cover)
+        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
+    end
+
+    return loc_cover
+end
+function recruit_cover(ecostate::ReefState, recruits::Matrix{Vector{Float32}})
+    loc_cover = ecostate._recruit_buffer
+
+    tmp_cover = cover_cm_to_m2.(recruits)
+    @floop for i in eachindex(loc_cover)
+        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :]))
+    end
+
+    return loc_cover
+end
+
+"""
     generate_example_environment(
         n_years::Int64,
         n_locations::Int64;
@@ -722,119 +864,3 @@ function generate_example_environment(
 
     return YAXArray(v_axes, dhw_data)
 end
-
-"""
-    coral_cover(reef_state::ReefState)::Matrix{Float32}
-    coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
-    coral_cover(reef_state::ReefState, ts::Int64, loc::Int64)::Float32
-
-Determine coral cover.
-"""
-function coral_cover(reef_state::ReefState)::Vector{Float32}
-    covers = zeros(Float32, n_timesteps(reef_state))
-    for ts in axes(covers, 1)
-        @inbounds covers[ts] = sum(coral_cover(reef_state, ts))
-    end
-
-    return covers
-end
-function coral_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
-    loc_covers = reef_state._location_buffer
-    Threads.@threads for loc in eachindex(loc_covers)
-        @inbounds loc_covers[loc] = coral_cover(reef_state, ts, loc)
-    end
-
-    return loc_covers
-end
-function coral_cover(reef_state::ReefState, ts::Int64, loc::Int64)::Float32
-    total = 0.0f0
-    for grp in 1:n_groups(reef_state)
-        total += sum(cover_cm_to_m2(reef_state.wild_population[ts, loc, grp]))
-        total += sum(cover_cm_to_m2(reef_state.deployed_population[ts, loc, grp]))
-    end
-
-    return total
-end
-function coral_cover(diams::AbstractVector{<:AbstractFloat})
-    return sum(cover_cm_to_m2.(diams))
-end
-
-"""
-    group_cover(reef_state::ReefState)::Matrix{Float32}
-
-Retrieve coral cover by group.
-"""
-function group_cover(reef_state::ReefState)::Matrix{Float32}
-    tmp = sum(CoralFlow.cover_cm_to_m2.(reef_state.pop_sample).data; dims=(2, 4))
-    return dropdims(tmp; dims=(2, 4))
-end
-
-"""
-    mature_coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
-
-Calculate the cover of sexually mature corals for each location and functional group.
-
-Returns:
-- Matrix{Float32} with dimensions (n_locations, n_groups) containing mature coral cover in m²
-"""
-function mature_coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
-    n_locs = n_locations(reef_state)
-    n_grps = n_groups(reef_state)
-    thresholds = mature_size_thresholds()
-
-    mature_cover = zeros(Float32, n_locs, n_grps)
-    for grp in 1:n_grps, loc in 1:n_locs
-        # Get population sample for this location/group
-        pop = coral_population(reef_state, ts, loc, grp)
-
-        # Sum cover of colonies above maturity threshold
-        mature_cover[loc, grp] = cover_cm_to_m2(pop[pop .>= thresholds[grp]])
-    end
-
-    return mature_cover
-end
-
-"""
-Temporary mock function to determine cover of new recruits
-"""
-function recruit_cover(recruits::Array{Float32})::Vector{Float32}
-    loc_cover = zeros(Float32, axes(recruits, 1))  # zeros for each location
-    tmp_cover = cover_cm_to_m2.(recruits)
-    @floop for i in eachindex(loc_cover)
-        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
-    end
-
-    return loc_cover
-end
-function recruit_cover(recruits::Matrix{Vector{Float32}})::Vector{Float32}
-    loc_cover = zeros(Float32, axes(recruits, 1))  # zeros for each location
-    tmp_cover = cover_cm_to_m2.(recruits)
-    @floop for i in eachindex(loc_cover)
-        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
-    end
-
-    return loc_cover
-end
-
-function recruit_cover(ecostate::ReefState, recruits::Array{Float32})
-    loc_cover = ecostate._recruit_buffer
-
-    tmp_cover = cover_cm_to_m2.(recruits)
-    @floop for i in eachindex(loc_cover)
-        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
-    end
-
-    return loc_cover
-end
-function recruit_cover(ecostate::ReefState, recruits::Matrix{Vector{Float32}})
-    loc_cover = ecostate._recruit_buffer
-
-    tmp_cover = cover_cm_to_m2.(recruits)
-    @floop for i in eachindex(loc_cover)
-        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :]))
-    end
-
-    return loc_cover
-end
-
-include("reef_dynamics.jl")

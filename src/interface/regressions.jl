@@ -22,7 +22,6 @@ function fit_growth_models(
 
         # Fit model
         m = curve_fit(Polynomial, log.(xi), log.(yi), degree)
-        # m = curve_fit(Polynomial, xi, yi, degree)
 
         # Create growth function
         model = PolyGrowthFunction(xi, yi, m)

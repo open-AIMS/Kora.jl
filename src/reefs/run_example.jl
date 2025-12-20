@@ -1,100 +1,23 @@
 """
-    calculate_inheritance_proportions(reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64)::Tuple{Float32, Float32}
-
-Calculate mixing proportions between wild and deployed populations based on their relative cover.
-
-Returns (wild_proportion, deployed_proportion)
-"""
-function calculate_inheritance_proportions(
-    reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64
-)::Tuple{Float32,Float32}
-    # Calculate cover for each population
-    wild_pop = wild_population(reef_state, ts, loc, grp)
-    deployed_pop = deployed_population(reef_state, ts, loc, grp)
-
-    wild_cover = sum(cover_cm_to_m2.(wild_pop))
-    deployed_cover = sum(cover_cm_to_m2.(deployed_pop))
-    total_cover = wild_cover + deployed_cover
-
-    if total_cover == 0
-        return (1.0f0, 0.0f0)  # Default to wild if no cover
-    end
-
-    return (wild_cover / total_cover, deployed_cover / total_cover)
-end
-
-"""
-    update_coral_tolerances!(
+    run_example!(
         reef_state::ReefState,
-        ts::Int64,
-        loc::Int64,
-        grp::Int64;
-        h²::Float32=0.3f0
-    )::Nothing
+        env_conditions::YAXArray;
+        recruits=0.06f0,
+        self_seed=0.3f0,
+        rng::AbstractRNG=Random.GLOBAL_RNG
+    )
 
-Update thermal tolerances for new recruits based on mixing between wild and deployed populations.
+Run example with constant incoming larvae.
 
 # Arguments
 - `reef_state` : ReefState
-- `ts` : Time step
-- `loc` : Location
-- `grp` : Functional group
-- `h²` : Heritability
-"""
-function update_coral_tolerances!(
-    reef_state::ReefState,
-    ts::Int64,
-    loc::Int64,
-    grp::Int64,
-    n_recruits::Int64;
-    h²::Float32=0.3f0
-)::Nothing
-    ts2 = ts - 2
-    if ts2 <= 0
-        ts2 = 1
-    end
+- `env_conditions` : Environmental conditions
+- `recruits` : Assumed proportion of larvae contributing to coral recruitment
+- `self_seed` : Proportion of self-seeding
+- `rng` : Random number generator state
 
-    ts1 = ts - 1
-    if ts1 <= 0
-        ts1 = 1
-    end
-
-    # Get previous tolerance means
-    wild_mean = reef_state.wild_dhw_tolerances[ts2, loc, grp, At(:mean)]
-    deployed_mean = reef_state.deployed_dhw_tolerances[ts2, loc, grp, At(:mean)]
-
-    # Calculate mixing proportions
-    wild_prop, deployed_prop = calculate_inheritance_proportions(reef_state, ts2, loc, grp)
-
-    # Calculate new mean based on mixing
-    prev_mean_mixed = (wild_mean * wild_prop) + (deployed_mean * deployed_prop)
-
-    # Get "current" tolerance means
-    wild_mean = reef_state.wild_dhw_tolerances[ts1, loc, grp, At(:mean)]
-    deployed_mean = reef_state.deployed_dhw_tolerances[ts1, loc, grp, At(:mean)]
-
-    # Calculate mixing proportions
-    wild_prop, deployed_prop = calculate_inheritance_proportions(reef_state, ts2, loc, grp)
-
-    # Calculate new mean based on mixing
-    mean_mixed = (wild_mean * wild_prop) + (deployed_mean * deployed_prop)
-
-    # Apply breeder's equation to get new tolerance
-    recruit_mean = breeders(prev_mean_mixed, mean_mixed, h²)
-
-    # Weighted mean, based on current active population size
-    pop = reef_state.wild_population[ts1, loc, grp]
-    prop = n_recruits / (n_recruits + count(pop .> 0.0))
-    new_grp_mean = Float32((recruit_mean * prop) + (prev_mean_mixed * (1.0 - prop)))
-
-    # Update tolerances influenced by the new recruits
-    return update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
-end
-
-"""
-    run_example!(reef_state::ReefState, env_conditions::YAXArray; rng::AbstractRNG=Random.GLOBAL_RNG)
-
-Run example with constant incoming larvae.
+# Returns
+Nothing
 """
 function run_example!(
     reef_state::ReefState,
@@ -102,7 +25,7 @@ function run_example!(
     recruits=0.06f0,
     self_seed=0.3f0,
     rng::AbstractRNG=Random.GLOBAL_RNG
-)
+)::Nothing
     reset!(reef_state)
 
     timesteps::UnitRange{Int64} = 1:n_timesteps(reef_state)
@@ -119,14 +42,8 @@ function run_example!(
     # (n * n_grps) / area
     # (280 * 5) / 200 = 7
     n_deploy = 0
-    # n_recruits = floor(Int, coral_sample_size * 0.2)
-    # total_recruits = n_deploy + n_recruits
     recruit_μ = 1.5
     recruit_σ = 0.2
-
-    # We want largest to smallest size classes for stratified sampling
-    # (in `resample_population()`)
-    class_diams = reverse.(CoralFlow.diameter_size_classes())
 
     # Mock recruitment distribution
     # TODO: Compare/contrast with other approaches
@@ -211,7 +128,7 @@ function run_example!(
         end
 
         dhws = env_conditions[ts, :, At(:dhw)].data
-        cyclone_cats = env_conditions[ts, :, At(:cyclone_category)].data
+        # cyclone_cats = env_conditions[ts, :, At(:cyclone_category)].data
 
         for loc in 1:n_locs, grp in 1:n_grps
             pop_buffer .= 0.0f0  # Reset buffer
@@ -241,17 +158,15 @@ function run_example!(
             # total_probs = cyclone_probs  # TODO: Add other probabilities
             # survivors_mask = rand(length(p_sample)) .> total_probs
 
-            # Apply stratified sampling to maintain tracking of corals at expected
-            # max density.
-            # Now unnecessary as we're constraining to max density anyway
-            # resample_wild_population!(
-            #     reef_state, ts, loc, grp, with_recruits, class_diams[grp]
-            # )
             update_pop_cache!(reef_state, with_recruits, loc)
 
             next_pop = @view(reef_state._pop_cache[loc, :])
             update_wild_sample!(reef_state, ts, loc, grp, next_pop[next_pop .> 0.0])
         end
+
+        # Take snapshot of cover prior to growth
+        total_covers = coral_cover(reef_state, ts - 1)
+        cover_proportions = total_covers ./ reef_state.carrying_capacity
 
         # Survivers grow...
         for grp in 1:n_grps
@@ -261,7 +176,7 @@ function run_example!(
                 grp,
                 inflection_points[grp],
                 reef_state.wild_population[ts, :, grp],
-                total_covers ./ reef_state.carrying_capacity
+                cover_proportions
             )
 
             # Update total cover
@@ -273,12 +188,12 @@ function run_example!(
                 grp,
                 inflection_points[grp],
                 reef_state.deployed_population[ts, :, grp],
-                total_covers ./ reef_state.carrying_capacity
+                cover_proportions
             )
-
-            # Update total cover
-            total_covers = coral_cover(reef_state, ts)
         end
+
+        # Update total cover
+        total_covers = coral_cover(reef_state, ts)
     end
 
     return nothing
