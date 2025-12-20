@@ -1,4 +1,13 @@
 using KernelDensity
+using Makie: distinguishable_colors
+
+COLOR_MAP = :Paired_12
+FGROUP_COLOR = distinguishable_colors(8)[3:end]
+FLABELS = [
+    "Tabular Acropora", "Corymbose Acropora",
+    "Corymbose non-Acropora", "Small massives", "Large massives"
+]
+# :Paired_12
 
 function CoralFlow.viz.animate_population(
     reef_state::ReefState,
@@ -100,12 +109,11 @@ end
 
 function CoralFlow.viz.thermal_tolerance!(ax, reef_state::ReefState)
     tols = dropdims(mean(reef_state.wild_dhw_tolerances.data[:, :, :, 1]; dims=2); dims=2)
-    colors = [:royalblue, :lightseagreen, :mediumturquoise, :coral, :sandybrown]
-    labels = ["Tabular Acropora", "Corymbose Acropora",
-        "Corymbose non-Acropora", "Small massives", "Large massives"]
+    colors = FGROUP_COLOR
+    labels = FLABELS
 
     timesteps = 1:size(tols, 1)
-    for i in size(tols, 2):-1:1
+    for i in axes(tols, 2)
         lines!(ax, timesteps, tols[:, i] .- tols[1, i]; color=colors[i], label=labels[i])
     end
 
@@ -185,13 +193,12 @@ end
 function _plot_cover_with_ci!(
     ax, means::Matrix{Float32}, lower_ci::Matrix{Float32}, upper_ci::Matrix{Float32}
 )
-    colors = [:royalblue, :lightseagreen, :mediumturquoise, :coral, :sandybrown]
-    labels = ["Tabular Acropora", "Corymbose Acropora",
-        "Corymbose non-Acropora", "Small massives", "Large massives"]
+    colors = FGROUP_COLOR
+    labels = FLABELS
 
     timesteps = 1:size(means, 1)
 
-    for i in size(means, 2):-1:1
+    for i in axes(means, 2)
         band!(ax, timesteps, lower_ci[:, i], upper_ci[:, i]; color=(colors[i], 0.3))
         lines!(ax, timesteps, means[:, i]; color=colors[i], label=labels[i])
     end
@@ -201,13 +208,12 @@ function _plot_cover_with_ci!(
 end
 
 function _plot_cover!(ax, covers::Matrix{Float32})
-    colors = [:royalblue, :lightseagreen, :mediumturquoise, :coral, :sandybrown]
-    labels = ["Tabular Acropora", "Corymbose Acropora",
-        "Corymbose non-Acropora", "Small massives", "Large massives"]
+    colors = FGROUP_COLOR
+    labels = FLABELS
 
     timesteps = 1:size(covers, 1)
 
-    for i in size(covers, 2):-1:1
+    for i in axes(covers, 2)
         lines!(ax, timesteps, covers[:, i]; color=colors[i], label=labels[i])
     end
 
