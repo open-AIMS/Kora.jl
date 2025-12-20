@@ -3,7 +3,6 @@ module CoralFlow
 using Printf
 using Serialization
 using OrderedCollections
-using PrettyTables
 
 using Random
 using Statistics, Bootstrap

@@ -1,3 +1,5 @@
+import DataFrames.PrettyTables: pretty_table
+
 # Private consts - only used in this file
 const _euler_f32 = Float32(ℯ)
 
