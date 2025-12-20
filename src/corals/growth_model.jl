@@ -69,7 +69,7 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolyGrowthModel)
     pretty_table(
         io,
         hcat(x.names, getfield.(x.models, :poly));
-        header=["Group", "Model"]
+        column_labels=["Group", "Model"]
     )
 
     explainer = """
@@ -89,11 +89,11 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolyGrowthModel)
 
     data = hcat(
         x.names,
-        performances
+        round.(performances; digits=3)
     )
     return pretty_table(
         io, data;
-        header=["Group", perf_headers...]
+        column_labels=["Group", perf_headers...]
     )
 end
 
