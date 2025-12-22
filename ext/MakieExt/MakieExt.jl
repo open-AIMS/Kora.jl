@@ -6,12 +6,22 @@ using OrderedCollections
 
 using YAXArrays
 using Makie
+using Makie: distinguishable_colors
 using CoralFlow
 using CoralFlow.Bootstrap
 
 const SUPPORTED_FILETYPES = ("png", "svg", "gif", "jpg", "jpeg")
 
-function _display_or_save(fig::Figure, type_name::String, group_name::String, save_path::Union{String,Nothing})::Nothing
+COLOR_MAP = :Paired_12
+FGROUP_COLOR = distinguishable_colors(8)[3:end]
+FLABELS = [
+    "Tabular Acropora", "Corymbose Acropora",
+    "Corymbose non-Acropora", "Small massives", "Large massives"
+]
+
+function _display_or_save(
+    fig::Figure, type_name::String, group_name::String, save_path::Union{String,Nothing}
+)::Nothing
     # Display or save
     if !isnothing(save_path)
         if any(endswith.(Ref(save_path), SUPPORTED_FILETYPES))
@@ -36,5 +46,6 @@ end
 
 include("performance.jl")
 include("run_analysis.jl")
+include("ensemble_analysis.jl")
 
 end

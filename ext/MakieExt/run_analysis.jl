@@ -1,13 +1,4 @@
 using KernelDensity
-using Makie: distinguishable_colors
-
-COLOR_MAP = :Paired_12
-FGROUP_COLOR = distinguishable_colors(8)[3:end]
-FLABELS = [
-    "Tabular Acropora", "Corymbose Acropora",
-    "Corymbose non-Acropora", "Small massives", "Large massives"
-]
-# :Paired_12
 
 function CoralFlow.viz.animate_population(
     reef_state::ReefState,

@@ -32,11 +32,11 @@ function run_ensemble!(
     ensemble_cover = zeros(Float32, n_ts, n_locs, n_ensemble)
     ensemble_group_cover = zeros(Float32, n_ts, n_locs, n_grps, n_ensemble)
 
-    println("Running ensemble of $(n_ensemble) simulations...")
+    @info "Running ensemble of $(n_ensemble) simulations..."
 
     for i in 1:n_ensemble
         if i % 10 == 0
-            println("  Completed $(i)/$(n_ensemble) ensemble members")
+            @info "  Completed $(i)/$(n_ensemble) ensemble members"
         end
 
         params = ensemble_params[:, i]
@@ -67,17 +67,31 @@ function run_ensemble!(
             run_example!(reef_state, env_conditions; rng=rng)
         end
 
-        # Store results
-        ensemble_cover[:, :, i] = hcat([coral_cover(reef_state, ts) for ts in 1:n_ts]...)'
+        # Store results - optimized to avoid repeated function calls
+        # and temporary allocations
+        for ts in 1:n_ts
+            for loc in 1:n_locs
+                # Total cover at this timestep/location
+                loc_cover = 0.0f0
 
-        # Store group-level cover
-        for ts in 1:n_ts, loc in 1:n_locs, grp in 1:n_grps
-            pop = coral_population(reef_state, ts, loc, grp)
-            ensemble_group_cover[ts, loc, grp, i] = sum(cover_cm_to_m2.(pop))
+                for grp in 1:n_grps
+                    pop = coral_population(reef_state, ts, loc, grp)
+                    grp_cover = sum(cover_cm_to_m2.(pop))
+
+                    # Store group-level cover
+                    ensemble_group_cover[ts, loc, grp, i] = grp_cover
+
+                    # Accumulate total cover
+                    loc_cover += grp_cover
+                end
+
+                # Store total cover
+                ensemble_cover[ts, loc, i] = loc_cover
+            end
         end
     end
 
-    println("Ensemble complete!")
+    @info "Ensemble complete!"
 
     return (
         cover=ensemble_cover,
