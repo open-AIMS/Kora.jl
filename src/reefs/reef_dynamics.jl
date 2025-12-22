@@ -154,34 +154,34 @@ function update_coral_tolerances!(
         ts1 = 1
     end
 
-    # Get previous tolerance means
-    wild_mean = reef_state.wild_dhw_tolerances[ts2, loc, grp, At(:mean)]
-    deployed_mean = reef_state.deployed_dhw_tolerances[ts2, loc, grp, At(:mean)]
+    # Get t-2 tolerance means
+    wild_mean_t2 = reef_state.wild_dhw_tolerances[ts2, loc, grp, At(:mean)]
+    deployed_mean_t2 = reef_state.deployed_dhw_tolerances[ts2, loc, grp, At(:mean)]
 
-    # Calculate mixing proportions
-    wild_prop, deployed_prop = calculate_inheritance_proportions(reef_state, ts2, loc, grp)
+    # Calculate mixing proportions at t-2
+    wild_prop_t2, deployed_prop_t2 = calculate_inheritance_proportions(
+        reef_state, ts2, loc, grp
+    )
+    prev_mean_mixed = (wild_mean_t2 * wild_prop_t2) + (deployed_mean_t2 * deployed_prop_t2)
 
-    # Calculate new mean based on mixing
-    prev_mean_mixed = (wild_mean * wild_prop) + (deployed_mean * deployed_prop)
+    # Get t-1 tolerance means
+    wild_mean_t1 = reef_state.wild_dhw_tolerances[ts1, loc, grp, At(:mean)]
+    deployed_mean_t1 = reef_state.deployed_dhw_tolerances[ts1, loc, grp, At(:mean)]
 
-    # Get "current" tolerance means
-    wild_mean = reef_state.wild_dhw_tolerances[ts1, loc, grp, At(:mean)]
-    deployed_mean = reef_state.deployed_dhw_tolerances[ts1, loc, grp, At(:mean)]
+    # Calculate mixing proportions at t-1
+    wild_prop_t1, deployed_prop_t1 = calculate_inheritance_proportions(
+        reef_state, ts1, loc, grp
+    )
+    mean_mixed = (wild_mean_t1 * wild_prop_t1) + (deployed_mean_t1 * deployed_prop_t1)
 
-    # Calculate mixing proportions
-    wild_prop, deployed_prop = calculate_inheritance_proportions(reef_state, ts2, loc, grp)
-
-    # Calculate new mean based on mixing
-    mean_mixed = (wild_mean * wild_prop) + (deployed_mean * deployed_prop)
-
-    # Apply breeder's equation to get new tolerance
+    # Apply breeder's equation
     recruit_mean = breeders(prev_mean_mixed, mean_mixed, h²)
 
-    # Weighted mean, based on current active population size
+    # Weighted mean based on recruitment proportion
     pop = reef_state.wild_population[ts1, loc, grp]
-    prop = n_recruits / (n_recruits + count(pop .> 0.0))
-    new_grp_mean = Float32((recruit_mean * prop) + (prev_mean_mixed * (1.0 - prop)))
+    n_existing = count(pop .> 0.0)
+    prop = n_recruits / (n_recruits + n_existing)
+    new_grp_mean = Float32((recruit_mean * prop) + (mean_mixed * (1.0 - prop)))  # Changed from prev_mean_mixed
 
-    # Update tolerances influenced by the new recruits
     return update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
 end

@@ -1,3 +1,5 @@
+"""Methods to support calibration."""
+
 """
     assign_scalers!(reef_state::ReefState, x::Vector)::Nothing
 

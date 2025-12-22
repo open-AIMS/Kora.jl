@@ -73,7 +73,6 @@ function run_example!(
         total_covers::Vector{Float32} = coral_cover(reef_state, prev_ts)
 
         recruits = fill(Float32[], n_locs, n_grps)  # Reset cache
-
         for loc in 1:n_locs, grp in 1:n_grps
             # Some recruitment happens
             # Calculate across all locations and groups for time `ts`...
@@ -101,35 +100,48 @@ function run_example!(
             end
 
             if n_loc_recruits > 0
+                # Only selection changes tolerance
                 recruits[loc, grp] = Float32.(rand(rng, recruit_dist, n_loc_recruits))
-                update_coral_tolerances!(reef_state, ts, loc, grp, n_loc_recruits)
-            else
-                # Have to update the previous time step's entry as later calculations
-                # update tolerances influenced by the new recruits
-
-                # Get "current" tolerance means
-                wild_mean = reef_state.wild_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
-                deployed_mean = reef_state.deployed_dhw_tolerances[
-                    prev_ts, loc, grp, At(:mean)
-                ]
-
-                reef_state.wild_dhw_tolerances[ts, loc, grp, At(:mean)] = wild_mean
-                reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = deployed_mean
             end
 
-            # TODO: Distribution should only be affected once juveniles reach maturity
-            if reef_state.deployment_times[ts, loc, grp] > 0
-                n_deploy = Int64(reef_state.deployment_times[ts, loc, grp])
-                deploy_corals!(reef_state, ts, loc, n_deploy, grp)
+            # Always copy previous tolerance (whether or not there were recruits)
+            wild_mean = reef_state.wild_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
+            deployed_mean = reef_state.deployed_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
 
-                # Currently assuming the mean is not affected...
-                # reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = val
-            end
+            reef_state.wild_dhw_tolerances[ts, loc, grp, At(:mean)] = wild_mean
+            reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = deployed_mean
+
+            # if n_loc_recruits > 0
+            #     recruits[loc, grp] = Float32.(rand(rng, recruit_dist, n_loc_recruits))
+            #     # update_coral_tolerances!(reef_state, ts, loc, grp, n_loc_recruits)
+            # else
+            #     # Have to update the previous time step's entry as later calculations
+            #     # update tolerances influenced by the new recruits
+
+            #     # Get "current" tolerance means
+            #     wild_mean = reef_state.wild_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
+            #     deployed_mean = reef_state.deployed_dhw_tolerances[
+            #         prev_ts, loc, grp, At(:mean)
+            #     ]
+
+            #     reef_state.wild_dhw_tolerances[ts, loc, grp, At(:mean)] = wild_mean
+            #     reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = deployed_mean
+            # end
+
+            # # TODO: Distribution should only be affected once juveniles reach maturity
+            # if reef_state.deployment_times[ts, loc, grp] > 0
+            #     n_deploy = Int64(reef_state.deployment_times[ts, loc, grp])
+            #     deploy_corals!(reef_state, ts, loc, n_deploy, grp)
+
+            #     # Currently assuming the mean is not affected...
+            #     # reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = val
+            # end
         end
 
         dhws = env_conditions[ts, :, At(:dhw)].data
         # cyclone_cats = env_conditions[ts, :, At(:cyclone_category)].data
 
+        # Mortality occurs
         for loc in 1:n_locs, grp in 1:n_grps
             pop_buffer .= 0.0f0  # Reset buffer
 
@@ -149,7 +161,8 @@ function run_example!(
                 with_recruits,
                 dhws[loc],
                 depth_coeffs[loc],
-                reef_state.wild_dhw_tolerances[ts, loc, grp, :]
+                reef_state.wild_dhw_tolerances[ts, loc, grp, :],
+                grp
             )
             reef_state.wild_dhw_tolerances[ts, loc, grp, :] .= (new_mean, new_std)
 

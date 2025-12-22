@@ -56,7 +56,8 @@ end
         diams::Vector{F},
         dhw::F,
         depth_coeff::F,
-        tols::YAXArray{F, 1}
+        tols::YAXArray{F, 1},
+        grp::Int64
     )::Tuple where {F<:Float32}
 
 Diameter size reduction due to bleaching mortality and partial mortality.
@@ -66,6 +67,7 @@ Diameter size reduction due to bleaching mortality and partial mortality.
 - `dhw` : Degree heating week experienced
 - `depth_coeff` : Depth coefficient that ameliorates heat stress
 - `tols` : population heat tolerances (mean and stdev)
+- `grp` : Group ID
 
 # Returns
 Tuple: Updated mean DHW tolerance, cover lost (in m²)
@@ -74,7 +76,8 @@ function bleaching_mortality!(
     diams::AbstractVector{F},
     dhw::F,
     depth_coeff::F,
-    tols::YAXArray{F,1}
+    tols::YAXArray{F,1},
+    grp::Int64
 )::Tuple where {F<:Float32}
     if all(dhw .< 4.0)
         return tols[At(:mean)], tols[At(:stdev)], 0.0f0
@@ -96,13 +99,13 @@ function bleaching_mortality!(
     end
 
     diam_cache = copy(diams)
+    mature_size = mature_size_thresholds()[grp]  # Assumed mature sizes
 
     # Apply size-dependent mortality to each size class
     # (the reduction in size due to partial mortality or mortality).
     # Using an explicit loop here to avoid temporary allocations
     Threads.@threads for i in eachindex(diams)
-        # 5.0cm diameter is the assumed size at which corals become susceptible to bleaching
-        if diams[i] > 5.0f0
+        if diams[i] >= mature_size
             # Calculate size-specific mortality modifier
             diams[i] *= (1.0f0 - (base_affected * bleaching_susceptibility(diams[i])))
         end
