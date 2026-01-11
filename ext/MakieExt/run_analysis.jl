@@ -113,74 +113,6 @@ function CoralFlow.viz.thermal_tolerance!(ax, reef_state::ReefState)
     return nothing
 end
 
-# Non-bootstrapped cover functions
-function group_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
-    n_grp = n_groups(reef_state)
-    means = zeros(Float32, n_grp)
-
-    for grp in 1:n_grp
-        for loc in 1:n_locations(reef_state)
-            pop = coral_population(reef_state, ts, loc, grp)
-            means[grp] += sum(cover_cm_to_m2.(pop))
-        end
-        means[grp] /= n_locations(reef_state)
-    end
-
-    return means
-end
-
-function group_cover_timeseries(reef_state::ReefState)::Matrix{Float32}
-    n_ts = n_timesteps(reef_state)
-    n_grp = n_groups(reef_state)
-    covers = zeros(Float32, n_ts, n_grp)
-
-    for ts in 1:n_ts
-        covers[ts, :] = group_cover(reef_state, ts)
-    end
-
-    return covers
-end
-
-# Non-bootstrapped juvenile cover functions
-function juvenile_cover(
-    reef_state::ReefState,
-    ts::Int64;
-    juvenile_threshold::Float32=5.0f0
-)::Vector{Float32}
-    n_grp = n_groups(reef_state)
-    n_loc = n_locations(reef_state)
-    means = zeros(Float32, n_grp)
-
-    for grp in 1:n_grp
-        total_cover = 0.0f0
-        for loc in 1:n_loc
-            pop = coral_population(reef_state, ts, loc, grp)
-            juveniles = pop[0.0f0 .< pop .< juvenile_threshold]
-            if !isempty(juveniles)
-                total_cover += cover_cm_to_m2(juveniles)
-            end
-        end
-        means[grp] = total_cover / n_loc
-    end
-
-    return means
-end
-
-function juvenile_cover_timeseries(
-    reef_state::ReefState;
-    juvenile_threshold::Float32=5.0f0
-)::Matrix{Float32}
-    n_ts = n_timesteps(reef_state)
-    n_grp = n_groups(reef_state)
-    means = zeros(Float32, n_ts, n_grp)
-
-    for ts in 1:n_ts
-        means[ts, :] = juvenile_cover(reef_state, ts; juvenile_threshold=juvenile_threshold)
-    end
-
-    return means
-end
-
 function _plot_cover_with_ci!(
     ax, means::Matrix{Float32}, lower_ci::Matrix{Float32}, upper_ci::Matrix{Float32}
 )
@@ -324,7 +256,7 @@ function CoralFlow.viz.group_cover!(ax, reef_state::ReefState; n_bootstrap::Int=
 
         _plot_cover_with_ci!(ax, covers, lower_ci, upper_ci)
     else
-        covers = group_cover_timeseries(reef_state)
+        covers = CoralFlow.group_cover_timeseries(reef_state)
         _plot_cover!(ax, covers)
     end
 
@@ -335,18 +267,15 @@ function CoralFlow.viz.juvenile_cover!(
     ax,
     reef_state::ReefState;
     bootstrap::Bool=false,
-    juvenile_threshold::Float32=5.0f0,
     n_bootstrap::Int=100
 )
     if bootstrap
         means, lower_ci, upper_ci = bootstrap_juvenile_cover_timeseries(
-            reef_state, n_bootstrap; juvenile_threshold=juvenile_threshold
+            reef_state, n_bootstrap
         )
         _plot_cover_with_ci!(ax, means, lower_ci, upper_ci)
     else
-        covers = juvenile_cover_timeseries(
-            reef_state; juvenile_threshold=juvenile_threshold
-        )
+        covers = CoralFlow.juvenile_cover_timeseries(reef_state)
         _plot_cover!(ax, covers)
     end
     return nothing
@@ -375,8 +304,7 @@ end
 function CoralFlow.viz.timeseries(
     reef_state::ReefState,
     env_conditions::YAXArray;
-    n_bootstrap::Int=0,
-    juvenile_threshold::Float32=5.0f0
+    n_bootstrap::Int=0
 )
     bootstrap::Bool = n_bootstrap > 0
 
@@ -408,8 +336,7 @@ function CoralFlow.viz.timeseries(
         title="Juvenile Cover" * (bootstrap ? " (with 95% CI)" : "")
     )
     CoralFlow.viz.juvenile_cover!(ax3, reef_state;
-        n_bootstrap=n_bootstrap,
-        juvenile_threshold=juvenile_threshold
+        n_bootstrap=n_bootstrap
     )
 
     # Adaptation

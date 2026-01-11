@@ -176,34 +176,6 @@ function coral_population!(
     return @inbounds @view(cache[1:(n_wild + n_deployed)])
 end
 
-# Non-bootstrapped cover functions
-function group_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
-    n_grp = n_groups(reef_state)
-    means = zeros(Float32, n_grp)
-
-    for grp in 1:n_grp
-        for loc in 1:n_locations(reef_state)
-            pop = coral_population(reef_state, ts, loc, grp)
-            means[grp] += sum(cover_cm_to_m2.(pop))
-        end
-        means[grp] /= n_locations(reef_state)
-    end
-
-    return means
-end
-
-function group_cover_timeseries(reef_state::ReefState)::Matrix{Float32}
-    n_ts = n_timesteps(reef_state)
-    n_grp = n_groups(reef_state)
-    covers = zeros(Float32, n_ts, n_grp)
-
-    for ts in 1:n_ts
-        covers[ts, :] = group_cover(reef_state, ts)
-    end
-
-    return covers
-end
-
 function update_wild_sample!(
     reef_state::ReefState, ts::SEL, loc::SEL, group::SEL, pop::AbstractVector
 )::Nothing
@@ -566,8 +538,35 @@ end
 Retrieve coral cover by group.
 """
 function group_cover(reef_state::ReefState)::Matrix{Float32}
-    tmp = sum(CoralFlow.cover_cm_to_m2.(reef_state.pop_sample).data; dims=(2, 4))
-    return dropdims(tmp; dims=(2, 4))
+    return group_cover_timeseries(reef_state)
+end
+
+# Non-bootstrapped cover functions
+function group_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
+    n_grp = n_groups(reef_state)
+    means = zeros(Float32, n_grp)
+
+    for grp in 1:n_grp
+        for loc in 1:n_locations(reef_state)
+            pop = coral_population(reef_state, ts, loc, grp)
+            means[grp] += sum(cover_cm_to_m2.(pop))
+        end
+        means[grp] /= n_locations(reef_state)
+    end
+
+    return means
+end
+
+function group_cover_timeseries(reef_state::ReefState)::Matrix{Float32}
+    n_ts = n_timesteps(reef_state)
+    n_grp = n_groups(reef_state)
+    covers = zeros(Float32, n_ts, n_grp)
+
+    for ts in 1:n_ts
+        covers[ts, :] = group_cover(reef_state, ts)
+    end
+
+    return covers
 end
 
 """
@@ -636,6 +635,67 @@ function recruit_cover(ecostate::ReefState, recruits::Matrix{Vector{Float32}})
     end
 
     return loc_cover
+end
+
+# Non-bootstrapped juvenile cover functions
+function juvenile_cover(
+    reef_state::ReefState,
+    ts::Int64;
+    juvenile_threshold::Union{Nothing,Float32,Vector{Float32}}=nothing
+)::Vector{Float32}
+    n_grp = n_groups(reef_state)
+    n_loc = n_locations(reef_state)
+    means = zeros(Float32, n_grp)
+
+    if isnothing(juvenile_threshold)
+        mature_sizes = mature_size_thresholds()
+    else
+        if !(juvenile_threshold isa Vector)
+            mature_sizes = fill(juvenile_threshold, n_grp)
+        else
+            mature_sizes = juvenile_threshold
+        end
+    end
+
+    for grp in 1:n_grp
+        total_cover = 0.0f0
+        grp_mature = mature_sizes[grp]
+        for loc in 1:n_loc
+            pop = coral_population(reef_state, ts, loc, grp)
+            juveniles = pop[0.0f0 .< pop .< grp_mature]
+            if !isempty(juveniles)
+                total_cover += cover_cm_to_m2(juveniles)
+            end
+        end
+        means[grp] = total_cover / n_loc
+    end
+
+    return means
+end
+
+function juvenile_cover_timeseries(
+    reef_state::ReefState;
+    juvenile_threshold::Union{Nothing,Float32,Vector{Float32}}=nothing
+)::Matrix{Float32}
+    n_ts = n_timesteps(reef_state)
+    n_grp = n_groups(reef_state)
+    means = zeros(Float32, n_ts, n_grp)
+
+    if isnothing(juvenile_threshold)
+        mature_sizes = mature_size_thresholds()
+    else
+        if !(juvenile_threshold isa Vector)
+            mature_sizes = fill(juvenile_threshold, n_grp)
+        else
+            mature_sizes = juvenile_threshold
+        end
+    end
+
+    for ts in 1:n_ts
+        means[ts, :] = juvenile_cover(reef_state, ts; juvenile_threshold=mature_sizes)
+    end
+
+    return means
 end
 
 """
