@@ -31,10 +31,11 @@ function run_ensemble!(
     # Pre-allocate storage for ensemble results
     ensemble_cover = zeros(Float32, n_ts, n_locs, n_ensemble)
     ensemble_group_cover = zeros(Float32, n_ts, n_locs, n_grps, n_ensemble)
+    ensemble_juvenile_cover = zeros(Float32, n_ts, n_locs, n_grps, n_ensemble)
 
     @info "Running ensemble of $(n_ensemble) simulations..."
 
-    for i in 1:n_ensemble
+    time_taken = @elapsed for i in 1:n_ensemble
         if i % 10 == 0
             @info "  Completed $(i)/$(n_ensemble) ensemble members"
         end
@@ -46,7 +47,7 @@ function run_ensemble!(
 
         # Apply scalers if present
         if length(params) > 16
-            scaler_end = 17 + (2 * n_grps) - 1
+            scaler_end = 17 + n_grps - 1
             loc_scalers = params[17:scaler_end]
             assign_scalers!(reef_state, loc_scalers)
 
@@ -67,6 +68,8 @@ function run_ensemble!(
             run_example!(reef_state, env_conditions; rng=rng)
         end
 
+        mature_sizes = mature_size_thresholds()
+
         # Store results - optimized to avoid repeated function calls
         # and temporary allocations
         for ts in 1:n_ts
@@ -81,6 +84,10 @@ function run_ensemble!(
                     # Store group-level cover
                     ensemble_group_cover[ts, loc, grp, i] = grp_cover
 
+                    ensemble_juvenile_cover[ts, loc, grp, i] = sum(
+                        cover_cm_to_m2.(pop[pop .< mature_sizes[grp]])
+                    )
+
                     # Accumulate total cover
                     loc_cover += grp_cover
                 end
@@ -91,11 +98,12 @@ function run_ensemble!(
         end
     end
 
-    @info "Ensemble complete!"
+    @info "Ensemble completed in $(time_taken) seconds!"
 
     return (
         cover=ensemble_cover,
         group_cover=ensemble_group_cover,
+        juvenile_cover=ensemble_juvenile_cover,
         params=ensemble_params
     )
 end
