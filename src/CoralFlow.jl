@@ -40,7 +40,10 @@ export
     cover_cm_to_m2,
     cover_cm_to_m2!,
     coral_cover,
-    recruit_cover
+    recruit_cover,
+    group_cover,
+    group_cover_timeseries,
+    juvenile_cover
 
 export
     ReefState,
@@ -76,6 +79,8 @@ export
     set_population!,
     run_example,
     run_example!,
+    run_model,
+    run_model!,
     run_ensemble!
 
 # Auto-generate precompilation signatures

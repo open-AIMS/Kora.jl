@@ -65,6 +65,44 @@ function run_example!(
     # Clear any existing results
     reset!(reef_state)
 
+    # Apply initial bleaching mortality (for ts = 1)
+    # TODO: Abstract into separate callable method
+    dhws = env_conditions[1, :, At(:dhw)].data
+    for loc in 1:n_locs, grp in 1:n_grps
+        pop_buffer .= 0.0f0  # Reset buffer
+
+        fill_population_buffer!(
+            reef_state, 1, loc, grp, recruits[loc, grp], pop_buffer
+        )
+
+        # Diameters for entire population including recruits
+        with_recruits = pop_buffer[pop_buffer .> 0.0f0]
+
+        # Background mortality
+        # TODO: apply location specific survival scaler
+        apply_survival!(reef_state, grp, with_recruits)
+
+        # Bleaching mortality
+        new_mean, new_std, area_lost = bleaching_mortality!(
+            with_recruits,
+            dhws[loc],
+            depth_coeffs[loc],
+            reef_state.wild_dhw_tolerances[1, loc, grp, :],
+            grp
+        )
+        reef_state.wild_dhw_tolerances[1, loc, grp, :] .= (new_mean, new_std)
+
+        # Cyclone mortality
+        # cyclone_probs = cyclone_mortality_prob.(p_sample, [cyclone_cat])
+        # total_probs = cyclone_probs  # TODO: Add other probabilities
+        # survivors_mask = rand(length(p_sample)) .> total_probs
+
+        update_pop_cache!(reef_state, with_recruits, loc)
+
+        next_pop = @view(reef_state._pop_cache[loc, :])
+        update_wild_sample!(reef_state, 1, loc, grp, next_pop[next_pop .> 0.0])
+    end
+
     # TODO: Refactor into `run_timestep()`
     for ts in timesteps[2:end]
         prev_ts = ts - 1
@@ -238,3 +276,6 @@ function run_example(;
 
     return reef_state, example_env
 end
+
+run_model = run_example
+run_model! = run_example!
