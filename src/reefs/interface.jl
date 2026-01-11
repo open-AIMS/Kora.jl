@@ -10,11 +10,12 @@ function assign_scalers!(reef_state::ReefState, x::Vector)::Nothing
 
     # Modify location scalers
     growth_scalers = x[1:n_grps]
-    survival_scalers = x[(n_grps + 1):end]
-    collated = collect(zip(growth_scalers, survival_scalers))
+    # survival_scalers = x[(n_grps + 1):end]
+    # collated = collect(zip(growth_scalers, survival_scalers))
 
     for i in 1:n_grps
-        reef_state.location_scalers[:, :, i] .= collated[i]
+        # reef_state.location_scalers[:, :, i] .= collated[i]
+        reef_state.location_scalers[At(:growth), :, i] .= growth_scalers[i]
     end
 
     return nothing
