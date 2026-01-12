@@ -43,7 +43,7 @@ function set_population!(reef_state::ReefState, x::Vector)::Nothing
             LogNormal{Float32}(_x[5], _x[10])    # Large massives
         ]
     else
-        size_dist = CoralFlow.size_distributions()
+        size_dist = CoralFlow.size_distribution()
     end
 
     # Proportion of each functional group
