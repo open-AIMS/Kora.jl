@@ -11,7 +11,7 @@ Assumed values:
 - Corymbose Acropora: ~12.5cm
 - Corymbose non-Acropora: ~12.5cm
 - Small massives/encrusting: ~15cm
-- Large massives: ~15-20cm
+- Large massives: ~20cm
 """
 function mature_size_thresholds()::Vector{Float32}
     return Float32[
@@ -26,8 +26,7 @@ end
 """
     bin_edges()::Matrix{Float32}
 
-Helper function defining coral colony diameter bin edges. The values are converted from `cm`
-to the desired unit. The default unit is `m`.
+Helper function defining coral colony diameter bin edges in centimeters.
 """
 function bin_edges()::Matrix{Float32}
     return Matrix{Float32}(
@@ -56,7 +55,7 @@ function diameter_size_classes()::Vector{Matrix{Float32}}
     edges = hcat(zeros(Float32, n_groups), edges)
 
     # TODO: Use YAXArrays (groups ⋅ class start ⋅ class end)
-    return map(x -> [x[1:end-1] x[2:end]], eachrow(edges))
+    return map(x -> [x[1:(end - 1)] x[2:end]], eachrow(edges))
 end
 
 """
@@ -65,7 +64,7 @@ end
 Helper function defining coral colony diameter bin widths.
 """
 function bin_widths()
-    return bin_edges()[:, 2:end] .- bin_edges()[:, 1:(end-1)]
+    return bin_edges()[:, 2:end] .- bin_edges()[:, 1:(end - 1)]
 end
 
 function class_area()
@@ -123,10 +122,14 @@ Convert centimeter diameter to meters area (m^2)
 function cover_cm_to_m2(d::F)::F where {F<:Float32}
     return _pi_f32 * (d * d * 0.25f0) * _cover_scale
 end
-function cover_cm_to_m2(diameters::AbstractArray{T})::AbstractArray{T} where {T<:AbstractFloat}
+function cover_cm_to_m2(
+    diameters::AbstractArray{T}
+)::AbstractArray{T} where {T<:AbstractFloat}
     return cover_cm_to_m2.(diameters)
 end
-function cover_cm_to_m2!(diameters::AbstractArray{T}, cache::AbstractArray{T})::Nothing where {T<:AbstractFloat}
+function cover_cm_to_m2!(
+    diameters::AbstractArray{T}, cache::AbstractArray{T}
+)::Nothing where {T<:AbstractFloat}
     cache .= cover_cm_to_m2.(diameters)
 
     return nothing
