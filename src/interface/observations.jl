@@ -1,3 +1,5 @@
+using Missings
+
 const BIN_ID = :surv_logclass
 const TRAIN_CLASS = :class_train
 const TRAIN_CLASS_MEAN_ID = :class_train_mean
@@ -115,6 +117,10 @@ function get_growth_entries(standardized_data::DataFrame)::DataFrame
     # Add growth and linear extension entries into data frame
     growth_data[!, :growth] .= growth_data.sizenext .- growth_data.size
     growth_data[!, :lin_ext] .= growth_data.diamnext .- growth_data.diam
+
+    days_between_obs = growth_data[!, Symbol("days_t1.t2")]
+    growth_data[!, :growth_rate] .=
+        passmissing(/).(growth_data.lin_ext, (days_between_obs ./ 365.25))
 
     # Cast taxa String15 type to string type
     growth_data[!, :taxa] .= String.(growth_data.taxa)
