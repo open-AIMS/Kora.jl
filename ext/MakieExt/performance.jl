@@ -66,29 +66,31 @@ function CoralFlow.viz.survival_performance_plots(
 
         plot_handles = []
 
-        for (col_idx, (observed_means, std_full, mean_full, data_type, performance)) in enumerate(plot_data)
-            ax = Axis(fig[1, col_idx],
-                title="$(target_groups[group_id]) - $data_type\n$(build_metric_display(performance, group_id))",
+        group_name = replace(titlecase(target_groups[group_id]), "_" => " ")
+        for (col_idx, (observed_means, std_full, mean_full, data_type, performance)) in
+            enumerate(plot_data)
+            ax = Axis(fig[1, col_idx];
+                title="$(group_name) - $data_type\n$(build_metric_display(performance, group_id))",
                 xlabel="Diameter [cm]",
                 ylabel="Survival",
                 limits=(nothing, nothing, 0, 1.1)
             )
 
             # Plot observed data with error bands and bin range indicators
-            p_obs = scatter!(ax, bin_centers, observed_means, color=:blue, markersize=8)
+            p_obs = scatter!(ax, bin_centers, observed_means; color=:blue, markersize=8)
 
             # Add horizontal error bars to show diameter range of each bin
             p_range = errorbars!(ax, bin_centers, observed_means,
-                bin_centers .- bin_mins, bin_maxs .- bin_centers,
+                bin_centers .- bin_mins, bin_maxs .- bin_centers;
                 direction=:x, color=(:darkblue, 0.3), linewidth=2)
 
             # Survival probability error bands
             p_band = band!(ax, model_x,
                 max.(mean_full .- std_full, 0),
-                min.(mean_full .+ std_full, 1.0),
+                min.(mean_full .+ std_full, 1.0);
                 color=(:blue, 0.3))
 
-            p_model = lines!(ax, model_x, model_y, color=(:red, 0.5), linewidth=2)
+            p_model = lines!(ax, model_x, model_y; color=(:red, 0.5), linewidth=2)
 
             # Store handles from first plot for legend
             if col_idx == 1
@@ -149,20 +151,21 @@ function CoralFlow.viz.growth_performance_plots(
         fig = Figure(size=figsize)
 
         # Training plot
-        ax1 = Axis(fig[1, 1],
-            title="$(target_groups[group_id]) - Training Data\n$(build_metric_display(model_fits.performance.train, group_id))",
+        group_name = replace(titlecase(target_groups[group_id]), "_" => " ")
+        ax1 = Axis(fig[1, 1];
+            title="$(group_name) - Training Data\n$(build_metric_display(model_fits.performance.train, group_id))",
             xlabel="Diameter [cm]",
             ylabel="Diameter at t+1 [cm]"
         )
 
-        p1_obs = scatter!(ax1, train_xi, train_yi,
+        p1_obs = scatter!(ax1, train_xi, train_yi;
             color=(:blue, alpha), markersize=6)
-        p1_model = lines!(ax1, x_range, model_y,
+        p1_model = lines!(ax1, x_range, model_y;
             color=(:red, 0.5), linewidth=2)
 
         # Test plot
-        ax2 = Axis(fig[1, 2],
-            title="$(target_groups[group_id]) - Test Data\n$(build_metric_display(model_fits.performance.test, group_id))",
+        ax2 = Axis(fig[1, 2];
+            title="$(group_name) - Test Data\n$(build_metric_display(model_fits.performance.test, group_id))",
             xlabel="Diameter [cm]",
             ylabel="Diameter at t+1 [cm]"
         )
