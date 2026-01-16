@@ -20,12 +20,24 @@ function CoralFlow.viz.survival_performance_plots(
         bin_ids = sort(unique(group_df[!, bin_id_col]))
 
         # Training data
-        mean_train = [maximum(group_df[group_df[!, bin_id_col].==i, CoralFlow.TRAIN_CLASS_MEAN_ID]) for i in bin_ids]
-        std_train = [maximum(group_df[group_df[!, bin_id_col].==i, CoralFlow.TRAIN_CLASS_STD_ID]) for i in bin_ids]
+        mean_train = [
+            maximum(group_df[group_df[!, bin_id_col] .== i, CoralFlow.TRAIN_CLASS_MEAN_ID])
+            for i in bin_ids
+        ]
+        std_train = [
+            maximum(group_df[group_df[!, bin_id_col] .== i, CoralFlow.TRAIN_CLASS_STD_ID])
+            for i in bin_ids
+        ]
 
         # Test data
-        mean_test = [maximum(group_df[group_df[!, bin_id_col].==i, CoralFlow.TEST_CLASS_MEAN_ID]) for i in bin_ids]
-        std_test = [maximum(group_df[group_df[!, bin_id_col].==i, CoralFlow.TEST_CLASS_STD_ID]) for i in bin_ids]
+        mean_test = [
+            maximum(group_df[group_df[!, bin_id_col] .== i, CoralFlow.TEST_CLASS_MEAN_ID])
+            for i in bin_ids
+        ]
+        std_test = [
+            maximum(group_df[group_df[!, bin_id_col] .== i, CoralFlow.TEST_CLASS_STD_ID])
+            for i in bin_ids
+        ]
 
         # Map bin IDs to actual diameter values and ranges for adaptive bins
         bin_centers = Float64[]
@@ -33,21 +45,29 @@ function CoralFlow.viz.survival_performance_plots(
         bin_maxs = Float64[]
 
         for bin_id in bin_ids
-            bin_data = group_df[group_df[!, bin_id_col].==bin_id, :diam]
+            bin_data = group_df[group_df[!, bin_id_col] .== bin_id, :diam]
             push!(bin_centers, (minimum(bin_data) + maximum(bin_data)) / 2)
             push!(bin_mins, minimum(bin_data))
             push!(bin_maxs, maximum(bin_data))
         end
 
         # Model predictions across full diameter range
-        model_x = range(min_group_size, max_group_size, length=100)
+        model_x = range(min_group_size, max_group_size; length=100)
         model_y = [model_fits[group_id](Float64(x)) for x in model_x]
 
         # Create interpolation functions
-        mean_train_interp = linear_interpolation(bin_centers, mean_train, extrapolation_bc=Flat())
-        std_train_interp = linear_interpolation(bin_centers, std_train, extrapolation_bc=Flat())
-        mean_test_interp = linear_interpolation(bin_centers, mean_test, extrapolation_bc=Flat())
-        std_test_interp = linear_interpolation(bin_centers, std_test, extrapolation_bc=Flat())
+        mean_train_interp = linear_interpolation(
+            bin_centers, mean_train; extrapolation_bc=Flat()
+        )
+        std_train_interp = linear_interpolation(
+            bin_centers, std_train; extrapolation_bc=Flat()
+        )
+        mean_test_interp = linear_interpolation(
+            bin_centers, mean_test; extrapolation_bc=Flat()
+        )
+        std_test_interp = linear_interpolation(
+            bin_centers, std_test; extrapolation_bc=Flat()
+        )
 
         # Calculate interpolated values
         mean_train_full = mean_train_interp.(model_x)
@@ -56,12 +76,24 @@ function CoralFlow.viz.survival_performance_plots(
         std_test_full = std_test_interp.(model_x)
 
         # Create figure with side-by-side subplots and space for legend
-        fig = Figure(size=figsize)
+        fig = Figure(; size=figsize)
 
         # Plot data for both training and test
         plot_data = [
-            (mean_train, std_train_full, mean_train_full, "Training Data", model_fits.performance.train),
-            (mean_test, std_test_full, mean_test_full, "Test Data", model_fits.performance.test)
+            (
+                mean_train,
+                std_train_full,
+                mean_train_full,
+                "Training Data",
+                model_fits.performance.train
+            ),
+            (
+                mean_test,
+                std_test_full,
+                mean_test_full,
+                "Test Data",
+                model_fits.performance.test
+            )
         ]
 
         plot_handles = []
@@ -130,13 +162,13 @@ function CoralFlow.viz.growth_performance_plots(
         group_df = groupings[target_groups[group_id]]
 
         # Training data
-        train_df = group_df[group_df[!, CoralFlow.TRAIN_CLASS].>0, :]
+        train_df = group_df[group_df[!, CoralFlow.TRAIN_CLASS] .> 0, :]
         train_x_idx = sortperm(train_df.diam)
         train_xi = train_df.diam[train_x_idx]
         train_yi = train_df.diamnext[train_x_idx]
 
         # Test data
-        test_df = group_df[group_df[!, CoralFlow.TEST_CLASS].>0, :]
+        test_df = group_df[group_df[!, CoralFlow.TEST_CLASS] .> 0, :]
         test_x_idx = sortperm(test_df.diam)
         test_xi = test_df.diam[test_x_idx]
         test_yi = test_df.diamnext[test_x_idx]
@@ -144,11 +176,11 @@ function CoralFlow.viz.growth_performance_plots(
         # Model predictions
         model = model_fits[group_id]
         all_x = vcat(train_xi, test_xi)
-        x_range = range(minimum(all_x), maximum(all_x), length=100)
+        x_range = range(minimum(all_x), maximum(all_x); length=100)
         model_y = [model(Float64(x)) for x in x_range]
 
         # Create figure with side-by-side subplots and space for legend
-        fig = Figure(size=figsize)
+        fig = Figure(; size=figsize)
 
         # Training plot
         group_name = replace(titlecase(target_groups[group_id]), "_" => " ")
@@ -170,17 +202,17 @@ function CoralFlow.viz.growth_performance_plots(
             ylabel="Diameter at t+1 [cm]"
         )
 
-        p2_obs = scatter!(ax2, test_xi, test_yi,
+        p2_obs = scatter!(ax2, test_xi, test_yi;
             color=(:blue, alpha), markersize=6)
-        p2_model = lines!(ax2, x_range, model_y,
+        p2_model = lines!(ax2, x_range, model_y;
             color=(:red, 0.5), linewidth=2)
 
         # Add reference line (y = x) for comparison
         min_val = min(minimum(all_x), minimum(vcat(train_yi, test_yi)))
         max_val = max(maximum(all_x), maximum(vcat(train_yi, test_yi)))
-        p1_ref = lines!(ax1, [min_val, max_val], [min_val, max_val],
+        p1_ref = lines!(ax1, [min_val, max_val], [min_val, max_val];
             color=:gray, linestyle=:dash, alpha=0.5)
-        p2_ref = lines!(ax2, [min_val, max_val], [min_val, max_val],
+        p2_ref = lines!(ax2, [min_val, max_val], [min_val, max_val];
             color=:gray, linestyle=:dash, alpha=0.5)
 
         # Add shared legend to the right of the figure
@@ -204,18 +236,18 @@ function CoralFlow.viz.model_dashboard(
     figsize=(1200, 800),
     save_path=nothing
 )
-    fig = Figure(size=figsize)
+    fig = Figure(; size=figsize)
 
     for (i, group) in enumerate(target_groups)
         # Create survival subplot
-        ax_surv = Axis(fig[i, 1],
+        ax_surv = Axis(fig[i, 1];
             title="$(group) - Survival",
             xlabel="Diameter Bin",
             ylabel="Survival Probability"
         )
 
         # Create growth subplot
-        ax_growth = Axis(fig[i, 2],
+        ax_growth = Axis(fig[i, 2];
             title="$(group) - Growth",
             xlabel="Diameter [cm]",
             ylabel="Diameter at t+1 [cm]"
@@ -224,26 +256,30 @@ function CoralFlow.viz.model_dashboard(
         # Plot survival data (simplified version)
         group_df = groupings[group]
         bin_ids = sort(unique(group_df[!, CoralFlow.BIN_ID]))
-        mean_test = [maximum(group_df[group_df[!, CoralFlow.BIN_ID].==j, CoralFlow.TEST_CLASS_MEAN_ID]) for j in bin_ids]
+        mean_test = [
+            maximum(
+                group_df[group_df[!, CoralFlow.BIN_ID] .== j, CoralFlow.TEST_CLASS_MEAN_ID]
+            ) for j in bin_ids
+        ]
 
-        scatter!(ax_surv, bin_ids, mean_test, color=:blue, markersize=6)
+        scatter!(ax_surv, bin_ids, mean_test; color=:blue, markersize=6)
 
         max_group_size = maximum(group_df.diam)
         model_x = bin_ids
         model_y = [survival_fits[i](Float64(j)) for j in model_x]
-        lines!(ax_surv, model_x, model_y, color=:red, linewidth=2)
+        lines!(ax_surv, model_x, model_y; color=:red, linewidth=2)
 
         # Plot growth data (simplified version)
-        test_df = group_df[group_df[!, CoralFlow.TEST_CLASS].>0, :]
+        test_df = group_df[group_df[!, CoralFlow.TEST_CLASS] .> 0, :]
         if !isempty(test_df)
-            scatter!(ax_growth, test_df.diam, test_df.diamnext,
+            scatter!(ax_growth, test_df.diam, test_df.diamnext;
                 color=(:blue, 0.5), markersize=4)
 
-            x_range = range(minimum(test_df.diam), maximum(test_df.diam), length=50)
+            x_range = range(minimum(test_df.diam), maximum(test_df.diam); length=50)
             growth_model_y = [growth_fits[i](Float64(x)) for x in x_range]
-            lines!(ax_growth, x_range, growth_model_y, color=:red, linewidth=2)
+            lines!(ax_growth, x_range, growth_model_y; color=:red, linewidth=2)
         end
     end
 
-    _display_or_save(fig, "all", target_groups[group_id], save_path)
+    return _display_or_save(fig, "all", target_groups[group_id], save_path)
 end
