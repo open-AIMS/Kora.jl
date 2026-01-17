@@ -134,31 +134,68 @@ function CoralFlow.viz.ensemble_timeseries(
     spread = [std(cover_pct[ts, :]) for ts in 1:n_ts]
     lines!(ax4, timesteps, spread; color=:purple, linewidth=2)
 
-    # Individual trajectories (sample)
-    n_sample = min(50, n_ensemble)
-    sample_indices = sample(1:n_ensemble, n_sample; replace=false)
+    # # Individual trajectories (sample)
+    # n_sample = min(50, n_ensemble)
+    # sample_indices = sample(1:n_ensemble, n_sample; replace=false)
+    # ax5 = Axis(
+    #     f[5, 1:2];
+    #     xlabel="Timestep",
+    #     ylabel="Coral Cover [%]",
+    #     title="Sample of Individual Trajectories (n=$(n_sample))"
+    # )
+
+    # for idx in sample_indices
+    #     lines!(ax5, timesteps, cover_pct[:, idx];
+    #         color=(:gray, 0.3), linewidth=1)
+    # end
+
+    # # Overlay median
+    # lines!(ax5, timesteps, cover_median;
+    #     color=:blue, linewidth=3, label="Median")
+
+    # if !isnothing(observations)
+    #     scatter!(ax5, observations.indices, observations.cover;
+    #         color=:red, markersize=8, label="Observations")
+    # end
+
+    # axislegend(ax5; position=:rt)
+
+    # Thermal adaptation
     ax5 = Axis(
         f[5, 1:2];
         xlabel="Timestep",
-        ylabel="Coral Cover [%]",
-        title="Sample of Individual Trajectories (n=$(n_sample))"
+        ylabel="Mean Tolerance [DHW]",
+        title="Adaptation"
     )
 
-    for idx in sample_indices
-        lines!(ax5, timesteps, cover_pct[:, idx];
-            color=(:gray, 0.3), linewidth=1)
+    # Extract tolerance data from ensemble results
+    # wild_dhw_tolerances: [timestep, location, group, mean_stdev, ensemble]
+    mean_tols_ensemble = ensemble_results.wild_dhw_tolerances[:, loc, :, 1, :]  # Get mean tolerance
+
+    for grp in 1:n_grps
+        # Get tolerance change relative to initial value for each ensemble member
+        grp_tols = mean_tols_ensemble[:, grp, :]  # [timestep, ensemble]
+        initial_tols = grp_tols[1, :]  # Initial values for each ensemble member
+
+        # Calculate change from initial
+        tol_change = zeros(Float32, n_ts, n_ensemble)
+        for i in 1:n_ensemble
+            tol_change[:, i] = grp_tols[:, i] .- initial_tols[i]
+        end
+
+        # Calculate statistics
+        tol_median = [quantile(tol_change[ts, :], quantiles[2]) for ts in 1:n_ts]
+        tol_lower = [quantile(tol_change[ts, :], quantiles[1]) for ts in 1:n_ts]
+        tol_upper = [quantile(tol_change[ts, :], quantiles[3]) for ts in 1:n_ts]
+
+        band!(
+            ax5, timesteps, tol_lower, tol_upper; color=(colors[grp], 0.2)
+        )
+        lines!(
+            ax5, timesteps, tol_median; color=colors[grp], linewidth=2,
+            label=labels[grp]
+        )
     end
-
-    # Overlay median
-    lines!(ax5, timesteps, cover_median;
-        color=:blue, linewidth=3, label="Median")
-
-    if !isnothing(observations)
-        scatter!(ax5, observations.indices, observations.cover;
-            color=:red, markersize=8, label="Observations")
-    end
-
-    axislegend(ax5; position=:rt)
 
     # Thermal stress
     ax6 = Axis(
