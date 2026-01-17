@@ -130,17 +130,19 @@ function (f::PolyGrowthFunction)(x::T)::T where T<:AbstractFloat
         return x + rand(0.1:0.0001:2.0)
     end
 
-    if x > f.max_x
-        return f.max_y
-    end
+    # if x > f.max_x
+    #     return f.max_y
+    # end
 
-    y::Float32 = max(exp(f.poly(log(x))), x)
-    if y > f.max_y
-        # Constrain to max observed size
-        return f.max_y
-    end
+    # y::Float32 = max(exp(f.poly(log(x))), x)
+    # if y > f.max_y
+    #     # Constrain to max observed size
+    #     return f.max_y
+    # end
 
-    return y
+    # return y
+
+    return min(f.poly(x), f.max_y)
 end
 
 growth_models = try

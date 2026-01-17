@@ -98,6 +98,11 @@ See also:
 """
 function get_growth_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
+
+    # Do not use growth data marked for use with no dates between observations!
+    growth_use_check = ismissing.(standardized_data[!, Symbol("days_t1.t2")])
+    standardized_data[growth_use_check, :growth_use] .= "no"
+
     growth_mask = standardized_data.growth_use .== "yes"
     survived_mask = standardized_data.survival_use .== "yes"
     non_missing_size_mask = standardized_data.size .!= "NA"
@@ -121,6 +126,9 @@ function get_growth_entries(standardized_data::DataFrame)::DataFrame
     days_between_obs = growth_data[!, Symbol("days_t1.t2")]
     growth_data[!, :growth_rate] .=
         passmissing(/).(growth_data.lin_ext, (days_between_obs ./ 365.25))
+
+    @. growth_data[!, :est_1yo_growth] =
+        Float64.(growth_data.diam + growth_data.growth_rate)
 
     # Cast taxa String15 type to string type
     growth_data[!, :taxa] .= String.(growth_data.taxa)
