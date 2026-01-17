@@ -1,3 +1,5 @@
+using TerminalLoggers, ProgressLogging
+
 """
     run_ensemble!(
         reef_state::ReefState,
@@ -32,14 +34,11 @@ function run_ensemble!(
     ensemble_cover = zeros(Float32, n_ts, n_locs, n_ensemble)
     ensemble_group_cover = zeros(Float32, n_ts, n_locs, n_grps, n_ensemble)
     ensemble_juvenile_cover = zeros(Float32, n_ts, n_locs, n_grps, n_ensemble)
+    ensemble_wild_dhw_tolerances = zeros(Float32, n_ts, n_locs, n_grps, 2, n_ensemble)
 
     @info "Running ensemble of $(n_ensemble) simulations..."
 
-    time_taken = @elapsed for i in 1:n_ensemble
-        if i % 10 == 0
-            @info "  Completed $(i)/$(n_ensemble) ensemble members"
-        end
-
+    time_taken = @elapsed @progress for i in 1:n_ensemble
         params = ensemble_params[:, i]
 
         # Set up population with this parameter set
@@ -88,6 +87,14 @@ function run_ensemble!(
                         cover_cm_to_m2.(pop[pop .< mature_sizes[grp]])
                     )
 
+                    # Store DHW tolerances (mean and stdev)
+                    ensemble_wild_dhw_tolerances[ts, loc, grp, 1, i] = reef_state.wild_dhw_tolerances[
+                        ts, loc, grp, At(:mean)
+                    ]
+                    ensemble_wild_dhw_tolerances[ts, loc, grp, 2, i] = reef_state.wild_dhw_tolerances[
+                        ts, loc, grp, At(:stdev)
+                    ]
+
                     # Accumulate total cover
                     loc_cover += grp_cover
                 end
@@ -104,6 +111,7 @@ function run_ensemble!(
         cover=ensemble_cover,
         group_cover=ensemble_group_cover,
         juvenile_cover=ensemble_juvenile_cover,
+        wild_dhw_tolerances=ensemble_wild_dhw_tolerances,
         params=ensemble_params
     )
 end
