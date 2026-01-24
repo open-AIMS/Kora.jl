@@ -18,7 +18,6 @@ function fit_growth_models(
 
         x_idx = sortperm(sub_df.diam)
         xi = sub_df.diam[x_idx]
-        # yi = sub_df.diamnext[x_idx]
         yi = sub_df.est_1yo_growth[x_idx]
 
         # Fit model
@@ -38,7 +37,6 @@ function fit_growth_models(
         sub_df = df[df[!, TEST_CLASS] .> 0, :]
         x_idx = sortperm(sub_df.diam)
         xi = sub_df.diam[x_idx]
-        # yi = sub_df.diamnext[x_idx]
         yi = sub_df.est_1yo_growth[x_idx]
 
         prediction = model.(xi)

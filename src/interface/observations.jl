@@ -295,6 +295,58 @@ function organize_functional_groups(
     return groupings
 end
 
+"""
+    train_test_split!(df::DataFrame, n_bins::Int; rng::AbstractRNG=Random.default_rng())
+
+Split coral demographic data into training and test sets using size-stratified binning with
+bootstrapped summary statistics.
+
+The function performs adaptive binning based on log-transformed coral diameter (`logdiam`) to
+ensure adequate sample sizes per bin. Within each bin, observations are randomly assigned to
+training (60%) or test (40%) sets. Bootstrapped means and standard deviations of survival
+rates are computed for each bin-set combination to support subsequent model fitting and
+validation.
+
+# Arguments
+- `df` : Coral demographic data containing at minimum `logdiam` and `surv` columns
+- `n_bins` : Target number of size bins for stratification
+- `rng` : Random number generator for reproducible train/test splitting
+  (default: `Random.default_rng()`)
+
+# Modifications
+The DataFrame is modified in place with the following columns added:
+- `BIN_ID` : Integer identifier for the size bin (1 to n_bins)
+- `TRAIN_CLASS` : Bin ID if observation is in training set, 0 otherwise
+- `TEST_CLASS` : Bin ID if observation is in test set, 0 otherwise
+- `TRAIN_CLASS_MEAN_ID` : Bootstrapped mean survival for training observations in each bin
+- `TRAIN_CLASS_STD_ID` : Bootstrapped standard deviation of survival for training observations
+- `TEST_CLASS_MEAN_ID` : Bootstrapped mean survival for test observations in each bin
+- `TEST_CLASS_STD_ID` : Bootstrapped standard deviation of survival for test observations
+
+# Returns
+The modified DataFrame with train/test assignments and bootstrapped statistics.
+
+# Details
+- Binning uses `adaptive_min_sample_binning()` to ensure minimum observations per bin
+- Training/test split is 60/40 without replacement
+- Bootstrap estimates use 1000 balanced samples via `BalancedSampling`
+- Missing survival values are excluded from bootstrap calculations
+
+# Example
+```julia
+# Prepare survival data with required columns
+coral_data = get_survival_entries(raw_ecorrap_data)
+
+# Create stratified train/test split with 10 size bins
+train_test_split!(coral_data, 10; rng=Random.seed!(123))
+
+# Access training data for a specific bin
+bin_3_training = coral_data[coral_data.TRAIN_CLASS .== 3, :]
+```
+
+See also: [`adaptive_min_sample_binning`](@ref), [`get_survival_entries`](@ref),
+[`fit_survival_models`](@ref)
+"""
 function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
     obs_per_bin = nrow(df) ÷ n_bins
     df[!, BIN_ID] = adaptive_min_sample_binning(df.logdiam, obs_per_bin)
@@ -318,20 +370,8 @@ function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
 
         # For test/train splitting, we do *not* want to sample with replacement.
         train_sample = sample(rng, class_sample, n_train_sample; replace=false)
-
-        # # Ensure largest obs in this bin is in the training sample
-        # idx_of_largest = argmax(df[df[!, BIN_ID] .== i, :diam])
-        # if idx_of_largest ∉ train_sample
-        #     append!(train_sample, idx_of_largest)
-        # end
-
-        # # Ensure smallest obs in this bin is in the training sample
-        # idx_of_smallest = argmin(df[df[!, BIN_ID] .== i, :diam])
-        # if idx_of_smallest ∉ train_sample
-        #     append!(train_sample, idx_of_smallest)
-        # end
-
         test_sample = setdiff(class_sample, train_sample)
+
         df[train_sample, TRAIN_CLASS] .= i
         df[test_sample, TEST_CLASS] .= i
 
