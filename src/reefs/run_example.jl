@@ -103,6 +103,8 @@ function run_example!(
         update_wild_sample!(reef_state, 1, loc, grp, next_pop[next_pop .> 0.0])
     end
 
+    recruits = fill(Float32[], n_locs, n_grps)  # Create cache
+
     # TODO: Refactor into `run_timestep()`
     for ts in timesteps[2:end]
         prev_ts = ts - 1
@@ -110,7 +112,11 @@ function run_example!(
         # Used to determine available space, which affects settlement rate, etc.
         total_covers::Vector{Float32} = coral_cover(reef_state, prev_ts)
 
-        recruits = fill(Float32[], n_locs, n_grps)  # Reset cache
+        # Reset cache
+        for i in eachindex(recruits)
+            empty!(recruits[i])
+        end
+
         for loc in 1:n_locs, grp in 1:n_grps
             # Some recruitment happens
             # Calculate across all locations and groups for time `ts`...

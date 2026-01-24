@@ -90,7 +90,14 @@ function larval_production(
     pop = coral_population(reef_state, ts, loc, grp)
     threshold = maturity_thresholds[grp]
 
-    return floor(Int64, sum([larval_production(d, grp) for d in pop if d >= threshold]))
+    total = 0.0f0
+    @simd for d in pop
+        if d >= threshold
+            total += larval_production(d, grp)
+        end
+    end
+    return floor(Int64, total)
+    # return floor(Int64, sum([larval_production(d, grp) for d in pop if d >= threshold]))
 end
 
 """

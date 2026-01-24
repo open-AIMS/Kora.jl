@@ -107,7 +107,9 @@ function bleaching_mortality!(
     Threads.@threads for i in eachindex(diams)
         if diams[i] >= mature_size
             # Calculate size-specific mortality modifier
-            diams[i] *= (1.0f0 - (base_affected * bleaching_susceptibility(diams[i])))
+            @inbounds diams[i] *= (
+                1.0f0 - (base_affected * bleaching_susceptibility(diams[i]))
+            )
         end
     end
 
@@ -196,7 +198,7 @@ function Base.show(io::IO, ::MIME"text/plain", x::LogisticSurvivalModel)
     println(io, "─"^40)
 
     group_names = ["Tabular Acropora", "Corymbose Acropora",
-        "Corymbose non-Acropora", "Small massives", "Large massives"]
+        "branching non-Acropora", "Small massives", "Large massives"]
 
     explainer = """
         McFadden's R²: -∞ - 1.0; Higher is better.
