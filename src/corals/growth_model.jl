@@ -47,8 +47,7 @@ function growth!(
         scaler = loc_scalers[i]
 
         for j in eachindex(diam[i])
-            old_diam = diam[i][j]
-            diam[i][j] = old_diam + (model(old_diam) - old_diam) * constraint * scaler
+            diam[i][j] = model(diam[i][j]) * constraint * scaler
         end
     end
 
