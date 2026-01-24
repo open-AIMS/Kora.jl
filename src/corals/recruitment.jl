@@ -41,7 +41,7 @@ function larval_production(diam::Float32, grp::Int)::Float32
     a = Float32[
         0.5f0,   # Tabular Acropora
         0.4f0,   # Corymbose Acropora
-        0.3f0,   # Corymbose non-Acropora
+        0.3f0,   # branching non-Acropora
         0.2f0,   # Small massives
         0.15f0   # Large massives
     ]

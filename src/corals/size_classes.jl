@@ -9,7 +9,7 @@ Returns the minimum diameter (cm) at which corals in each functional group typic
 Assumed values:
 - Tabular Acropora: ~12.5cm
 - Corymbose Acropora: ~12.5cm
-- Corymbose non-Acropora: ~12.5cm
+- branching non-Acropora: ~12.5cm
 - Small massives/encrusting: ~15cm
 - Large massives: ~20cm
 """
@@ -17,7 +17,7 @@ function mature_size_thresholds()::Vector{Float32}
     return Float32[
         12.5f0,  # Tabular Acropora
         12.5f0,  # Corymbose Acropora
-        12.5f0,  # Corymbose non-Acropora
+        12.5f0,  # branching non-Acropora
         15.0f0,  # Small massives and encrusting
         20.0f0   # Large massives
     ]
@@ -96,7 +96,7 @@ function survival_rates()::Matrix{Float32}
     return [
         0.687339f0 0.805556f0 0.788961f0 0.807143f0 0.842105f0 0.857143f0 0.857143f0  # Tabular Acropora
         0.776153f0 0.869252f0 0.908462f0 0.876652f0 0.889706f0 0.889706f0 0.889706f0  # Corymbose Acropora
-        0.781176f0 0.871429f0 0.921466f0 0.916667f0 0.916667f0 0.916667f0 0.916667f0  # Corymbose non-Acropora
+        0.781176f0 0.871429f0 0.921466f0 0.916667f0 0.916667f0 0.916667f0 0.916667f0  # branching non-Acropora
         0.761658f0 0.920049f0 0.955396f0 0.973613f0 0.986486f0 0.984f0 0.972789f0  # Small massives and encrusting
         0.717391f0 0.920049f0 0.955396f0 0.973613f0 0.986486f0 0.984f0 0.972789f0  # Large massives
     ]

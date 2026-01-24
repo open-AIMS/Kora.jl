@@ -16,7 +16,7 @@ COLOR_MAP = :Paired_12
 FGROUP_COLOR = distinguishable_colors(8)[3:end]
 FLABELS = [
     "Tabular Acropora", "Corymbose Acropora",
-    "Corymbose non-Acropora", "Small massives", "Large massives"
+    "branching non-Acropora", "Small massives", "Large massives"
 ]
 
 function _display_or_save(
