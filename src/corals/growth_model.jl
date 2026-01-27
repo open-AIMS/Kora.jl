@@ -41,13 +41,19 @@ function growth!(
     grp_mod::F,
     loc_scalers::Vector{F}
 )::Nothing where {M,F<:Float32}
-    # Use explicit loops to avoid broadcast allocations
-    Threads.@threads for i in eachindex(reef_cover)
-        constraint = space_constraint(reef_cover[i], 20.0f0; x0=grp_mod)
-        scaler = loc_scalers[i]
 
-        for j in eachindex(diam[i])
-            diam[i][j] = model(diam[i][j]) * constraint * scaler
+    # Use explicit loops to avoid broadcast allocations
+    for i in eachindex(reef_cover)
+        if isempty(diam[i])
+            continue
+        end
+
+        constraint = space_constraint(reef_cover[i], 20.0f0; x0=grp_mod)
+        scaler = constraint * loc_scalers[i]
+
+        @inbounds for j in eachindex(diam[i])
+            old_diam = diam[i][j]
+            diam[i][j] = old_diam + (model(old_diam) * scaler)
         end
     end
 

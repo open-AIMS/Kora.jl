@@ -13,7 +13,7 @@ struct ReefState{
     growth_models::Vector{P}
     survival_models::Vector{P}
     location_scalers::Y3a
-    density::Vector{Int64}  # Population density per location
+    density::Vector{Int64}  # Max population density per location
     depths::Vector{F}       # Depths of each location
     wild_dhw_tolerances::Y4a
     deployed_dhw_tolerances::Y4a
@@ -154,9 +154,10 @@ end
 end
 
 @inline function coral_population(
-    reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL
+    reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL;
+    cache=@view(reef_state._pop_cache[loc, :])
 )::SubArray
-    return coral_population!(reef_state, ts, loc, grp, reef_state._pop_cache[loc, :])
+    return coral_population!(reef_state, ts, loc, grp, cache)
 end
 function coral_population!(
     reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL, cache::AbstractVector
@@ -219,7 +220,7 @@ function initialize_reef(;
     n_timesteps=75,
     n_locs=100,
     group_names=CoralFlow.TARGET_GROUPS,
-    density::Union{Int64,Vector{Int64}}=25,  # Density per unit area
+    density::Union{Int64,Vector{Int64}}=20,  # Max density per unit area
     area=90.0,
     depths::Union{Float64,Vector{Float64}}=9.0,
     growth_models::AbstractCoralBehavior=CoralFlow.growth_models,
@@ -289,7 +290,7 @@ function initialize_reef(;
         throw(ArgumentError(msg))
     end
 
-    buffer_size = Int64(maximum(area) * maximum(density) * 20)
+    buffer_size = Int64(maximum(area) * maximum(density) * 5)
     reef_state = ReefState(
         wild_population,
         deployed_population,
@@ -513,7 +514,7 @@ function coral_cover(reef_state::ReefState)::Vector{Float32}
 end
 function coral_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
     loc_covers = reef_state._location_buffer
-    Threads.@threads for loc in eachindex(loc_covers)
+    for loc in eachindex(loc_covers)
         @inbounds loc_covers[loc] = coral_cover(reef_state, ts, loc)
     end
 

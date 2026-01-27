@@ -140,7 +140,7 @@ Survival from background mortality
     return rand(Float32) < model(diam)
 end
 function survival!(model::M, diam::AbstractVector{Float32})::Nothing where {M}
-    Threads.@threads for i in eachindex(diam)
+    for i in eachindex(diam)
         @inbounds diam[i] *= survival(model, diam[i])
     end
 

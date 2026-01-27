@@ -1,8 +1,8 @@
 function apply_growth!(
     reef_state::ReefState, grp::Int64, inflection_point::F, diams::Vector{Vector{F}},
-    reef_cover::Vector{F}
+    reef_cover::Vector{F};
+    scalers=reef_state.location_scalers[At(:growth), :, grp].data
 )::Nothing where {F<:Float32}
-    scalers = reef_state.location_scalers[At(:growth), :, grp].data
     growth!(reef_state.growth_models[grp], diams, reef_cover, inflection_point, scalers)
 
     return nothing
