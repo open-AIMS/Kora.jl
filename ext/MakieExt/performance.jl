@@ -177,7 +177,7 @@ function CoralFlow.viz.growth_performance_plots(
         model = model_fits[group_id]
         all_x = vcat(train_xi, test_xi)
         x_range = range(minimum(all_x), maximum(all_x); length=100)
-        model_y = [model(Float64(x)) for x in x_range]
+        model_y = [x + model(Float32(x)) for x in x_range]
 
         # Create figure with side-by-side subplots and space for legend
         fig = Figure(; size=figsize)

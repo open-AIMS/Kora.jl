@@ -17,33 +17,33 @@ function fit_growth_models(
         sub_df = df[df[!, TRAIN_CLASS] .> 0, :]
 
         x_idx = sortperm(sub_df.diam)
-        xi = sub_df.diam[x_idx]
-        yi = sub_df.est_1yo_growth[x_idx]
+        xi = Float32.(sub_df.diam[x_idx])
+        yi = Float32.(sub_df.growth_rate[x_idx])
 
         # Fit model
-        m = curve_fit(Polynomial, xi, yi, degree)
+        m = curve_fit(Polynomial, log.(xi), yi, degree)
 
-        # Create growth function
-        model = PolyGrowthFunction(xi, yi, m)
+        # Create growth function, passing in the maximum observed size and growth
+        model = PolyGrowthFunction(xi, yi, m, maximum(df.diam), maximum(df.growth_rate))
         prediction = model.(xi)
         push!(models, model)
 
         # Collate training metrics
         for m in ALL_METRICS
-            getfield(train_, Symbol(m))[i] = m(prediction, yi)
+            getfield(train_, Symbol(m))[i] = m(xi .+ prediction, xi .+ yi)
         end
 
         # As above, but for test data
         sub_df = df[df[!, TEST_CLASS] .> 0, :]
         x_idx = sortperm(sub_df.diam)
-        xi = sub_df.diam[x_idx]
-        yi = sub_df.est_1yo_growth[x_idx]
+        xi = Float32.(sub_df.diam[x_idx])
+        yi = Float32.(sub_df.growth_rate[x_idx])
 
         prediction = model.(xi)
 
         # Collate training metrics
         for m in ALL_METRICS
-            getfield(test_, Symbol(m))[i] = m(prediction, yi)
+            getfield(test_, Symbol(m))[i] = m(xi .+ prediction, xi .+ yi)
         end
     end
 

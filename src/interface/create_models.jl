@@ -321,7 +321,8 @@ function process_ecorrap_models(
 
     # Process growth models
     growth_results = process_growth_models(
-        ecorrap_data_file, functional_group_file;
+        ecorrap_data_file,
+        functional_group_file;
         region=region,
         reef=reef,
         degree=growth_degree,

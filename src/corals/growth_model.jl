@@ -126,28 +126,26 @@ struct PolyGrowthFunction{T<:AbstractFloat} <: Function
     ) where T<:AbstractFloat
         return new{T}(xi[1], yi[1], xi[end], yi[end], poly)
     end
+
+    function PolyGrowthFunction(
+        xi::Vector{T},
+        yi::Vector{T},
+        poly::Polynomial,
+        max_x::AbstractFloat,
+        max_y::AbstractFloat
+    ) where T<:AbstractFloat
+        return new{T}(Float32(xi[1]), Float32(yi[1]), Float32(max_x), Float32(max_y), poly)
+    end
 end
 
 """Define `PolyGrowthFunction` as a callable."""
-function (f::PolyGrowthFunction)(x::T)::T where T<:AbstractFloat
+function (f::PolyGrowthFunction)(x::T)::T where T<:Float32
     if x < f.min_x
         # Handle recruits smaller than observed (random growth between 0.1 and 2.0cm)
-        return x + rand(0.1:0.0001:2.0)
+        return rand(0.1f0:0.0001f0:2.0f0)
     end
 
-    # if x > f.max_x
-    #     return f.max_y
-    # end
-
-    # y::Float32 = max(exp(f.poly(log(x))), x)
-    # if y > f.max_y
-    #     # Constrain to max observed size
-    #     return f.max_y
-    # end
-
-    # return y
-
-    return min(f.poly(x), f.max_y)
+    return min(f.poly(log(x)), f.max_y)
 end
 
 growth_models = try
