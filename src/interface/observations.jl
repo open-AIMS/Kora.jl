@@ -113,15 +113,15 @@ function get_growth_entries(standardized_data::DataFrame)::DataFrame
     ]
 
     # Add diameter column and diameter Next column
-    growth_data[!, :diam] .= area_to_diam.(growth_data.size)
-    growth_data[!, :diamnext] .= area_to_diam.(growth_data.sizenext)
+    @. growth_data[!, :diam] = area_to_diam(growth_data.size)
+    @. growth_data[!, :diamnext] = area_to_diam(growth_data.sizenext)
 
     # Add log diameter column
-    growth_data[!, :logdiam] .= log.(2, growth_data.diam)
+    @. growth_data[!, :logdiam] = log(2, growth_data.diam)
 
     # Add growth and linear extension entries into data frame
-    growth_data[!, :growth] .= growth_data.sizenext .- growth_data.size
-    growth_data[!, :lin_ext] .= growth_data.diamnext .- growth_data.diam
+    @. growth_data[!, :growth] = growth_data.sizenext - growth_data.size
+    @. growth_data[!, :lin_ext] = growth_data.diamnext - growth_data.diam
 
     days_between_obs = growth_data[!, Symbol("days_t1.t2")]
     growth_data[!, :growth_rate] .=
