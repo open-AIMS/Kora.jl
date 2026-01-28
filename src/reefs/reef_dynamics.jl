@@ -16,7 +16,7 @@ function apply_growth!(
 
         @inbounds for j in eachindex(diams[i])
             old_diam = diams[i][j]
-            diams[i][j] = old_diam + ((model(old_diam) - old_diam) * scaler)
+            diams[i][j] = old_diam + (model(old_diam) * scaler)
         end
     end
 
