@@ -33,33 +33,6 @@ Modify growth as coral cover approaches total habitable area.
     return 1.0f0 / (1.0f0 + _euler_f32b^(k * (x - x0)))
 end
 
-# Growth models need to account for available space... (see space constraint)
-function growth!(
-    model::M,
-    diam::Vector{Vector{F}},
-    reef_cover::Vector{F},
-    grp_mod::F,
-    loc_scalers::Vector{F}
-)::Nothing where {M,F<:Float32}
-
-    # Use explicit loops to avoid broadcast allocations
-    for i in eachindex(reef_cover)
-        if isempty(diam[i])
-            continue
-        end
-
-        constraint = space_constraint(reef_cover[i], 20.0f0; x0=grp_mod)
-        scaler = constraint * loc_scalers[i]
-
-        @inbounds for j in eachindex(diam[i])
-            old_diam = diam[i][j]
-            diam[i][j] = old_diam + (model(old_diam) * scaler)
-        end
-    end
-
-    return nothing
-end
-
 struct PolyGrowthModel <: AbstractCoralBehavior
     names::Vector{String}
     models::Vector{Function}

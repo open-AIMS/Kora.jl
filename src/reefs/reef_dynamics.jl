@@ -3,7 +3,22 @@ function apply_growth!(
     reef_cover::Vector{F};
     scalers=reef_state.location_scalers[At(:growth), :, grp].data
 )::Nothing where {F<:Float32}
-    growth!(reef_state.growth_models[grp], diams, reef_cover, inflection_point, scalers)
+    model = reef_state.growth_models[grp]
+
+    # Use explicit loops to avoid broadcast allocations
+    for i in eachindex(reef_cover)
+        if isempty(diams[i])
+            continue
+        end
+
+        constraint = space_constraint(reef_cover[i], 20.0f0; x0=inflection_point)
+        scaler = constraint * scalers[i]
+
+        @inbounds for j in eachindex(diams[i])
+            old_diam = diams[i][j]
+            diams[i][j] = old_diam + ((model(old_diam) - old_diam) * scaler)
+        end
+    end
 
     return nothing
 end
