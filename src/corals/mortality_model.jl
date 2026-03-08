@@ -99,7 +99,7 @@ function bleaching_mortality!(
     end
 
     diam_cache = copy(diams)
-    mature_size = mature_size_thresholds()[grp]  # Assumed mature sizes
+    mature_size = susceptibility_size_thresholds()[grp]  # Assumed mature sizes
 
     # Apply size-dependent mortality to each size class
     # (the reduction in size due to partial mortality or mortality).

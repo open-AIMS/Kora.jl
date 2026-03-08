@@ -67,7 +67,7 @@ function run_ensemble!(
             run_example!(reef_state, env_conditions; rng=rng)
         end
 
-        mature_sizes = mature_size_thresholds()
+        mature_sizes = susceptibility_size_thresholds()
 
         # Store results - optimized to avoid repeated function calls
         # and temporary allocations

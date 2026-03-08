@@ -56,7 +56,7 @@ function run_example!(
     # Group modifiers that adjusts when growth slows down as it approaches a
     # proportionate limit relative to available space
     inflection_points = growth_inflection_point()
-    maturity_thresholds = mature_size_thresholds()
+    maturity_thresholds = susceptibility_size_thresholds()
 
     recruits = fill(Float32[], n_locs, n_grps)
     depth_coeffs = depth_coefficient.(reef_state.depths)

@@ -2,24 +2,18 @@ const _pi_f32 = Float32(π)
 const _cover_scale = 1.0f0 / 10000.0f0
 
 """
-    mature_size_thresholds()::Vector{Float32}
+    susceptibility_size_thresholds()::Vector{Float32}
 
-Returns the minimum diameter (cm) at which corals in each functional group typically reach sexual maturity.
-
-Assumed values:
-- Tabular Acropora: ~12.5cm
-- Corymbose Acropora: ~12.5cm
-- branching non-Acropora: ~12.5cm
-- Small massives/encrusting: ~15cm
-- Large massives: ~20cm
+Returns the minimum diameter (cm) at which corals in each functional group become susceptible
+to bleaching.
 """
-function mature_size_thresholds()::Vector{Float32}
+function susceptibility_size_thresholds()::Vector{Float32}
     return Float32[
-        12.5f0,  # Tabular Acropora
-        12.5f0,  # Corymbose Acropora
-        12.5f0,  # branching non-Acropora
-        15.0f0,  # Small massives and encrusting
-        20.0f0   # Large massives
+        5.0f0,  # Tabular Acropora
+        5.0f0,  # Corymbose Acropora
+        5.0f0,  # branching non-Acropora
+        5.0f0,  # Small massives and encrusting
+        5.0f0   # Large massives
     ]
 end
 

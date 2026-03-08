@@ -581,7 +581,7 @@ Returns:
 function mature_coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
     n_locs = n_locations(reef_state)
     n_grps = n_groups(reef_state)
-    thresholds = mature_size_thresholds()
+    thresholds = susceptibility_size_thresholds()
 
     mature_cover = zeros(Float32, n_locs, n_grps)
     for grp in 1:n_grps, loc in 1:n_locs
@@ -649,7 +649,7 @@ function juvenile_cover(
     means = zeros(Float32, n_grp)
 
     if isnothing(juvenile_threshold)
-        mature_sizes = mature_size_thresholds()
+        mature_sizes = susceptibility_size_thresholds()
     else
         if !(juvenile_threshold isa Vector)
             mature_sizes = fill(juvenile_threshold, n_grp)
@@ -683,7 +683,7 @@ function juvenile_cover_timeseries(
     means = zeros(Float32, n_ts, n_grp)
 
     if isnothing(juvenile_threshold)
-        mature_sizes = mature_size_thresholds()
+        mature_sizes = susceptibility_size_thresholds()
     else
         if !(juvenile_threshold isa Vector)
             mature_sizes = fill(juvenile_threshold, n_grp)
