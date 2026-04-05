@@ -1,3 +1,5 @@
+import YAXArrays.DD: dims
+
 const SEL = Union{Int64,Colon}  # Defined selector type
 
 struct ReefState{
@@ -30,6 +32,51 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", x::ReefState)
     return println(io, "TODO: Nice printing of ReefState")
+end
+
+"""
+    Base.copy(rs::ReefState)
+
+Create a thread-safe independent copy of `rs` for use in parallel model
+evaluation (e.g. sensitivity analysis with `Threads.@threads`).
+
+`deepcopy(rs)` is unsafe because `YAXArray` is an immutable struct — Julia
+returns the same instance rather than creating a new one with copied data.
+Fields like `wild_dhw_tolerances` are therefore shared across copies and
+corrupted by concurrent writes in `run_example!`.
+
+This method avoids that by:
+- Reconstructing each `YAXArray` field explicitly with `copy(field.data)`,
+  guaranteeing independent underlying arrays.
+- Using `deepcopy` only for `wild_population` / `deployed_population`, whose
+  elements are `Vector{F}` objects that must also be independent.
+- Using `copy` (shallow) for plain numeric arrays — sufficient since no two
+  threads operate on the same reef state instance.
+- Sharing `growth_models` and `survival_models` — these hold immutable
+  function objects and are safe to read concurrently.
+"""
+function Base.copy(rs::ReefState)
+    return ReefState(
+        deepcopy(rs.wild_population),
+        deepcopy(rs.deployed_population),
+        copy(rs.deployment_times),
+        rs.growth_models,
+        rs.survival_models,
+        YAXArray(dims(rs.location_scalers), copy(rs.location_scalers.data)),
+        copy(rs.density),
+        copy(rs.depths),
+        YAXArray(dims(rs.wild_dhw_tolerances), copy(rs.wild_dhw_tolerances.data)),
+        YAXArray(dims(rs.deployed_dhw_tolerances), copy(rs.deployed_dhw_tolerances.data)),
+        YAXArray(dims(rs.mortalities), copy(rs.mortalities.data)),
+        copy(rs.carrying_capacity),
+        rs._max_pop_size,
+        copy(rs._pop_cache),
+        copy(rs._growth_cache),
+        copy(rs._location_cache),
+        copy(rs._pop_buffer),
+        copy(rs._location_buffer),
+        copy(rs._recruit_buffer)
+    )
 end
 
 @inline function n_timesteps(reef_state::ReefState)::Int64
