@@ -1,5 +1,5 @@
 """
-    run_example!(
+    run_model!(
         reef_state::ReefState,
         env_conditions::YAXArray;
         recruits=0.06f0,
@@ -19,7 +19,7 @@ Run example with constant incoming larvae.
 # Returns
 Nothing
 """
-function run_example!(
+function run_model!(
     reef_state::ReefState,
     env_conditions::YAXArray;
     recruits=0.06f0,
@@ -257,11 +257,11 @@ function run_example!(
 end
 
 """
-    run_example(; n_ts=75, n_locs=100, with_dhw=true, growth_models=growth_models, survival_models=survival_models)
+    run_model(; n_ts=75, n_locs=100, with_dhw=true, growth_models=growth_models, survival_models=survival_models)
 
 Run example with constant incoming larvae.
 """
-function run_example(;
+function run_model(;
     n_ts=75, n_locs=100, with_dhw=true, area=100.0, pop_density=15.0,
     growth_models=growth_models, survival_models=survival_models
 )
@@ -276,12 +276,12 @@ function run_example(;
         survival_models=survival_models
     )
     initialize_coral_population!(reef_state)
-    example_env = generate_example_environment(n_ts, n_locs; with_dhw=with_dhw)
+    env_template = generate_example_environment(n_ts, n_locs; with_dhw=with_dhw)
 
-    run_example!(reef_state, example_env)
+    run_model!(reef_state, env_template)
 
-    return reef_state, example_env
+    return reef_state, env_template
 end
 
-run_model = run_example
-run_model! = run_example!
+run_example = run_model
+run_example! = run_model!
