@@ -14,7 +14,22 @@ function susceptibility_size_thresholds()::Vector{Float32}
         12.5f0,  # branching non-Acropora
         15.0f0,  # Small massives and encrusting
         20.0f0   # Large massives
+    ]
+end
 
+"""
+    mature_size_thresholds()::Vector{Float32}
+
+Returns the minimum diameter (cm) at which corals in each functional group become 
+reproductive.
+"""
+function mature_size_thresholds()::Vector{Float32}
+    return Float32[
+        5.0f0,  # Tabular Acropora
+        5.0f0,  # Corymbose Acropora
+        5.0f0,  # branching non-Acropora
+        5.0f0,  # Small massives and encrusting
+        5.0f0   # Large massives
     ]
 end
 
