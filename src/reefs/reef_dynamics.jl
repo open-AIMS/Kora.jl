@@ -112,7 +112,6 @@ function larval_production(
         end
     end
     return floor(Int64, total)
-    # return floor(Int64, sum([larval_production(d, grp) for d in pop if d >= threshold]))
 end
 
 """
