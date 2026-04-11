@@ -36,8 +36,6 @@ function run_ensemble!(
     ensemble_juvenile_cover = zeros(Float32, n_ts, n_locs, n_grps, n_ensemble)
     ensemble_wild_dhw_tolerances = zeros(Float32, n_ts, n_locs, n_grps, 2, n_ensemble)
 
-    @info "Running ensemble of $(n_ensemble) simulations..."
-
     time_taken = @elapsed @progress for i in 1:n_ensemble
         params = ensemble_params[:, i]
 
