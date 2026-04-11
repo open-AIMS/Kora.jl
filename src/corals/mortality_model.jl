@@ -136,12 +136,12 @@ Proportion of survival from background mortality.
 # Returns
 Survival from background mortality
 """
-@inline function survival(model::M, diam::Float32)::Bool where {M}
-    return rand(Float32) < model(diam)
+@inline function survival(model::M, diam::Float32, rng::AbstractRNG)::Bool where {M}
+    return rand(rng, Float32) < model(diam)
 end
-function survival!(model::M, diam::AbstractVector{Float32})::Nothing where {M}
+function survival!(model::M, diam::AbstractVector{Float32}, rng::AbstractRNG)::Nothing where {M}
     for i in eachindex(diam)
-        @inbounds diam[i] *= survival(model, diam[i])
+        @inbounds diam[i] *= survival(model, diam[i], rng)
     end
 
     return nothing

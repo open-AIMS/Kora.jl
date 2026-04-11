@@ -80,7 +80,7 @@ function run_model!(
 
         # Background mortality
         # TODO: apply location specific survival scaler
-        apply_survival!(reef_state, grp, with_recruits)
+        apply_survival!(reef_state, grp, with_recruits, rng)
 
         # Bleaching mortality
         new_mean, new_std, area_lost = bleaching_mortality!(
@@ -198,7 +198,7 @@ function run_model!(
 
             # Background mortality
             # TODO: apply location specific survival scaler
-            apply_survival!(reef_state, grp, with_recruits)
+            apply_survival!(reef_state, grp, with_recruits, rng)
 
             # Bleaching mortality
             new_mean, new_std, area_lost = bleaching_mortality!(

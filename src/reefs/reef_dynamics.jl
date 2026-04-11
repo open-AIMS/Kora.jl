@@ -76,10 +76,10 @@ function apply_bleaching!(
 end
 
 function apply_survival!(
-    reef_state::ReefState, grp::Int64, diams::AbstractVector{F}
+    reef_state::ReefState, grp::Int64, diams::AbstractVector{F}, rng::AbstractRNG
 )::Nothing where {F<:Float32}
     model = reef_state.survival_models[grp]
-    survival!(model, diams)
+    survival!(model, diams, rng)
 
     return nothing
 end
