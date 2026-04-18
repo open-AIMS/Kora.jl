@@ -107,7 +107,8 @@ function bleaching_mortality!(
     Threads.@threads for i in eachindex(diams)
         if diams[i] >= mature_size
             # Calculate size-specific mortality modifier
-            @inbounds diams[i] *= (
+            # The sqrt() converts the area reduction to the expected diameter reduction
+            @inbounds diams[i] *= sqrt(
                 1.0f0 - (base_affected * bleaching_susceptibility(diams[i]))
             )
         end
