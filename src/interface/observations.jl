@@ -306,26 +306,27 @@ function organize_functional_groups(
 end
 
 """
-    train_test_split!(df::DataFrame, n_bins::Int; rng::AbstractRNG=Random.default_rng())
+    train_test_split!(df::DataFrame, n_bins::Int; site_col::Symbol=:site_code, rng::AbstractRNG=Random.default_rng())
 
-Split coral demographic data into training and test sets using size-stratified binning with
-bootstrapped summary statistics.
+Split coral demographic data into training and test sets using spatially blocked splitting and size-stratified binning.
 
-The function performs adaptive binning based on log-transformed coral diameter (`logdiam`) to
-ensure adequate sample sizes per bin. Within each bin, observations are randomly assigned to
-training (60%) or test (40%) sets. Bootstrapped means and standard deviations of survival
-rates are computed for each bin-set combination to support subsequent model fitting and
-validation.
+To avoid pseudoreplication and spatial autocorrelation, the split is performed at the site level (defined by `site_col`).
+Approximately 60% of sites are assigned to the training set and 40% to the test set.
+
+The function then ensures that each size bin (created via `adaptive_min_sample_binning`) contains observations
+in both the training and test sets. If a bin is empty in either set, it is merged with its neighbor
+that has the most observations (Bin Merging). Bootstrapped means and standard deviations of survival
+rates are computed for each resulting bin-set combination.
 
 # Arguments
-- `df` : Coral demographic data containing at minimum `logdiam` and `surv` columns
+- `df` : Coral demographic data containing at minimum `logdiam`, `surv`, and `site_col` columns
 - `n_bins` : Target number of size bins for stratification
-- `rng` : Random number generator for reproducible train/test splitting
-  (default: `Random.default_rng()`)
+- `site_col` : Column name used for spatial blocking (default: `:site_code`)
+- `rng` : Random number generator for reproducible splitting (default: `Random.default_rng()`)
 
 # Modifications
 The DataFrame is modified in place with the following columns added:
-- `BIN_ID` : Integer identifier for the size bin (1 to n_bins)
+- `BIN_ID` : Integer identifier for the size bin
 - `TRAIN_CLASS` : Bin ID if observation is in training set, 0 otherwise
 - `TEST_CLASS` : Bin ID if observation is in test set, 0 otherwise
 - `TRAIN_CLASS_MEAN_ID` : Bootstrapped mean survival for training observations in each bin
@@ -334,85 +335,133 @@ The DataFrame is modified in place with the following columns added:
 - `TEST_CLASS_STD_ID` : Bootstrapped standard deviation of survival for test observations
 
 # Returns
-The modified DataFrame with train/test assignments and bootstrapped statistics.
-
-# Details
-- Binning uses `adaptive_min_sample_binning()` to ensure minimum observations per bin
-- Training/test split is 60/40 without replacement
-- Bootstrap estimates use 1000 balanced samples via `BalancedSampling`
-- Missing survival values are excluded from bootstrap calculations
-
-# Example
-```julia
-# Prepare survival data with required columns
-coral_data = get_survival_entries(raw_ecorrap_data)
-
-# Create stratified train/test split with 10 size bins
-train_test_split!(coral_data, 10; rng=Random.seed!(123))
-
-# Access training data for a specific bin
-bin_3_training = coral_data[coral_data.TRAIN_CLASS .== 3, :]
-```
-
-See also: [`adaptive_min_sample_binning`](@ref), [`get_survival_entries`](@ref),
-[`fit_survival_models`](@ref)
+The modified DataFrame with spatially blocked train/test assignments and bootstrapped statistics.
 """
-function train_test_split!(df, n_bins; rng::AbstractRNG=Random.default_rng())
+function train_test_split!(
+    df,
+    n_bins;
+    site_col::Symbol=:site_code,
+    rng::AbstractRNG=Random.default_rng()
+)
     obs_per_bin = nrow(df) ÷ n_bins
     df[!, BIN_ID] = adaptive_min_sample_binning(df.logdiam, obs_per_bin)
 
-    # If it is not training data, then the class id will be 0
-    # Same for test data.
+    # Spatial split: split by site to avoid pseudoreplication
+    sites = unique(df[!, site_col])
+    n_sites = length(sites)
+
+    # Initialize class columns
     df[!, TRAIN_CLASS] .= 0
     df[!, TEST_CLASS] .= 0
-
     df[!, TRAIN_CLASS_MEAN_ID] .= 0.0
     df[!, TEST_CLASS_MEAN_ID] .= 0.0
-
     df[!, TRAIN_CLASS_STD_ID] .= 0.0
     df[!, TEST_CLASS_STD_ID] .= 0.0
 
-    n_bins = sort(unique(df[!, BIN_ID]))
-    for i in n_bins
-        class_sample = findall(df[!, BIN_ID] .== i)
-        n_obs = length(class_sample)
-        n_train_sample = floor(Int64, n_obs * 0.6)
+    # Assign observations to train/test based on site
+    local train_mask, test_mask
+    if n_sites >= 2
+        # Clamp to [1, n_sites-1] so both sets are always non-empty
+        n_train_sites = clamp(floor(Int64, n_sites * 0.6), 1, n_sites - 1)
+        train_sites = sample(rng, sites, n_train_sites; replace=false)
+        test_sites = setdiff(sites, train_sites)
+        train_mask = df[!, site_col] .∈ Ref(train_sites)
+        test_mask = df[!, site_col] .∈ Ref(test_sites)
+    else
+        # Only 1 site — fall back to observation-level split
+        n = nrow(df)
+        n_train = max(1, floor(Int64, n * 0.6))
+        train_idx = sort(sample(rng, 1:n, n_train; replace=false))
+        train_mask = falses(n)
+        train_mask[train_idx] .= true
+        test_mask = .!train_mask
+    end
 
-        # For test/train splitting, we do *not* want to sample with replacement.
-        train_sample = sample(rng, class_sample, n_train_sample; replace=false)
-        test_sample = setdiff(class_sample, train_sample)
+    df[train_mask, TRAIN_CLASS] .= df[train_mask, BIN_ID]
+    df[test_mask, TEST_CLASS] .= df[test_mask, BIN_ID]
 
-        df[train_sample, TRAIN_CLASS] .= i
-        df[test_sample, TEST_CLASS] .= i
+    # Bin Merging (Option 2): Ensure every bin has data in both sets
+    # We iterate through bins and if one is empty, merge it with the neighbor that has more data
+    actual_bins = sort(unique(df[!, BIN_ID]))
 
-        obs = collect(skipmissing(df[train_sample, :surv]))
+    # Helper to calculate and assign bootstrap stats for a set of indices
+    function assign_stats!(indices, mean_col, std_col)
+        if isempty(indices)
+            return nothing
+        end
+
+        obs = collect(skipmissing(df[indices, :surv]))
+        if isempty(obs)
+            return nothing
+        end
+
         samp_strat = BalancedSampling(1000)
-        train_mean = bootstrap(
-            mean,
-            obs,
-            samp_strat
-        )
-        train_std = bootstrap(
-            std,
-            obs,
-            samp_strat
-        )
-        df[train_sample, TRAIN_CLASS_MEAN_ID] .= train_mean.t0[1]
-        df[train_sample, TRAIN_CLASS_STD_ID] .= train_std.t0[1]
+        t_mean = bootstrap(mean, obs, samp_strat).t0[1]
+        t_std = bootstrap(std, obs, samp_strat).t0[1]
 
-        obs = collect(skipmissing(df[test_sample, :surv]))
-        test_mean = bootstrap(
-            mean,
-            obs,
-            samp_strat
+        df[indices, mean_col] .= t_mean
+        return df[indices, std_col] .= t_std
+    end
+
+    # First pass: calculate stats for current split
+    for i in actual_bins
+        assign_stats!(
+            findall(df[!, TRAIN_CLASS] .== i),
+            TRAIN_CLASS_MEAN_ID,
+            TRAIN_CLASS_STD_ID
         )
-        test_std = bootstrap(
-            std,
-            obs,
-            samp_strat
+        assign_stats!(
+            findall(df[!, TEST_CLASS] .== i),
+            TEST_CLASS_MEAN_ID,
+            TEST_CLASS_STD_ID
         )
-        df[test_sample, TEST_CLASS_MEAN_ID] .= test_mean.t0[1]
-        df[test_sample, TEST_CLASS_STD_ID] .= test_std.t0[1]
+    end
+
+    # Consolidation pass: merge empty bins
+    for i in actual_bins
+        train_idx = findall(df[!, TRAIN_CLASS] .== i)
+        test_idx = findall(df[!, TEST_CLASS] .== i)
+
+        if isempty(train_idx) || isempty(test_idx)
+            # Find neighbor (i-1 or i+1) with most total observations
+            neighbors = filter(x -> 1 <= x <= length(actual_bins), [i - 1, i + 1])
+            if isempty(neighbors)
+                continue
+            end
+
+            best_neighbor = first(
+                sortperm(
+                    [length(findall(df[!, BIN_ID] .== actual_bins[n])) for n in neighbors];
+                    rev=true
+                )
+            )
+            neighbor_bin = actual_bins[neighbors[best_neighbor]]
+
+            # Merge this bin into the neighbor
+            df[df[!, BIN_ID] .== i, BIN_ID] .= neighbor_bin
+
+            # Update class assignments
+            df[
+                (df[!, BIN_ID] .== neighbor_bin) .& train_mask,
+                TRAIN_CLASS
+            ] .= neighbor_bin
+            df[
+                (df[!, BIN_ID] .== neighbor_bin) .& test_mask,
+                TEST_CLASS
+            ] .= neighbor_bin
+
+            # Recalculate stats for the merged bin
+            assign_stats!(
+                findall(df[!, TRAIN_CLASS] .== neighbor_bin),
+                TRAIN_CLASS_MEAN_ID,
+                TRAIN_CLASS_STD_ID
+            )
+            assign_stats!(
+                findall(df[!, TEST_CLASS] .== neighbor_bin),
+                TEST_CLASS_MEAN_ID,
+                TEST_CLASS_STD_ID
+            )
+        end
     end
 
     return df
