@@ -67,7 +67,7 @@ function process_growth_models(
 
     # Load and process EcoRRAP data
     @info "Loading EcoRRAP data from: $ecorrap_data_file"
-    ecorrap_data = CSV.read(ecorrap_data_file, DataFrame; missingstring="NA")
+    ecorrap_data = CSV.read(ecorrap_data_file, DataFrame; missingstring=["NA", ""])
 
     # Standardize data
     ecorrap_data = standardize_ecorrap_data!(ecorrap_data)
