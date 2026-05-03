@@ -18,6 +18,16 @@ If data is missing, returns `missing`.
 function area_to_diam(area::AbstractFloat)::AbstractFloat
     return sqrt(4.0 * area / π)
 end
+function area_to_diam(area::AbstractString)::Union{AbstractFloat,Missing}
+    try
+        return area_to_diam(parse(Float64, area))
+    catch e
+        if e isa ArgumentError || e isa MethodError
+            return missing
+        end
+        rethrow(e)
+    end
+end
 function area_to_diam(_::Missing)::Missing
     return missing
 end
