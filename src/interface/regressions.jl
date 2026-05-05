@@ -7,7 +7,7 @@ function fit_growth_models(
     m = length(ALL_METRICS)
 
     train_ = NamedTuple((
-        Symbol(k) => Vector{Float32}(undef, g) for k in CoralFlow.ALL_METRICS
+        Symbol(k) => Vector{Float32}(undef, g) for k in Kora.ALL_METRICS
     ))
     test_ = deepcopy(train_)
 
@@ -75,7 +75,7 @@ function fit_survival_models(
     m = length(ALL_METRICS)
 
     train_ = NamedTuple((
-        Symbol(k) => Vector{Float32}(undef, g) for k in CoralFlow.ALL_METRICS
+        Symbol(k) => Vector{Float32}(undef, g) for k in Kora.ALL_METRICS
     ))
     test_ = deepcopy(train_)
 

@@ -1,10 +1,10 @@
-# CoralFlow.jl
+# Kora.jl
 
 A Julia framework for simulating coral reef population dynamics, including growth, mortality, bleaching, and larval recruitment. Designed for use with [EcoRRAP](https://apps.aims.gov.au/metadata/view/5d14f00f-6c24-43c1-b44e-70fe013d0757) field survey data to fit empirically grounded models and evaluate restoration scenarios under climate stress.
 
 ## Overview
 
-CoralFlow models five coral functional groups across an arbitrary reef area:
+Kora models five coral functional groups across an arbitrary reef area:
 
 - Tabular *Acropora*
 - Corymbose *Acropora*
@@ -30,8 +30,8 @@ Key processes:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/ConnectedSystems/CoralFlow.jl.git
-cd CoralFlow.jl
+git clone https://github.com/ConnectedSystems/Kora.jl.git
+cd Kora.jl
 ```
 
 ### 2. Instantiate the Julia environment
@@ -61,7 +61,7 @@ Pkg.add("Term")           # Required alongside UnicodePlots
 ### Programmatic usage
 
 ```julia
-using CoralFlow
+using Kora
 
 # Initialize reef state (75 timesteps, 1 location, 60 m² area)
 reef = initialize_reef(n_timesteps=75, n_locs=1, area=60.0, density=10, depths=7.0)
@@ -116,9 +116,9 @@ run_ensemble!(reef, env, ensemble_params)
 ## Project Structure
 
 ```
-CoralFlow.jl/
+Kora.jl/
 ├── src/
-│   ├── CoralFlow.jl          # Module entry point
+│   ├── Kora.jl          # Module entry point
 │   ├── stats.jl              # Statistical utilities
 │   ├── metrics.jl            # RMSE, R², correlation metrics
 │   ├── corals/               # Coral biology models

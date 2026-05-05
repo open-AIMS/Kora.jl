@@ -2,17 +2,17 @@ module UnicodePlotsExt
 
 using OrderedCollections
 using UnicodePlots, Term
-using CoralFlow
+using Kora
 
 """
 Helper function to generate validation plots for survival models.
 """
-function CoralFlow.viz.survival_performance_plots(
+function Kora.viz.survival_performance_plots(
     groupings::OrderedDict,
-    model_fits::CoralFlow.PolySurvivalModel;
-    target_groups::Vector{String}=CoralFlow.TARGET_GROUPS
+    model_fits::Kora.PolySurvivalModel;
+    target_groups::Vector{String}=Kora.TARGET_GROUPS
 )
-    bin_id_col = CoralFlow.BIN_ID
+    bin_id_col = Kora.BIN_ID
 
     for group_id in 1:length(target_groups)
         group_df = groupings[target_groups[group_id]]
@@ -21,8 +21,8 @@ function CoralFlow.viz.survival_performance_plots(
         bin_ids = unique(group_df[!, bin_id_col])
 
         # Training data plot
-        mean_train = [maximum(group_df[group_df[!, bin_id_col].==i, CoralFlow.TRAIN_CLASS_MEAN_ID]) for i in bin_ids]
-        std_train = [maximum(group_df[group_df[!, bin_id_col].==i, CoralFlow.TRAIN_CLASS_STD_ID]) for i in bin_ids]
+        mean_train = [maximum(group_df[group_df[!, bin_id_col].==i, Kora.TRAIN_CLASS_MEAN_ID]) for i in bin_ids]
+        std_train = [maximum(group_df[group_df[!, bin_id_col].==i, Kora.TRAIN_CLASS_STD_ID]) for i in bin_ids]
 
         score_text = build_metric_display(model_fits.performance.train, group_id)
         train_title = "$(target_groups[group_id])\nTraining Data\n$(score_text)"
@@ -35,8 +35,8 @@ function CoralFlow.viz.survival_performance_plots(
         ylabel!(plt_train, "Survival")
 
         # Test data plot
-        mean_test = [maximum(group_df[group_df[!, bin_id_col].==i, CoralFlow.TEST_CLASS_MEAN_ID]) for i in bin_ids]
-        std_test = [maximum(group_df[group_df[!, bin_id_col].==i, CoralFlow.TEST_CLASS_STD_ID]) for i in bin_ids]
+        mean_test = [maximum(group_df[group_df[!, bin_id_col].==i, Kora.TEST_CLASS_MEAN_ID]) for i in bin_ids]
+        std_test = [maximum(group_df[group_df[!, bin_id_col].==i, Kora.TEST_CLASS_STD_ID]) for i in bin_ids]
 
         score_text = build_metric_display(model_fits.performance.test, group_id)
         test_title = "$(target_groups[group_id])\nTest Data\n$(score_text)"
@@ -52,7 +52,7 @@ end
 
 function build_metric_display(results::NamedTuple, idx::Int64)
     res_text = []
-    for m in CoralFlow.ALL_METRICS
+    for m in Kora.ALL_METRICS
         _s = getfield(results, Symbol(m))[idx]
         push!(res_text, "$(string(m)): $(round(_s; digits=3))")
     end
@@ -63,16 +63,16 @@ end
 """
 Helper function to generate validation plots for growth models.
 """
-function CoralFlow.viz.growth_performance_plots(
+function Kora.viz.growth_performance_plots(
     groupings::OrderedDict,
-    model_fits::CoralFlow.PolyGrowthModel;
-    target_groups::Vector{String}=CoralFlow.TARGET_GROUPS
+    model_fits::Kora.PolyGrowthModel;
+    target_groups::Vector{String}=Kora.TARGET_GROUPS
 )
     for group_id in 1:length(target_groups)
         group_df = groupings[target_groups[group_id]]
 
         # Training data plot
-        sub_df = group_df[group_df[!, CoralFlow.TRAIN_CLASS].>0, :]
+        sub_df = group_df[group_df[!, Kora.TRAIN_CLASS].>0, :]
         x_idx = sortperm(sub_df.diam)
         xi = sub_df.diam[x_idx]
         yi = sub_df.diamnext[x_idx]
@@ -87,7 +87,7 @@ function CoralFlow.viz.growth_performance_plots(
         ylabel!(plt_train, "Diameter at t+1 [cm]")
 
         # As above, but for test data
-        sub_df = group_df[group_df[!, CoralFlow.TEST_CLASS].>0, :]
+        sub_df = group_df[group_df[!, Kora.TEST_CLASS].>0, :]
         x_idx = sortperm(sub_df.diam)
         xi = sub_df.diam[x_idx]
         yi = sub_df.diamnext[x_idx]

@@ -7,8 +7,8 @@ using OrderedCollections
 using YAXArrays
 using Makie
 using Makie: distinguishable_colors
-using CoralFlow
-using CoralFlow.Bootstrap
+using Kora
+using Kora.Bootstrap
 
 const SUPPORTED_FILETYPES = ("png", "svg", "gif", "jpg", "jpeg")
 

@@ -1,16 +1,16 @@
-using CoralFlow.Interpolations
+using Kora.Interpolations
 
 """
 Helper function to generate validation plots for survival models using Makie.
 """
-function CoralFlow.viz.survival_performance_plots(
+function Kora.viz.survival_performance_plots(
     groupings::OrderedDict,
-    model_fits::CoralFlow.PolySurvivalModel;
-    target_groups::Vector{String}=CoralFlow.TARGET_GROUPS,
+    model_fits::Kora.PolySurvivalModel;
+    target_groups::Vector{String}=Kora.TARGET_GROUPS,
     figsize=(1200, 400),
     save_path=nothing
 )
-    bin_id_col = CoralFlow.BIN_ID
+    bin_id_col = Kora.BIN_ID
 
     for group_id in eachindex(target_groups)
         group_df = groupings[target_groups[group_id]]
@@ -21,21 +21,21 @@ function CoralFlow.viz.survival_performance_plots(
 
         # Training data
         mean_train = [
-            maximum(group_df[group_df[!, bin_id_col] .== i, CoralFlow.TRAIN_CLASS_MEAN_ID])
+            maximum(group_df[group_df[!, bin_id_col] .== i, Kora.TRAIN_CLASS_MEAN_ID])
             for i in bin_ids
         ]
         std_train = [
-            maximum(group_df[group_df[!, bin_id_col] .== i, CoralFlow.TRAIN_CLASS_STD_ID])
+            maximum(group_df[group_df[!, bin_id_col] .== i, Kora.TRAIN_CLASS_STD_ID])
             for i in bin_ids
         ]
 
         # Test data
         mean_test = [
-            maximum(group_df[group_df[!, bin_id_col] .== i, CoralFlow.TEST_CLASS_MEAN_ID])
+            maximum(group_df[group_df[!, bin_id_col] .== i, Kora.TEST_CLASS_MEAN_ID])
             for i in bin_ids
         ]
         std_test = [
-            maximum(group_df[group_df[!, bin_id_col] .== i, CoralFlow.TEST_CLASS_STD_ID])
+            maximum(group_df[group_df[!, bin_id_col] .== i, Kora.TEST_CLASS_STD_ID])
             for i in bin_ids
         ]
 
@@ -139,7 +139,7 @@ end
 
 function build_metric_display(results::NamedTuple, idx::Int64)
     res_text = []
-    for m in CoralFlow.ALL_METRICS
+    for m in Kora.ALL_METRICS
         _s = getfield(results, Symbol(m))[idx]
         push!(res_text, "$(string(m)): $(round(_s; digits=3))")
     end
@@ -150,10 +150,10 @@ end
 """
 Helper function to generate validation plots for growth models using Makie.
 """
-function CoralFlow.viz.growth_performance_plots(
+function Kora.viz.growth_performance_plots(
     groupings::OrderedDict,
-    model_fits::CoralFlow.PolyGrowthModel;
-    target_groups::Vector{String}=CoralFlow.TARGET_GROUPS,
+    model_fits::Kora.PolyGrowthModel;
+    target_groups::Vector{String}=Kora.TARGET_GROUPS,
     figsize=(1200, 400),
     save_path=nothing,
     alpha=0.6
@@ -162,13 +162,13 @@ function CoralFlow.viz.growth_performance_plots(
         group_df = groupings[target_groups[group_id]]
 
         # Training data
-        train_df = group_df[group_df[!, CoralFlow.TRAIN_CLASS] .> 0, :]
+        train_df = group_df[group_df[!, Kora.TRAIN_CLASS] .> 0, :]
         train_x_idx = sortperm(train_df.diam)
         train_xi = train_df.diam[train_x_idx]
         train_yi = train_df.diamnext[train_x_idx]
 
         # Test data
-        test_df = group_df[group_df[!, CoralFlow.TEST_CLASS] .> 0, :]
+        test_df = group_df[group_df[!, Kora.TEST_CLASS] .> 0, :]
         test_x_idx = sortperm(test_df.diam)
         test_xi = test_df.diam[test_x_idx]
         test_yi = test_df.diamnext[test_x_idx]
@@ -228,11 +228,11 @@ end
 """
 Create a comprehensive dashboard showing both survival and growth models.
 """
-function CoralFlow.viz.model_dashboard(
+function Kora.viz.model_dashboard(
     groupings::OrderedDict,
-    survival_fits::CoralFlow.PolySurvivalModel,
-    growth_fits::CoralFlow.PolyGrowthModel;
-    target_groups::Vector{String}=CoralFlow.TARGET_GROUPS,
+    survival_fits::Kora.PolySurvivalModel,
+    growth_fits::Kora.PolyGrowthModel;
+    target_groups::Vector{String}=Kora.TARGET_GROUPS,
     figsize=(1200, 800),
     save_path=nothing
 )
@@ -255,10 +255,10 @@ function CoralFlow.viz.model_dashboard(
 
         # Plot survival data (simplified version)
         group_df = groupings[group]
-        bin_ids = sort(unique(group_df[!, CoralFlow.BIN_ID]))
+        bin_ids = sort(unique(group_df[!, Kora.BIN_ID]))
         mean_test = [
             maximum(
-                group_df[group_df[!, CoralFlow.BIN_ID] .== j, CoralFlow.TEST_CLASS_MEAN_ID]
+                group_df[group_df[!, Kora.BIN_ID] .== j, Kora.TEST_CLASS_MEAN_ID]
             ) for j in bin_ids
         ]
 
@@ -270,7 +270,7 @@ function CoralFlow.viz.model_dashboard(
         lines!(ax_surv, model_x, model_y; color=:red, linewidth=2)
 
         # Plot growth data (simplified version)
-        test_df = group_df[group_df[!, CoralFlow.TEST_CLASS] .> 0, :]
+        test_df = group_df[group_df[!, Kora.TEST_CLASS] .> 0, :]
         if !isempty(test_df)
             scatter!(ax_growth, test_df.diam, test_df.diamnext;
                 color=(:blue, 0.5), markersize=4)

@@ -292,7 +292,7 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolySurvivalModel)
 
     performance_matrix = [
         (getfield(x.performance.train, m), getfield(x.performance.test, m))
-        for m in Symbol.(CoralFlow.ALL_METRICS)
+        for m in Symbol.(Kora.ALL_METRICS)
     ]
 
     performances = hcat([hcat(t[1], t[2]) for t in performance_matrix]...)

@@ -1,4 +1,4 @@
-module CoralFlow
+module Kora
 
 using Printf
 using Serialization
@@ -14,7 +14,7 @@ using FLoops
 
 using PrecompileSignatures: @precompile_signatures
 
-const ASSET_DIR = pkgdir(CoralFlow, "assets")
+const ASSET_DIR = pkgdir(Kora, "assets")
 
 include("stats.jl")
 include("metrics.jl")
@@ -84,6 +84,6 @@ export
     run_ensemble!
 
 # Auto-generate precompilation signatures
-@precompile_signatures(CoralFlow)
+@precompile_signatures(Kora)
 
-end  # module CoralFlow
+end  # module Kora

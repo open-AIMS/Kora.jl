@@ -23,7 +23,7 @@ Create comprehensive timeseries visualization for ensemble results.
 # Returns
 Makie Figure object
 """
-function CoralFlow.viz.ensemble_timeseries(
+function Kora.viz.ensemble_timeseries(
     reef_state::ReefState,
     ensemble_results::NamedTuple,
     env_conditions::YAXArray;
@@ -204,7 +204,7 @@ function CoralFlow.viz.ensemble_timeseries(
         ylabel="Degree Heating Weeks",
         title="Thermal Stress"
     )
-    CoralFlow.viz.dhws!(ax6, env_conditions)
+    Kora.viz.dhws!(ax6, env_conditions)
 
     # Add shared legend for functional groups
     Legend(f[end + 1, :], ax2; nbanks=5)

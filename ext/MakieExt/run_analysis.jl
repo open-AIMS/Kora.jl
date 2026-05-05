@@ -1,6 +1,6 @@
 using KernelDensity
 
-function CoralFlow.viz.animate_population(
+function Kora.viz.animate_population(
     reef_state::ReefState,
     loc::Int64,
     grp::Int64;
@@ -32,7 +32,7 @@ function CoralFlow.viz.animate_population(
     end
 end
 
-function CoralFlow.viz.animate_population(
+function Kora.viz.animate_population(
     reef_state::ReefState,
     env_conditions::YAXArray,
     loc::Int64,
@@ -53,7 +53,7 @@ function CoralFlow.viz.animate_population(
     hist!(ax, obs_points; bins=nbins, normalization=:pdf, color=(:blue, 0.3))
 
     # DHW
-    CoralFlow.viz.dhws!(ax2, env_conditions)
+    Kora.viz.dhws!(ax2, env_conditions)
 
     nts = n_timesteps(reef_state)
     max_diam = maximum([
@@ -92,13 +92,13 @@ function CoralFlow.viz.animate_population(
     end
 end
 
-function CoralFlow.viz.dhws!(ax, env_conditions)
+function Kora.viz.dhws!(ax, env_conditions)
     dhws = env_conditions[:, :, At(:dhw)].data
     series!(ax, dhws'; color=:viridis)
     return nothing
 end
 
-function CoralFlow.viz.thermal_tolerance!(ax, reef_state::ReefState)
+function Kora.viz.thermal_tolerance!(ax, reef_state::ReefState)
     tols = dropdims(mean(reef_state.wild_dhw_tolerances.data[:, :, :, 1]; dims=2); dims=2)
     colors = FGROUP_COLOR
     labels = FLABELS
@@ -208,7 +208,7 @@ function bootstrap_cover(
 end
 
 # Main visualization functions with bootstrap option
-function CoralFlow.viz.coral_cover!(ax, reef_state; n_bootstrap::Int=0)
+function Kora.viz.coral_cover!(ax, reef_state; n_bootstrap::Int=0)
     if n_bootstrap > 0
         n_ts = n_timesteps(reef_state)
 
@@ -236,7 +236,7 @@ function CoralFlow.viz.coral_cover!(ax, reef_state; n_bootstrap::Int=0)
     return nothing
 end
 
-function CoralFlow.viz.group_cover!(ax, reef_state::ReefState; n_bootstrap::Int=0)
+function Kora.viz.group_cover!(ax, reef_state::ReefState; n_bootstrap::Int=0)
     if n_bootstrap > 0
         # covers = group_cover_timeseries(reef_state)
 
@@ -256,14 +256,14 @@ function CoralFlow.viz.group_cover!(ax, reef_state::ReefState; n_bootstrap::Int=
 
         _plot_cover_with_ci!(ax, covers, lower_ci, upper_ci)
     else
-        covers = CoralFlow.group_cover_timeseries(reef_state)
+        covers = Kora.group_cover_timeseries(reef_state)
         _plot_cover!(ax, covers)
     end
 
     return nothing
 end
 
-function CoralFlow.viz.juvenile_cover!(
+function Kora.viz.juvenile_cover!(
     ax,
     reef_state::ReefState;
     bootstrap::Bool=false,
@@ -275,13 +275,13 @@ function CoralFlow.viz.juvenile_cover!(
         )
         _plot_cover_with_ci!(ax, means, lower_ci, upper_ci)
     else
-        covers = CoralFlow.juvenile_cover_timeseries(reef_state)
+        covers = Kora.juvenile_cover_timeseries(reef_state)
         _plot_cover!(ax, covers)
     end
     return nothing
 end
 
-function CoralFlow.viz.population_count!(
+function Kora.viz.population_count!(
     ax,
     reef_state::ReefState
 )
@@ -292,7 +292,7 @@ function CoralFlow.viz.population_count!(
     for t in 1:n_steps
         c = 0
         for loc in 1:n_loc
-            c += CoralFlow.total_population(reef_state, t, loc)
+            c += Kora.total_population(reef_state, t, loc)
         end
 
         pop_counts[t] = c
@@ -301,7 +301,7 @@ function CoralFlow.viz.population_count!(
     return lines!(ax, pop_counts)
 end
 
-function CoralFlow.viz.timeseries(
+function Kora.viz.timeseries(
     reef_state::ReefState,
     env_conditions::YAXArray;
     n_bootstrap::Int=0
@@ -317,7 +317,7 @@ function CoralFlow.viz.timeseries(
         ylabel="Coral Cover [m²]",
         title="Total Coral Cover" * (bootstrap ? " (with 95% CI)" : "")
     )
-    CoralFlow.viz.coral_cover!(ax1, reef_state; n_bootstrap=n_bootstrap)
+    Kora.viz.coral_cover!(ax1, reef_state; n_bootstrap=n_bootstrap)
 
     # Cover by functional group
     ax2 = Axis(
@@ -326,7 +326,7 @@ function CoralFlow.viz.timeseries(
         ylabel="Coral Cover [m²]",
         title="Cover by Functional Group" * (bootstrap ? " (with 95% CI)" : "")
     )
-    CoralFlow.viz.group_cover!(ax2, reef_state; n_bootstrap=n_bootstrap)
+    Kora.viz.group_cover!(ax2, reef_state; n_bootstrap=n_bootstrap)
 
     # Juvenile cover
     ax3 = Axis(
@@ -335,7 +335,7 @@ function CoralFlow.viz.timeseries(
         ylabel="Coral Cover [m²]",
         title="Juvenile Cover" * (bootstrap ? " (with 95% CI)" : "")
     )
-    CoralFlow.viz.juvenile_cover!(ax3, reef_state;
+    Kora.viz.juvenile_cover!(ax3, reef_state;
         n_bootstrap=n_bootstrap
     )
 
@@ -346,7 +346,7 @@ function CoralFlow.viz.timeseries(
         ylabel="Mean Tolerance [DHW]",
         title="Adaptation"
     )
-    CoralFlow.viz.thermal_tolerance!(ax4, reef_state)
+    Kora.viz.thermal_tolerance!(ax4, reef_state)
 
     # Population count
     ax5 = Axis(
@@ -355,7 +355,7 @@ function CoralFlow.viz.timeseries(
         ylabel="Count",
         title="Colony Count"
     )
-    CoralFlow.viz.population_count!(ax5, reef_state)
+    Kora.viz.population_count!(ax5, reef_state)
 
     # Thermal stress
     ax6 = Axis(
@@ -364,7 +364,7 @@ function CoralFlow.viz.timeseries(
         ylabel="Degree Heating Weeks",
         title="Thermal Stress"
     )
-    CoralFlow.viz.dhws!(ax6, env_conditions)
+    Kora.viz.dhws!(ax6, env_conditions)
 
     Legend(f[end + 1, :], ax2; nbanks=5)
 

@@ -2,7 +2,7 @@ using Statistics, StatsBase
 using Serialization
 using CSV
 using DataFrames
-using CoralFlow
+using Kora
 using Random
 
 """
@@ -27,8 +27,8 @@ Process EcoRRAP data to create growth models for coral functional groups.
 - `degree::Int`: Polynomial degree for growth models (default: 2)
 - `plot_validation::Bool=true`: Whether to plot model performance or not (default: true)
 - `save_model::Bool`: Whether to serialize model to disk (default: true)
-- `output_dir::String`: Directory to save model (default: CoralFlow package assets
-- `target_groups::Union{Vector, Nothing}`: Target groups to use (default: CoralFlow.TARGET_GROUPS)
+- `output_dir::String`: Directory to save model (default: Kora package assets
+- `target_groups::Union{Vector, Nothing}`: Target groups to use (default: Kora.TARGET_GROUPS)
 - `seed::Int`: Random seed for reproducibility (default: 101)
 - `rng::Union{AbstractRNG, Nothing}`: Random number generator (default: create new with seed)
 
@@ -55,7 +55,7 @@ function process_growth_models(
     plot_validation::Bool=false,
     save_model::Bool=true,
     output_dir::String=".",
-    target_groups::Union{Vector,Nothing}=CoralFlow.TARGET_GROUPS,
+    target_groups::Union{Vector,Nothing}=Kora.TARGET_GROUPS,
     n_bins::Int64=10,
     seed::Int64=101,
     rng::Union{AbstractRNG,Nothing}=nothing
@@ -101,12 +101,12 @@ function process_growth_models(
 
     # Fit models
     @info "Fitting growth models (degree=$degree)..."
-    growth_fits = CoralFlow.fit_growth_models(growth_groupings; degree=degree)
+    growth_fits = Kora.fit_growth_models(growth_groupings; degree=degree)
 
     # Generate validation plots if requested and extension is available
-    if plot_validation && (length(methods(CoralFlow.viz.growth_performance_plots)) > 0)
+    if plot_validation && (length(methods(Kora.viz.growth_performance_plots)) > 0)
         @info "Generating validation plots..."
-        CoralFlow.viz.growth_performance_plots(growth_groupings, growth_fits)
+        Kora.viz.growth_performance_plots(growth_groupings, growth_fits)
     end
 
     # Save model if requested
@@ -148,9 +148,9 @@ Process EcoRRAP data to create survival models for coral functional groups.
 - `region::String`: Region to process (default: "Offshore_Central")
 - `degree::Int`: Polynomial degree for survival models (default: 2)
 - `save_model::Bool`: Whether to serialize model to disk (default: true)
-- `output_dir::String`: Directory to save model (default: CoralFlow package assets)
+- `output_dir::String`: Directory to save model (default: Kora package assets)
 - `plot_validation::Bool`: Whether to generate validation plots (default: true)
-- `target_groups::Union{Vector, Nothing}`: Target groups to use (default: CoralFlow.TARGET_GROUPS)
+- `target_groups::Union{Vector, Nothing}`: Target groups to use (default: Kora.TARGET_GROUPS)
 - `seed::Int64`: Random seed for reproducibility (default: 101)
 - `rng::Union{AbstractRNG, Nothing}`: Random number generator (default: create new with seed)
 
@@ -178,7 +178,7 @@ function process_survival_models(
     save_model::Bool=true,
     output_dir::String=".",
     plot_validation::Bool=true,
-    target_groups::Vector{String}=CoralFlow.TARGET_GROUPS,
+    target_groups::Vector{String}=Kora.TARGET_GROUPS,
     n_bins=10,
     seed::Int=101,
     rng::Union{AbstractRNG,Nothing}=nothing
@@ -222,12 +222,12 @@ function process_survival_models(
 
     # Fit models
     @info "Fitting survival models (degree=$degree)..."
-    surv_fits = CoralFlow.fit_survival_models(surv_groupings; degree=degree)
+    surv_fits = Kora.fit_survival_models(surv_groupings; degree=degree)
 
     # Generate validation plots if requested and extension is available
-    if plot_validation && (length(methods(CoralFlow.viz.survival_performance_plots)) > 0)
+    if plot_validation && (length(methods(Kora.viz.survival_performance_plots)) > 0)
         @info "Generating validation plots..."
-        CoralFlow.viz.survival_performance_plots(
+        Kora.viz.survival_performance_plots(
             surv_groupings, surv_fits; target_groups=target_groups
         )
     end
@@ -276,9 +276,9 @@ This function combines the individual model creation functions for convenience.
 - `growth_degree::Int`: Polynomial degree for growth models (default: 2)
 - `survival_degree::Int`: Polynomial degree for survival models (default: 2)
 - `save_models::Bool`: Whether to serialize models to disk (default: true)
-- `output_dir::String`: Directory to save models (default: CoralFlow package assets)
+- `output_dir::String`: Directory to save models (default: Kora package assets)
 - `plot_validation::Bool`: Whether to generate validation plots (default: false)
-- `target_groups::Union{Vector, Nothing}`: Target groups to use (default: CoralFlow.TARGET_GROUPS)
+- `target_groups::Union{Vector, Nothing}`: Target groups to use (default: Kora.TARGET_GROUPS)
 - `seed::Int64`: Random seed for reproducibility (default: 101)
 - `rng::Union{AbstractRNG, Nothing}`: Random number generator (default: create new with seed)
 
@@ -310,7 +310,7 @@ function process_ecorrap_models(
     save_models::Bool=true,
     output_dir::String=".",
     plot_validation::Bool=false,
-    target_groups::Vector{String}=CoralFlow.TARGET_GROUPS,
+    target_groups::Vector{String}=Kora.TARGET_GROUPS,
     n_bins=15,
     rng::AbstractRNG=Random.GLOBAL_RNG
 )

@@ -266,12 +266,12 @@ end
 function initialize_reef(;
     n_timesteps=75,
     n_locs=100,
-    group_names=CoralFlow.TARGET_GROUPS,
+    group_names=Kora.TARGET_GROUPS,
     density::Union{Int64,Vector{Int64}}=20,  # Max density per unit area
     area=90.0,
     depths::Union{Float64,Vector{Float64}}=9.0,
-    growth_models::AbstractCoralBehavior=CoralFlow.growth_models,
-    survival_models::AbstractCoralBehavior=CoralFlow.survival_models
+    growth_models::AbstractCoralBehavior=Kora.growth_models,
+    survival_models::AbstractCoralBehavior=Kora.survival_models
 )
     n_groups = length(group_names)
 
