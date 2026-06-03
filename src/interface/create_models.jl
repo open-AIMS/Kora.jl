@@ -2,8 +2,17 @@ using Statistics, StatsBase
 using Serialization
 using CSV
 using DataFrames
+using Parquet2
 using Kora
 using Random
+
+function _read_datafile(filepath::String)::DataFrame
+    if endswith(filepath, ".parquet")
+        return DataFrame(Parquet2.readfile(filepath))
+    else
+        return CSV.read(filepath, DataFrame; missingstring=["NA", ""])
+    end
+end
 
 """
     process_growth_models(
@@ -67,7 +76,7 @@ function process_growth_models(
 
     # Load and process EcoRRAP data
     @info "Loading EcoRRAP data from: $ecorrap_data_file"
-    ecorrap_data = CSV.read(ecorrap_data_file, DataFrame; missingstring=["NA", ""])
+    ecorrap_data = _read_datafile(ecorrap_data_file)
 
     # Standardize data
     ecorrap_data = standardize_ecorrap_data!(ecorrap_data)
@@ -188,11 +197,9 @@ function process_survival_models(
         rng = Random.seed!(seed)
     end
 
-    missing_entries = ["NA", ""]
-
     # Load and process EcoRRAP data
     @info "Loading EcoRRAP data from: $ecorrap_data_file"
-    ecorrap_data = CSV.read(ecorrap_data_file, DataFrame; missingstring=missing_entries)
+    ecorrap_data = _read_datafile(ecorrap_data_file)
 
     # Standardize data
     ecorrap_data = standardize_ecorrap_data!(ecorrap_data)
