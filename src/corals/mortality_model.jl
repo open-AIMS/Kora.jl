@@ -140,7 +140,9 @@ Survival from background mortality
 @inline function survival(model::M, diam::Float32, rng::AbstractRNG)::Bool where {M}
     return rand(rng, Float32) < model(diam)
 end
-function survival!(model::M, diam::AbstractVector{Float32}, rng::AbstractRNG)::Nothing where {M}
+function survival!(
+    model::M, diam::AbstractVector{Float32}, rng::AbstractRNG
+)::Nothing where {M}
     for i in eachindex(diam)
         @inbounds diam[i] *= survival(model, diam[i], rng)
     end
@@ -249,6 +251,15 @@ struct PolySurvivalFunction{T<:AbstractFloat} <: Function
     ) where T<:AbstractFloat
         return new{T}(xi[1], yi[1], xi[end], yi[end], poly)
     end
+
+    # Bare-fields constructor for JSON round-trip loading.
+    # All fields are provided directly; no xi/yi vector inference.
+    # Must not reference any module-level mutable bindings.
+    function PolySurvivalFunction(
+        min_x::T, min_y::T, max_x::T, max_y::T, poly::Polynomial
+    ) where T<:AbstractFloat
+        return new{T}(min_x, min_y, max_x, max_y, poly)
+    end
 end
 
 # Make it callable using complementary log-log link
@@ -269,6 +280,9 @@ struct PolySurvivalModel <: AbstractCoralBehavior
     "Performance metrics each model"
     performance::NamedTuple
 end
+
+Base.length(m::PolySurvivalModel) = length(m.models)
+Base.getindex(m::PolySurvivalModel, i::Int) = m.models[i]
 
 function Base.show(io::IO, ::MIME"text/plain", x::PolySurvivalModel)
     title = "\nSurvival Model Performance Metrics"
@@ -309,10 +323,4 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolySurvivalModel)
     )
 end
 
-survival_models = try
-    # Load default survival models
-    deserialize(joinpath(ASSET_DIR, "models", "offshore_north_survival_models.dat"))
-catch
-    @warn "Pre-defined survival models could not be loaded."
-    nothing
-end
+survival_models = nothing

@@ -96,15 +96,32 @@ Open `http://localhost:9384` in a browser. The dashboard requires Makie (specifi
 ### Fitting growth/survival models from EcoRRAP survey data
 
 ```julia
-results = process_growth_models(
+# Fit both growth and survival models together
+results = process_ecorrap_models(
     "path/to/ecorrap_adult_juv_combined.csv",
     "path/to/ecorrap_to_species.csv";
     region="offshore_north",
-    growth_degree=1
+    growth_degree=1,
+    survival_degree=2
 )
 
 growth_models   = results.growth_fits
 survival_models = results.survival_fits
+
+# Or fit them separately
+growth_results = process_growth_models(
+    "path/to/ecorrap_adult_juv_combined.csv",
+    "path/to/ecorrap_to_species.csv";
+    region="offshore_north",
+    degree=1
+)
+
+survival_results = process_survival_models(
+    "path/to/ecorrap_adult_juv_combined.csv",
+    "path/to/ecorrap_to_species.csv";
+    region="offshore_north",
+    degree=2
+)
 ```
 
 Pre-fitted model objects can be serialized to [assets/models/](assets/models/) for reuse.

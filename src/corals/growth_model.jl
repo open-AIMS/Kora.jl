@@ -39,6 +39,9 @@ struct PolyGrowthModel <: AbstractCoralBehavior
     performance::NamedTuple
 end
 
+Base.length(m::PolyGrowthModel) = length(m.models)
+Base.getindex(m::PolyGrowthModel, i::Int) = m.models[i]
+
 function Base.show(io::IO, ::MIME"text/plain", x::PolyGrowthModel)
     title = "\nGrowth Model Performance Metrics"
     println(io, title)
@@ -109,22 +112,24 @@ struct PolyGrowthFunction{T<:AbstractFloat} <: Function
     ) where T<:AbstractFloat
         return new{T}(Float32(xi[1]), Float32(yi[1]), Float32(max_x), Float32(max_y), poly)
     end
+
+    # Bare-fields constructor for JSON round-trip loading.
+    # All fields are provided directly; no xi/yi vector inference.
+    # Must not reference any module-level mutable bindings.
+    function PolyGrowthFunction(
+        min_x::T, min_y::T, max_x::T, max_y::T, poly::Polynomial
+    ) where T<:AbstractFloat
+        return new{T}(min_x, min_y, max_x, max_y, poly)
+    end
 end
 
 """Define `PolyGrowthFunction` as a callable."""
 function (f::PolyGrowthFunction)(x::T)::T where T<:Float32
     if x < f.min_x
-        # Handle recruits smaller than observed (random growth between 0.1 and 2.0cm)
-        return rand(0.1f0:0.0001f0:2.0f0)
+        return f.min_y
     end
 
     return min(f.poly(log(x)), f.max_y)
 end
 
-growth_models = try
-    # Load default growth models
-    deserialize(joinpath(ASSET_DIR, "models", "offshore_north_growth_models.dat"))
-catch
-    @warn "Pre-defined growth models could not be loaded."
-    nothing
-end
+growth_models = nothing

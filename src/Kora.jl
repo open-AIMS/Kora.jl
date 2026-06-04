@@ -1,7 +1,6 @@
 module Kora
 
 using Printf
-using Serialization
 using OrderedCollections
 
 using Random
@@ -10,7 +9,6 @@ using CurveFit, GLM, MLBase, Interpolations
 using Distributions, KernelDensity, StatsBase, StatsFuns
 
 using CSV, DataFrames, YAXArrays
-using FLoops
 
 using PrecompileSignatures: @precompile_signatures
 
@@ -22,6 +20,7 @@ include("corals/corals.jl")
 include("reefs/Model.jl")
 include("interface/observations.jl")
 include("interface/regressions.jl")
+include("interface/model_io.jl")
 include("interface/create_models.jl")
 include("viz/viz.jl")
 
@@ -83,7 +82,43 @@ export
     run_model!,
     run_ensemble!
 
+export
+    load_models,
+    save_models,
+    get_growth_models,
+    get_survival_models,
+    check_model_pair_skew,
+    register_model_type!
+
 # Auto-generate precompilation signatures
 @precompile_signatures(Kora)
+
+function __init__()
+    # Populate registry at load-time, not precompile-time.
+    # Functions are defined at include-time; only the dict insertion happens here.
+    register_model_type!("PolyGrowthFunction",   _deserialize_poly_growth)
+    register_model_type!("PolySurvivalFunction", _deserialize_poly_survival)
+
+    _growth_path   = joinpath(ASSET_DIR, "models", "offshore_north_growth_models.json")
+    _survival_path = joinpath(ASSET_DIR, "models", "offshore_north_survival_models.json")
+
+    global growth_models = try
+        load_models(_growth_path)
+    catch e
+        @warn "Pre-defined growth models could not be loaded." exception = e
+        nothing
+    end
+
+    global survival_models = try
+        load_models(_survival_path)
+    catch e
+        @warn "Pre-defined survival models could not be loaded." exception = e
+        nothing
+    end
+
+    if !isnothing(growth_models) && !isnothing(survival_models)
+        check_model_pair_skew(_growth_path, _survival_path)
+    end
+end
 
 end  # module Kora

@@ -1,5 +1,4 @@
 using Statistics, StatsBase
-using Serialization
 using CSV
 using DataFrames
 using Parquet2
@@ -124,7 +123,7 @@ function process_growth_models(
         if !isnothing(reef)
             fn *= "_$(reef)"
         end
-        _save_growth_model(growth_fits, output_dir; fn="$(fn)_growth_models")
+        _save_growth_model(growth_fits, output_dir; fn="$(fn)_growth_models", region=region)
     end
 
     @info "Growth model processing complete!"
@@ -217,7 +216,7 @@ function process_survival_models(
     # Load functional group mapping
     @info "Loading functional group mapping from: $functional_group_file"
     functional_group_map = CSV.read(
-        functional_group_file, DataFrame; missingstring=missing_entries
+        functional_group_file, DataFrame; missingstring="NA"
     )
     functional_group_map.Code .= String.(functional_group_map.Code)
 
@@ -245,7 +244,9 @@ function process_survival_models(
         if !isnothing(reef)
             fn *= "_$(reef)"
         end
-        _save_survival_model(surv_fits, output_dir; fn="$(fn)_survival_models")
+        _save_survival_model(
+            surv_fits, output_dir; fn="$(fn)_survival_models", region=region
+        )
     end
 
     @info "Survival model processing complete!"
@@ -370,7 +371,7 @@ end
 function _make_filepath(output_dir, fn)
     # Ensure output directory exists
     mkpath(output_dir)
-    out_path = joinpath(output_dir, fn * ".dat")
+    out_path = joinpath(output_dir, fn * ".json")
 
     return out_path
 end
@@ -379,12 +380,13 @@ end
 Helper function to save growth model to disk.
 """
 function _save_growth_model(
-    growth_fits, output_dir::String; fn::String="growth_models"
+    growth_fits::PolyGrowthModel, output_dir::String;
+    fn::String="growth_models", region::String=""
 )::Nothing
     growth_path = _make_filepath(output_dir, fn)
 
     @info "Saving growth models to: $growth_path"
-    serialize(growth_path, growth_fits)
+    save_models(growth_fits, growth_path; region=region)
 
     return nothing
 end
@@ -393,12 +395,13 @@ end
 Helper function to save survival model to disk.
 """
 function _save_survival_model(
-    surv_fits, output_dir::String; fn::String="survival_models"
+    surv_fits::PolySurvivalModel, output_dir::String;
+    fn::String="survival_models", region::String=""
 )::Nothing
     survival_path = _make_filepath(output_dir, fn)
 
     @info "Saving survival models to: $survival_path"
-    serialize(survival_path, surv_fits)
+    save_models(surv_fits, survival_path; region=region)
 
     return nothing
 end
@@ -406,9 +409,12 @@ end
 """
 Helper function to save both models to disk.
 """
-function _save_models(growth_fits, surv_fits, output_dir::Union{String,Nothing})::Nothing
-    _save_growth_model(growth_fits, output_dir)
-    _save_survival_model(surv_fits, output_dir)
+function _save_models(
+    growth_fits::PolyGrowthModel, surv_fits::PolySurvivalModel,
+    output_dir::Union{String,Nothing}; region::String=""
+)::Nothing
+    _save_growth_model(growth_fits, output_dir; region=region)
+    _save_survival_model(surv_fits, output_dir; region=region)
 
     return nothing
 end

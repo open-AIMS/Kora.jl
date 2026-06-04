@@ -452,7 +452,7 @@ function initialize_coral_population!(
     rng::AbstractRNG=Random.GLOBAL_RNG
 )
     n_locs = n_locations(reef_state)
-    sample_size = ceil(Int64, reef_state._max_pop_size / 2)
+    sample_size = ceil(Int64, maximum(reef_state.carrying_capacity) * 5)
     for loc in 1:n_locs
         initialize_coral_population!(reef_state, loc, sample_size; rng=rng)
     end
@@ -648,8 +648,8 @@ Temporary mock function to determine cover of new recruits
 function recruit_cover(recruits::Array{Float32})::Vector{Float32}
     loc_cover = zeros(Float32, axes(recruits, 1))  # zeros for each location
     tmp_cover = cover_cm_to_m2.(recruits)
-    @floop for i in eachindex(loc_cover)
-        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
+    @inbounds for i in eachindex(loc_cover)
+        loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
     end
 
     return loc_cover
@@ -657,8 +657,8 @@ end
 function recruit_cover(recruits::Matrix{Vector{Float32}})::Vector{Float32}
     loc_cover = zeros(Float32, axes(recruits, 1))  # zeros for each location
     tmp_cover = cover_cm_to_m2.(recruits)
-    @floop for i in eachindex(loc_cover)
-        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
+    @inbounds for i in eachindex(loc_cover)
+        loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
     end
 
     return loc_cover
@@ -668,8 +668,8 @@ function recruit_cover(ecostate::ReefState, recruits::Array{Float32})
     loc_cover = ecostate._recruit_buffer
 
     tmp_cover = cover_cm_to_m2.(recruits)
-    @floop for i in eachindex(loc_cover)
-        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
+    @inbounds for i in eachindex(loc_cover)
+        loc_cover[i] = sum(@view(tmp_cover[i, :, :]))
     end
 
     return loc_cover
@@ -678,8 +678,8 @@ function recruit_cover(ecostate::ReefState, recruits::Matrix{Vector{Float32}})
     loc_cover = ecostate._recruit_buffer
 
     tmp_cover = cover_cm_to_m2.(recruits)
-    @floop for i in eachindex(loc_cover)
-        @inbounds loc_cover[i] = sum(@view(tmp_cover[i, :]))
+    @inbounds for i in eachindex(loc_cover)
+        loc_cover[i] = sum(@view(tmp_cover[i, :]))
     end
 
     return loc_cover
