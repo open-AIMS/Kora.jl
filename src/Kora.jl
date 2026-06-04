@@ -11,6 +11,7 @@ using Distributions, KernelDensity, StatsBase, StatsFuns
 using CSV, DataFrames, YAXArrays
 
 using PrecompileSignatures: @precompile_signatures
+using PrecompileTools: @compile_workload
 
 const ASSET_DIR = pkgdir(Kora, "assets")
 
@@ -90,6 +91,17 @@ export
 
 # Auto-generate precompilation signatures
 @precompile_signatures(Kora)
+
+@compile_workload begin
+    register_model_type!("PolyGrowthFunction", _deserialize_poly_growth)
+    register_model_type!("PolySurvivalFunction", _deserialize_poly_survival)
+    _gm = load_models(joinpath(ASSET_DIR, "models", "offshore_north_growth_models.json"))
+    _sm = load_models(joinpath(ASSET_DIR, "models", "offshore_north_survival_models.json"))
+    _reef = initialize_reef(; n_timesteps=50, n_locs=20, density=20, area=90.0, growth_models=_gm, survival_models=_sm)
+    initialize_coral_population!(_reef; rng=Xoshiro(1))
+    _env = generate_example_environment(50, 20; rng=Xoshiro(42))
+    run_model!(_reef, _env; rng=Xoshiro(1))
+end
 
 function __init__()
     # Populate registry at load-time, not precompile-time.
