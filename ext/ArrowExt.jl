@@ -3,8 +3,8 @@ module ArrowExt
 using Arrow, DataFrames
 using Kora
 
-function Kora._read_arrow_file(filepath::String)::DataFrame
-    return DataFrame(Arrow.Table(filepath))
+function __init__()
+    Kora._FILE_READERS[".arrow"] = (f) -> DataFrame(Arrow.Table(f))
 end
 
 end

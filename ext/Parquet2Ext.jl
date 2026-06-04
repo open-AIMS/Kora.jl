@@ -3,8 +3,8 @@ module Parquet2Ext
 using Parquet2, DataFrames
 using Kora
 
-function Kora._read_parquet_file(filepath::String)::DataFrame
-    return DataFrame(Parquet2.readfile(filepath))
+function __init__()
+    Kora._FILE_READERS[".parquet"] = (f) -> DataFrame(Parquet2.readfile(f))
 end
 
 end

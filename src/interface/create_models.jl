@@ -4,22 +4,17 @@ using CSV
 using DataFrames
 using Kora
 
-function _read_parquet_file(filepath::String)::DataFrame
-    error("Parquet2 must be loaded to read .parquet files: `using Parquet2`")
-end
-
-function _read_arrow_file(filepath::String)::DataFrame
-    error("Arrow must be loaded to read .arrow files: `using Arrow`")
-end
+const _FILE_READERS = Dict{String, Function}(
+    ".csv" => (f) -> CSV.read(f, DataFrame; missingstring=["NA", ""]),
+    ".parquet" => (f) -> error("Parquet2 must be loaded to read .parquet files: `using Parquet2`"),
+    ".arrow"   => (f) -> error("Arrow must be loaded to read .arrow files: `using Arrow`"),
+)
 
 function _read_datafile(filepath::String)::DataFrame
-    if endswith(filepath, ".parquet")
-        return _read_parquet_file(filepath)
-    elseif endswith(filepath, ".arrow")
-        return _read_arrow_file(filepath)
-    else
-        return CSV.read(filepath, DataFrame; missingstring=["NA", ""])
-    end
+    ext = lowercase(last(splitext(filepath)))
+    reader = get(_FILE_READERS, ext, nothing)
+    isnothing(reader) && throw(ArgumentError("Unsupported file format: '$ext'"))
+    return reader(filepath)
 end
 
 """
