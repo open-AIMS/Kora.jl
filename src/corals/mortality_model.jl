@@ -1,4 +1,5 @@
 import DataFrames.PrettyTables: pretty_table
+using Polynomials: Polynomial
 
 # Private consts - only used in this file
 const _euler_f32 = Float32(ℯ)
@@ -76,16 +77,16 @@ function bleaching_mortality!(
     diams::AbstractVector{F},
     dhw::F,
     depth_coeff::F,
-    tols::YAXArray{F,1},
+    tols::AbstractVector{F},
     grp::Int64
 )::Tuple where {F<:Float32}
     if all(dhw .< 4.0)
-        return tols[At(:mean)], tols[At(:stdev)], 0.0f0
+        return tols[1], tols[2], 0.0f0
     end
 
     # Calculate adaptation-based population effect (from original bleaching_mortality)
-    μ::F = tols[At(:mean)]
-    stdev::F = tols[At(:stdev)]
+    μ::F = tols[1]
+    stdev::F = tols[2]
     affected_prop::F = truncated_normal_cdf(
         dhw, μ, stdev,
         4.0f0,  # bleaching doesn't really occur until 4 DHW
@@ -228,7 +229,7 @@ function Base.show(io::IO, ::MIME"text/plain", x::LogisticSurvivalModel)
 end
 
 """
-    PolySurvivalFunction{T<:AbstractFloat}
+    PolySurvivalFunction{T<:AbstractFloat,P<:Polynomial} <: Function
 
 A callable struct that represents a coral survival model using a regression.
 
@@ -237,28 +238,28 @@ A callable struct that represents a coral survival model using a regression.
 - `min_y::T` : Growth at minimum diameter
 - `max_x::T` : Maximum diameter in training data
 - `max_y::T` : Growth at maximum diameter
-- `poly::Polynomial` : Polynomial
+- `poly::P` : Polynomial
 """
-struct PolySurvivalFunction{T<:AbstractFloat} <: Function
+struct PolySurvivalFunction{T<:AbstractFloat,P<:Polynomial} <: Function
     min_x::T
     min_y::T
     max_x::T
     max_y::T
-    poly::Polynomial
+    poly::P
 
     function PolySurvivalFunction(
-        xi::Vector{T}, yi::Vector{T}, poly::Polynomial
-    ) where T<:AbstractFloat
-        return new{T}(xi[1], yi[1], xi[end], yi[end], poly)
+        xi::Vector{T}, yi::Vector{T}, poly::P
+    ) where {T<:AbstractFloat,P<:Polynomial}
+        return new{T,P}(xi[1], yi[1], xi[end], yi[end], poly)
     end
 
     # Bare-fields constructor for JSON round-trip loading.
     # All fields are provided directly; no xi/yi vector inference.
     # Must not reference any module-level mutable bindings.
     function PolySurvivalFunction(
-        min_x::T, min_y::T, max_x::T, max_y::T, poly::Polynomial
-    ) where T<:AbstractFloat
-        return new{T}(min_x, min_y, max_x, max_y, poly)
+        min_x::T, min_y::T, max_x::T, max_y::T, poly::P
+    ) where {T<:AbstractFloat,P<:Polynomial}
+        return new{T,P}(min_x, min_y, max_x, max_y, poly)
     end
 end
 

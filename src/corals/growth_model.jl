@@ -1,4 +1,5 @@
 import DataFrames.PrettyTables: pretty_table
+using Polynomials: Polynomial
 
 # Private consts - only used in this file
 const _euler_f32b = Float32(ℯ)
@@ -79,7 +80,7 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolyGrowthModel)
 end
 
 """
-    PolyGrowthFunction{T<:AbstractFloat}
+    PolyGrowthFunction{T<:AbstractFloat,P<:Polynomial} <: Function
 
 A callable struct that represents a coral growth model.
 
@@ -88,38 +89,40 @@ A callable struct that represents a coral growth model.
 - `min_y::T` : Growth at minimum diameter
 - `max_x::T` : Maximum diameter in training data
 - `max_y::T` : Growth at maximum diameter
-- `poly::Polynomial` : Polynomial
+- `poly::P` : Polynomial
 """
-struct PolyGrowthFunction{T<:AbstractFloat} <: Function
+struct PolyGrowthFunction{T<:AbstractFloat,P<:Polynomial} <: Function
     min_x::T
     min_y::T
     max_x::T
     max_y::T
-    poly::Polynomial
+    poly::P
 
     function PolyGrowthFunction(
-        xi::Vector{T}, yi::Vector{T}, poly::Polynomial
-    ) where T<:AbstractFloat
-        return new{T}(xi[1], yi[1], xi[end], yi[end], poly)
+        xi::Vector{T}, yi::Vector{T}, poly::P
+    ) where {T<:AbstractFloat,P<:Polynomial}
+        return new{T,P}(xi[1], yi[1], xi[end], yi[end], poly)
     end
 
     function PolyGrowthFunction(
         xi::Vector{T},
         yi::Vector{T},
-        poly::Polynomial,
+        poly::P,
         max_x::AbstractFloat,
         max_y::AbstractFloat
-    ) where T<:AbstractFloat
-        return new{T}(Float32(xi[1]), Float32(yi[1]), Float32(max_x), Float32(max_y), poly)
+    ) where {T<:AbstractFloat,P<:Polynomial}
+        return new{T,P}(
+            Float32(xi[1]), Float32(yi[1]), Float32(max_x), Float32(max_y), poly
+        )
     end
 
     # Bare-fields constructor for JSON round-trip loading.
     # All fields are provided directly; no xi/yi vector inference.
     # Must not reference any module-level mutable bindings.
     function PolyGrowthFunction(
-        min_x::T, min_y::T, max_x::T, max_y::T, poly::Polynomial
-    ) where T<:AbstractFloat
-        return new{T}(min_x, min_y, max_x, max_y, poly)
+        min_x::T, min_y::T, max_x::T, max_y::T, poly::P
+    ) where {T<:AbstractFloat,P<:Polynomial}
+        return new{T,P}(min_x, min_y, max_x, max_y, poly)
     end
 end
 
