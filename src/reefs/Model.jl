@@ -1,5 +1,5 @@
 include("ReefState.jl")
 include("reef_dynamics.jl")
 include("interface.jl")
-include("run_example.jl")
+include("run_model.jl")
 include("run_ensemble.jl")

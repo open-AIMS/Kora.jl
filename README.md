@@ -77,7 +77,7 @@ env = generate_example_environment(75, 1)
 initialize_coral_population!(reef, 1, ceil(Int64, 3 * 60.0); group_proportions=fill(0.2f0, 5))
 
 # Run a single simulation
-run_example!(reef, env)
+run_model!(reef, env)
 
 # Extract coral cover results
 cover = coral_cover(reef)
@@ -150,7 +150,7 @@ Kora.jl/
 │   ├── reefs/                # Reef-level simulation
 │   │   ├── ReefState.jl      # Core state data structure
 │   │   ├── reef_dynamics.jl  # Annual timestep dynamics
-│   │   ├── run_example.jl    # Single simulation runner
+│   │   ├── run_model.jl    # Single simulation runner
 │   │   └── run_ensemble.jl   # Ensemble runner
 │   └── interface/            # Data ingestion and model fitting
 │       ├── observations.jl   # EcoRRAP data processing

@@ -226,31 +226,67 @@ function run_model!(
         cover_proportions = total_covers ./ reef_state.carrying_capacity
 
         # Survivers grow...
-        for grp in 1:n_grps
-            # Wild population
-            apply_growth!(
-                reef_state,
-                grp,
-                inflection_points[grp],
-                reef_state.wild_population[ts, :, grp],
-                cover_proportions
-            )
+        # If any location is near capacity, refresh cover_proportions after each group
+        # so that fast-growing groups (processed first, 1→5: Acropora → massives) consume
+        # space before slower groups — preventing within-timestep overshoot.
+        if any(>(0.85f0), cover_proportions)
+            for grp in 1:n_grps
+                apply_growth!(
+                    reef_state,
+                    grp,
+                    inflection_points[grp],
+                    reef_state.wild_population[ts, :, grp],
+                    cover_proportions
+                )
+                total_covers = coral_cover(reef_state, ts)
+                cover_proportions = total_covers ./ reef_state.carrying_capacity
 
-            # Update total cover
+                apply_growth!(
+                    reef_state,
+                    grp,
+                    inflection_points[grp],
+                    reef_state.deployed_population[ts, :, grp],
+                    cover_proportions
+                )
+                total_covers = coral_cover(reef_state, ts)
+                cover_proportions = total_covers ./ reef_state.carrying_capacity
+            end
+        else
+            for grp in 1:n_grps
+                apply_growth!(
+                    reef_state,
+                    grp,
+                    inflection_points[grp],
+                    reef_state.wild_population[ts, :, grp],
+                    cover_proportions
+                )
+                apply_growth!(
+                    reef_state,
+                    grp,
+                    inflection_points[grp],
+                    reef_state.deployed_population[ts, :, grp],
+                    cover_proportions
+                )
+            end
             total_covers = coral_cover(reef_state, ts)
-
-            # Deployed population
-            apply_growth!(
-                reef_state,
-                grp,
-                inflection_points[grp],
-                reef_state.deployed_population[ts, :, grp],
-                cover_proportions
-            )
         end
 
-        # Update total cover
+        # The sigmoid space_constraint can still allow small within-step overshoot.
+        # Proportionally scale down diameters at any location that exceeded K,
+        # preserving the relative size structure (cover ∝ d², so scale d by √(K/C)).
+        # A small conservative margin (8 ulps) on the scale factor absorbs Float32
+        # summation rounding that would otherwise leave recomputed cover 1 ulp above K.
         total_covers = coral_cover(reef_state, ts)
+        for loc in 1:n_locs
+            if total_covers[loc] > reef_state.carrying_capacity[loc]
+                scale = sqrt(reef_state.carrying_capacity[loc] / total_covers[loc])
+                scale *= 1.0f0 - 8.0f0 * eps(Float32)
+                for grp in 1:n_grps
+                    reef_state.wild_population[ts, loc, grp] .*= scale
+                    reef_state.deployed_population[ts, loc, grp] .*= scale
+                end
+            end
+        end
     end
 
     return nothing
@@ -282,6 +318,3 @@ function run_model(;
 
     return reef_state, env_template
 end
-
-run_example = run_model
-run_example! = run_model!

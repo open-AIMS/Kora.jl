@@ -43,7 +43,7 @@ evaluation (e.g. sensitivity analysis with `Threads.@threads`).
 `deepcopy(rs)` is unsafe because `YAXArray` is an immutable struct — Julia
 returns the same instance rather than creating a new one with copied data.
 Fields like `wild_dhw_tolerances` are therefore shared across copies and
-corrupted by concurrent writes in `run_example!`.
+corrupted by concurrent writes in `run_model!`.
 
 This method avoids that by:
 - Reconstructing each `YAXArray` field explicitly with `copy(field.data)`,

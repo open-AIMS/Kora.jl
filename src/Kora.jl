@@ -76,8 +76,6 @@ export
 export
     assign_scalers!,
     set_population!,
-    run_example,
-    run_example!,
     run_model,
     run_model!,
     run_ensemble!
@@ -96,10 +94,10 @@ export
 function __init__()
     # Populate registry at load-time, not precompile-time.
     # Functions are defined at include-time; only the dict insertion happens here.
-    register_model_type!("PolyGrowthFunction",   _deserialize_poly_growth)
+    register_model_type!("PolyGrowthFunction", _deserialize_poly_growth)
     register_model_type!("PolySurvivalFunction", _deserialize_poly_survival)
 
-    _growth_path   = joinpath(ASSET_DIR, "models", "offshore_north_growth_models.json")
+    _growth_path = joinpath(ASSET_DIR, "models", "offshore_north_growth_models.json")
     _survival_path = joinpath(ASSET_DIR, "models", "offshore_north_survival_models.json")
 
     global growth_models = try

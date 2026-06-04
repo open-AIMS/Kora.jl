@@ -53,7 +53,7 @@ function run_ensemble!(
             self_seeding_proportion = Float32(params[end])
 
             # Run simulation
-            run_example!(
+            run_model!(
                 reef_state,
                 env_conditions;
                 recruits=recruitment_proportion,
@@ -62,7 +62,7 @@ function run_ensemble!(
             )
         else
             # Run with default recruitment parameters
-            run_example!(reef_state, env_conditions; rng=rng)
+            run_model!(reef_state, env_conditions; rng=rng)
         end
 
         mature_sizes = mature_size_thresholds()
