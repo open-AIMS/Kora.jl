@@ -110,6 +110,8 @@ function get_growth_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
 
     # Do not use growth data marked for use with no dates between observations!
+    # Materialise the column first — Parquet2-backed StringRefVectors are read-only.
+    standardized_data[!, :growth_use] = Vector{Union{Missing,String}}(standardized_data[!, :growth_use])
     growth_use_check = ismissing.(standardized_data[!, Symbol("days_t1.t2")])
     standardized_data[growth_use_check, :growth_use] .= "no"
 
