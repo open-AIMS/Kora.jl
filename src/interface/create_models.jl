@@ -1,13 +1,22 @@
+using Random
 using Statistics, StatsBase
 using CSV
 using DataFrames
-using Parquet2
 using Kora
-using Random
+
+function _read_parquet_file(filepath::String)::DataFrame
+    error("Parquet2 must be loaded to read .parquet files: `using Parquet2`")
+end
+
+function _read_arrow_file(filepath::String)::DataFrame
+    error("Arrow must be loaded to read .arrow files: `using Arrow`")
+end
 
 function _read_datafile(filepath::String)::DataFrame
     if endswith(filepath, ".parquet")
-        return DataFrame(Parquet2.readfile(filepath))
+        return _read_parquet_file(filepath)
+    elseif endswith(filepath, ".arrow")
+        return _read_arrow_file(filepath)
     else
         return CSV.read(filepath, DataFrame; missingstring=["NA", ""])
     end
