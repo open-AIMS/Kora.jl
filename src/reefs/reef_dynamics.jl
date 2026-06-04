@@ -6,7 +6,7 @@ function apply_growth!(
     model = reef_state.growth_models[grp]
 
     # Use explicit loops to avoid broadcast allocations
-    for i in eachindex(reef_cover)
+    Threads.@threads for i in eachindex(reef_cover)
         if isempty(diams[i])
             continue
         end
@@ -48,28 +48,28 @@ function apply_bleaching!(
 )::Tuple{Float32,Float32}
     # Handle wild population
     wild_diams = wild_population(reef_state, ts - 1, loc, grp)
-    wild_tols = @view(reef_state.wild_dhw_tolerances[ts - 1, loc, grp, :])
+    wild_tols = @view(reef_state.wild_dhw_tolerances.data[ts - 1, loc, grp, :])
     wild_μ, wild_σ, wild_area_lost = bleaching_mortality!(
-        wild_diams, dhw, depth_coeff, wild_tols
+        wild_diams, dhw, depth_coeff, wild_tols, grp
     )
 
     # Update wild tolerances if there was mortality
     if wild_area_lost > 0.0f0
-        reef_state.wild_dhw_tolerances[ts, loc, grp, At(:mean)] = wild_μ
-        reef_state.wild_dhw_tolerances[ts, loc, grp, At(:stdev)] = wild_σ
+        reef_state.wild_dhw_tolerances.data[ts, loc, grp, 1] = wild_μ
+        reef_state.wild_dhw_tolerances.data[ts, loc, grp, 2] = wild_σ
     end
 
     # Handle deployed population
     deployed_diams = deployed_population(reef_state, ts - 1, loc, grp)
-    deployed_tols = @view(reef_state.deployed_dhw_tolerances[ts - 1, loc, grp, :])
+    deployed_tols = @view(reef_state.deployed_dhw_tolerances.data[ts - 1, loc, grp, :])
     deployed_μ, deployed_σ, deployed_area_lost = bleaching_mortality!(
-        deployed_diams, dhw, depth_coeff, deployed_tols
+        deployed_diams, dhw, depth_coeff, deployed_tols, grp
     )
 
     # Update deployed tolerances if there was mortality
     if deployed_area_lost > 0.0f0
-        reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = deployed_μ
-        reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:stdev)] = deployed_σ
+        reef_state.deployed_dhw_tolerances.data[ts, loc, grp, 1] = deployed_μ
+        reef_state.deployed_dhw_tolerances.data[ts, loc, grp, 2] = deployed_σ
     end
 
     return wild_area_lost, deployed_area_lost

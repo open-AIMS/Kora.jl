@@ -83,14 +83,16 @@ function run_model!(
         apply_survival!(reef_state, grp, with_recruits, rng)
 
         # Bleaching mortality
+        tols = @view(reef_state.wild_dhw_tolerances.data[1, loc, grp, :])
         new_mean, new_std, area_lost = bleaching_mortality!(
             with_recruits,
             dhws[loc],
             depth_coeffs[loc],
-            reef_state.wild_dhw_tolerances[1, loc, grp, :],
+            tols,
             grp
         )
-        reef_state.wild_dhw_tolerances[1, loc, grp, :] .= (new_mean, new_std)
+        tols[1] = new_mean
+        tols[2] = new_std
 
         # Cyclone mortality
         # cyclone_probs = cyclone_mortality_prob.(p_sample, [cyclone_cat])
@@ -149,11 +151,12 @@ function run_model!(
             end
 
             # Always copy previous tolerance (whether or not there were recruits)
-            wild_mean = reef_state.wild_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
-            deployed_mean = reef_state.deployed_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
-
-            reef_state.wild_dhw_tolerances[ts, loc, grp, At(:mean)] = wild_mean
-            reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = deployed_mean
+            reef_state.wild_dhw_tolerances.data[ts, loc, grp, 1] = reef_state.wild_dhw_tolerances.data[
+                prev_ts, loc, grp, 1
+            ]
+            reef_state.deployed_dhw_tolerances.data[ts, loc, grp, 1] = reef_state.deployed_dhw_tolerances.data[
+                prev_ts, loc, grp, 1
+            ]
 
             # if n_loc_recruits > 0
             #     recruits[loc, grp] = Float32.(rand(rng, recruit_dist, n_loc_recruits))
@@ -201,14 +204,16 @@ function run_model!(
             apply_survival!(reef_state, grp, with_recruits, rng)
 
             # Bleaching mortality
+            tols = @view(reef_state.wild_dhw_tolerances.data[ts, loc, grp, :])
             new_mean, new_std, area_lost = bleaching_mortality!(
                 with_recruits,
                 dhws[loc],
                 depth_coeffs[loc],
-                reef_state.wild_dhw_tolerances[ts, loc, grp, :],
+                tols,
                 grp
             )
-            reef_state.wild_dhw_tolerances[ts, loc, grp, :] .= (new_mean, new_std)
+            tols[1] = new_mean
+            tols[2] = new_std
 
             # Cyclone mortality
             # cyclone_probs = cyclone_mortality_prob.(p_sample, [cyclone_cat])
