@@ -55,12 +55,13 @@ end
 const _METRIC_NAMES = String.(Symbol.(ALL_METRICS))
 
 function _performance_to_dict(perf::NamedTuple)::Dict{String,Any}
+    _sanitize(v) = isfinite(v) ? v : nothing
     return Dict{String,Any}(
         "train" => Dict{String,Any}(
-            k => collect(getfield(perf.train, Symbol(k))) for k in _METRIC_NAMES
+            k => _sanitize.(collect(getfield(perf.train, Symbol(k)))) for k in _METRIC_NAMES
         ),
         "test" => Dict{String,Any}(
-            k => collect(getfield(perf.test, Symbol(k))) for k in _METRIC_NAMES
+            k => _sanitize.(collect(getfield(perf.test, Symbol(k)))) for k in _METRIC_NAMES
         )
     )
 end
