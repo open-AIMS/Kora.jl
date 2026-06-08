@@ -2,6 +2,39 @@ import YAXArrays.DD: dims
 
 const SEL = Union{Int64,Colon}  # Defined selector type
 
+"""
+    ReefState{F, P, Y3a, Y4a, Y4b}
+
+Mutable container holding the full ecological state of a simulated reef system
+across time, space, and functional coral groups.
+
+# Fields
+- `wild_population::Array{Vector{F},3}` : Diameter samples (cm) for wild corals,
+  indexed `[timestep, location, group]`. Each element is a `Vector` of individual
+  colony diameters at that point in the simulation.
+- `deployed_population::Array{Vector{F},3}` : Diameter samples (cm) for outplanted
+  corals, with the same `[timestep, location, group]` indexing.
+- `deployment_times::Array{F,3}` : Number of corals deployed at each
+  `[timestep, location, group]` combination.
+- `growth_models::Vector{P}` : Per-group growth functions. Each callable maps a
+  colony diameter (cm) to its expected diameter at the next annual timestep.
+- `survival_models::Vector{P}` : Per-group survival functions. Each callable maps
+  a colony diameter (cm) to an annual survival probability.
+- `carrying_capacity::Vector{F}` : Maximum coral-bearing area in m^2 for each
+  location. Limits total cover and constrains recruitment.
+- `depths::Vector{F}` : Water depth in meters at each location. Used to compute
+  depth-dependent bleaching mortality coefficients.
+- `density::Vector{Int64}` : Maximum colony density in colonies per m^2 for each
+  location. Recruitment is suppressed when the total population approaches this
+  ceiling.
+
+All other fields (YAXArray tolerance and mortality stores, and fields prefixed
+with `_`) are internal implementation details that may change between minor
+versions.
+
+# See Also
+[`initialize_reef`](@ref), [`run_model!`](@ref)
+"""
 struct ReefState{
     F<:AbstractFloat,
     P<:Function,
@@ -263,6 +296,62 @@ function update_dhw_tol_std!(
     return nothing
 end
 
+"""
+    initialize_reef(;
+        n_timesteps::Int=75,
+        n_locs::Int=100,
+        group_names=Kora.TARGET_GROUPS,
+        density::Union{Int64,Vector{Int64}}=20,
+        area=90.0,
+        depths::Union{Float64,Vector{Float64}}=9.0,
+        growth_models::AbstractCoralBehavior=Kora.growth_models,
+        survival_models::AbstractCoralBehavior=Kora.survival_models
+    )::ReefState
+
+Allocate and return a `ReefState` sized for `n_locs` reef locations and
+`n_timesteps` annual time steps.
+
+All population arrays are initialised empty. Call `initialize_coral_population!`
+to seed the starting population before running a simulation.
+
+# Arguments
+- `n_timesteps` : Number of annual time steps to allocate (default: `75`).
+- `n_locs` : Number of reef locations (default: `100`).
+- `group_names` : Labels for the functional coral groups. Must match the groups
+  used to fit `growth_models` and `survival_models`
+  (default: `Kora.TARGET_GROUPS`, the five groups used by the bundled models).
+- `density` : Maximum colony density in colonies per m^2. Provide a scalar to
+  apply the same ceiling to every location, or a per-location `Vector{Int64}`
+  (default: `20`).
+- `area` : Reef area available for coral cover in m^2. Provide a scalar or a
+  per-location `Vector` (default: `90.0`).
+- `depths` : Water depth in meters. Provide a scalar or a per-location
+  `Vector{Float64}`. Depth controls bleaching mortality coefficients
+  (default: `9.0`).
+- `growth_models` : Fitted growth model collection, one function per functional
+  group. Defaults to the package-level offshore-north models loaded from the
+  bundled JSON asset at package load time.
+- `survival_models` : Fitted survival model collection, one function per
+  functional group. Defaults to the package-level offshore-north models loaded
+  from the bundled JSON asset at package load time.
+
+# Returns
+`ReefState` : An empty reef state ready for population initialisation.
+
+# Examples
+```jldoctest
+julia> using Kora
+
+julia> rs = initialize_reef(; n_timesteps=10, n_locs=3);
+
+julia> n_timesteps(rs), n_locations(rs)
+(10, 3)
+```
+
+# See Also
+[`initialize_coral_population!`](@ref), [`run_model!`](@ref),
+[`load_models`](@ref)
+"""
 function initialize_reef(;
     n_timesteps=75,
     n_locs=100,
@@ -400,14 +489,31 @@ end
         rng::AbstractRNG=Random.GLOBAL_RNG
     )
 
-Initialize a coral population.
+Seed the initial coral population at timestep 1 with colony diameter samples
+drawn from per-group log-normal size distributions.
+
+The no-location convenience method seeds all locations using a target population
+size derived from the maximum carrying capacity in `reef_state`. Colony sizes are
+drawn from group-specific truncated log-normal distributions and written as
+diameter vectors (cm) into `wild_population[1, loc, grp]`.
 
 # Arguments
-- `reef_state` : ReefState
-- `loc` : Location to generate population for
-- `target_pop_size` : Target number of colonies
-- `group_proportions` : Proportion of cover each coral group takes up
-- `rng` : Random number generator
+- `reef_state` : The `ReefState` to populate. Population data are written
+  in-place at timestep 1.
+- `loc` : Index of the location to seed (1-based).
+- `target_pop_size` : Total number of colonies to place at this location. Actual
+  per-group counts are `round(target_pop_size * group_proportions[grp])`.
+- `group_proportions` : Proportion of the total population assigned to each
+  functional group. Must sum to 1.0 (checked with `atol=1e-6`).
+  Default: `[0.10, 0.20, 0.25, 0.20, 0.25]` matching the five bundled groups.
+- `rng` : Random number generator for reproducible diameter draws
+  (default: `Random.GLOBAL_RNG`).
+
+# Returns
+`Nothing`
+
+# See Also
+[`initialize_reef`](@ref), [`run_model!`](@ref)
 """
 function initialize_coral_population!(
     reef_state::ReefState,
@@ -545,11 +651,33 @@ function resample_wild_population!(
 end
 
 """
-    coral_cover(reef_state::ReefState)::Matrix{Float32}
-    coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
+    coral_cover(reef_state::ReefState)::Vector{Float32}
+    coral_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
     coral_cover(reef_state::ReefState, ts::Int64, loc::Int64)::Float32
+    coral_cover(diams::AbstractVector{<:AbstractFloat})
 
-Determine coral cover.
+Compute total coral cover in m^2, summing over all wild and deployed colonies
+across all functional groups.
+
+The no-timestep form returns a `Vector` of summed cover across all locations for
+each timestep. The single-timestep form returns a per-location `Vector` at `ts`.
+The two-argument form returns a scalar for one timestep and one location. The
+bare-vector form computes cover from a diameter vector (cm) directly, without
+requiring a `ReefState`.
+
+Colony area is computed as pi/4 * (d/100)^2 (m^2) for each diameter d in cm.
+
+# Arguments
+- `reef_state` : Source of population data.
+- `ts` : Timestep index (1-based).
+- `loc` : Location index (1-based).
+- `diams` : Vector of colony diameters in cm.
+
+# Returns
+`Vector{Float32}` or `Float32` : Coral cover in m^2.
+
+# See Also
+[`group_cover`](@ref), [`juvenile_cover`](@ref), [`cover_cm_to_m2`](@ref)
 """
 function coral_cover(reef_state::ReefState)::Vector{Float32}
     covers = zeros(Float32, n_timesteps(reef_state))
@@ -582,8 +710,27 @@ end
 
 """
     group_cover(reef_state::ReefState)::Matrix{Float32}
+    group_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
 
-Retrieve coral cover by group.
+Compute mean coral cover in m^2 per functional group, averaged across all
+locations.
+
+The no-timestep form delegates to `group_cover_timeseries` and returns results
+for every timestep as a matrix. The single-timestep form returns a per-group
+vector at `ts`.
+
+# Arguments
+- `reef_state` : Source of population data.
+- `ts` : Timestep index (1-based).
+
+# Returns
+`Matrix{Float32}` with shape `(n_timesteps, n_groups)`, or `Vector{Float32}`
+with one element per functional group. Values are mean cover in m^2 across all
+locations.
+
+# See Also
+[`coral_cover`](@ref), [`group_cover_timeseries`](@ref),
+[`juvenile_cover`](@ref)
 """
 function group_cover(reef_state::ReefState)::Matrix{Float32}
     return group_cover_timeseries(reef_state)
@@ -605,6 +752,23 @@ function group_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
     return means
 end
 
+"""
+    group_cover_timeseries(reef_state::ReefState)::Matrix{Float32}
+
+Compute mean coral cover in m^2 per functional group for every timestep,
+averaged across all locations.
+
+# Arguments
+- `reef_state` : Source of population data.
+
+# Returns
+`Matrix{Float32}` : Cover matrix of shape `(n_timesteps, n_groups)`. Rows are
+timesteps; columns are functional groups in the order defined by
+`reef_state.wild_population`.
+
+# See Also
+[`group_cover`](@ref), [`coral_cover`](@ref)
+"""
 function group_cover_timeseries(reef_state::ReefState)::Matrix{Float32}
     n_ts = n_timesteps(reef_state)
     n_grp = n_groups(reef_state)
@@ -686,6 +850,35 @@ function recruit_cover(ecostate::ReefState, recruits::Matrix{Vector{Float32}})
 end
 
 # Non-bootstrapped juvenile cover functions
+"""
+    juvenile_cover(
+        reef_state::ReefState,
+        ts::Int64;
+        juvenile_threshold::Union{Nothing,Float32,Vector{Float32}}=nothing
+    )::Vector{Float32}
+
+Compute mean cover of sub-mature corals in m^2 per functional group at a single
+timestep, averaged across all locations.
+
+A colony is classified as juvenile when its diameter is strictly less than the
+maturity threshold for its group. The default thresholds come from
+`Kora.mature_size_thresholds()`; pass a custom value to override.
+
+# Arguments
+- `reef_state` : Source of population data.
+- `ts` : Timestep index (1-based).
+- `juvenile_threshold` : Diameter threshold in cm below which a colony counts
+  as juvenile. Provide a scalar `Float32` to apply the same value to all groups,
+  a `Vector{Float32}` for per-group thresholds, or `nothing` to use the
+  package defaults (default: `nothing`).
+
+# Returns
+`Vector{Float32}` : Mean juvenile cover in m^2, one element per functional
+group.
+
+# See Also
+[`group_cover`](@ref), [`coral_cover`](@ref)
+"""
 function juvenile_cover(
     reef_state::ReefState,
     ts::Int64;
@@ -966,9 +1159,122 @@ function generate_example_environment(
     # Variable axes
     v_axes = (
         Dim{:timestep}(1:n_years),
-        Dim{:location}(1:n_locations)
-        # Dim{:var}([:year, :location])
+        Dim{:location}(1:n_locations),
+        Dim{:variable}([:dhw])
     )
 
-    return YAXArray(v_axes, dhw_data)
+    return YAXArray(v_axes, reshape(dhw_data, n_years, n_locations, 1))
+end
+
+"""
+    generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::YAXArray
+    generate_environment(dhw::YAXArray; start_year::Int64=2020)::YAXArray
+
+Wrap user-supplied Degree Heating Weeks data in a correctly structured environment
+YAXArray, suitable for direct use with Kora.jl model runs.
+
+`n_years` and `n_locations` are inferred from the input dimensions. Structure
+creation is delegated to `generate_example_environment` so dimension names and
+axis labels are always consistent. The synthetic DHW values produced by that
+function are then replaced with the caller's real data.
+
+# Arguments
+- `dhw` : DHW data with shape `(n_timesteps, n_locations)`. Each row is one
+  year (or timestep) and each column is one reef location. Accepts either a
+  `Matrix{Float32}` or a 2D `YAXArray` whose first dimension is timestep and
+  second dimension is location.
+- `start_year` : First year label for the timestep axis (default: 2020). Passed
+  through to `generate_example_environment` for axis labelling only; it does not
+  alter the data.
+
+# Returns
+A 3D `YAXArray` with axes `(Dim{:timestep}, Dim{:location}, Dim{:variable})`
+identical in structure to the output of `generate_example_environment`, with the
+`:dhw` variable populated from `dhw`.
+
+# Notes
+Two advisory warnings are issued (not errors). A minimum-floor check fires when
+`minimum(dhw) > 20`, because real DHW data always contains near-zero values
+during non-bleaching periods -- a uniformly high floor is the primary indicator
+that raw sea-surface temperature (~25-32 degrees C) was passed instead of DHW.
+A ceiling check fires when `maximum(dhw) > 40`, approximately twice the ~20 DHW
+projected under SSP5-8.5; values above this threshold are likely a data quality
+issue rather than an intentional scenario.
+
+# Examples
+```jldoctest
+julia> using Kora
+
+julia> dhw = zeros(Float32, 10, 5);
+
+julia> env = generate_environment(dhw);
+
+julia> size(env)
+(10, 5, 1)
+```
+
+# See Also
+[`generate_example_environment`](@ref)
+"""
+function generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::YAXArray
+    n_years, n_locs = size(dhw)
+
+    if n_years == 0 || n_locs == 0
+        throw(ArgumentError(
+            "DHW matrix must have at least one timestep and one location, " *
+            "got size $(size(dhw))"
+        ))
+    end
+
+    if any(dhw .< 0.0f0)
+        throw(ArgumentError(
+            "DHW values must be non-negative; found values below zero"
+        ))
+    end
+
+    # A high minimum across all locations and timesteps is the primary indicator
+    # that raw SST (typically 25-32 degrees C, never near zero) has been supplied
+    # instead of DHW (which should contain many near-zero values during non-bleaching
+    # periods and early simulation years).
+    if minimum(dhw) > 20.0f0
+        @warn "Minimum DHW value is $(minimum(dhw)) across all locations and timesteps. " *
+              "Real DHW data should include near-zero values during non-bleaching periods. " *
+              "A uniformly high floor may indicate raw sea-surface temperature was passed " *
+              "instead of accumulated degree heating weeks."
+    end
+
+    # Values above 40 DHW are approximately twice the ~20 DHW projected under SSP5-8.5
+    # and are likely a data quality issue rather than an intentional scenario.
+    if maximum(dhw) > 40.0f0
+        @warn "DHW values exceed 40 (maximum = $(maximum(dhw))). This is roughly twice the " *
+              "~20 DHW projected under SSP5-8.5. Consider checking for data quality issues " *
+              "or confirming the scenario is intentionally extreme."
+    end
+
+    env = generate_example_environment(
+        n_years, n_locs; start_year=start_year, with_dhw=false
+    )
+
+    env.data[:, :, 1] .= dhw
+
+    return env
+end
+
+function generate_environment(dhw::YAXArray; start_year::Int64=2020)::YAXArray
+    if ndims(dhw) != 2
+        throw(ArgumentError(
+            "DHW YAXArray must be 2D with dimensions (timestep, location), " *
+            "got $(ndims(dhw))D"
+        ))
+    end
+
+    if size(dhw, 1) == 0 || size(dhw, 2) == 0
+        throw(ArgumentError(
+            "DHW YAXArray dimensions must be non-zero, got size $(size(dhw))"
+        ))
+    end
+
+    return generate_environment(
+        convert(Matrix{Float32}, dhw.data); start_year=start_year
+    )
 end

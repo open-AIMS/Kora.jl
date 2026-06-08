@@ -26,6 +26,14 @@ include("interface/create_models.jl")
 include("viz/viz.jl")
 
 export
+    RMSE,
+    R2,
+    pearson,
+    spearman,
+    kendall,
+    ALL_METRICS
+
+export
     truncated_standard_normal_mean,
     truncated_normal_mean,
     truncated_normal_cdf
@@ -50,6 +58,7 @@ export
     initialize_reef,
     initialize_coral_population!,
     generate_example_environment,
+    generate_environment,
     n_timesteps,
     n_locations,
     n_groups

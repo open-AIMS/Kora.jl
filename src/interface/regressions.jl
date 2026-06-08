@@ -1,3 +1,24 @@
+"""
+    fit_growth_models(
+        groupings::OrderedDict{String, DataFrame}; degree=2
+    )::PolyGrowthModel
+
+Fit polynomial growth models to grouped coral data.
+
+# Arguments
+- `groupings` : An `OrderedDict` mapping functional-group names to `DataFrame`s,
+  each containing `diam` (coral diameter in cm) and `growth_rate` columns, with a
+  train/test split column produced by `get_growth_entries`.
+- `degree` : Degree of the polynomial fitted to `log(diam)` vs `growth_rate`
+  (default: 2).
+
+# Returns
+A `PolyGrowthModel` containing one fitted function per
+functional group and train/test performance metrics for all [`ALL_METRICS`](@ref).
+
+# See Also
+[`fit_survival_models`](@ref), [`save_models`](@ref)
+"""
 function fit_growth_models(
     groupings::OrderedDict{String,DataFrame}; degree::Int=2
 )::PolyGrowthModel

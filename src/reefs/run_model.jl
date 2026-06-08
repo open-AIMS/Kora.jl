@@ -5,19 +5,35 @@
         recruits=0.06f0,
         self_seed=0.3f0,
         rng::AbstractRNG=Random.GLOBAL_RNG
-    )
+    )::Nothing
 
-Run example with constant incoming larvae.
+Advance the reef simulation forward in time, writing results into `reef_state`
+in-place. The state is reset to its timestep-1 population before the run begins,
+so calling `run_model!` a second time on the same object produces a fresh result.
+
+`env_conditions` must be a 3D `YAXArray` with axes
+`(Dim{:timestep}, Dim{:location}, Dim{:variable})` containing at minimum a
+`:dhw` variable slice. This is the format returned by both
+`generate_example_environment` and `generate_environment`.
 
 # Arguments
-- `reef_state` : ReefState
-- `env_conditions` : Environmental conditions
-- `recruits` : Assumed proportion of larvae contributing to coral recruitment
-- `self_seed` : Proportion of self-seeding
-- `rng` : Random number generator state
+- `reef_state` : Pre-initialised `ReefState`. Modified in-place; the caller's
+  object contains the full time series after this call returns.
+- `env_conditions` : Environmental forcing data. Must cover the same number of
+  timesteps and locations as `reef_state`.
+- `recruits` : Fraction of local larval production that successfully recruits to
+  the reef each timestep (default: `0.06`).
+- `self_seed` : Fraction of recruitment attributed to self-seeding from the
+  local population (default: `0.3`).
+- `rng` : Random number generator. Pass a seeded `Xoshiro` or similar for
+  reproducible runs (default: `Random.GLOBAL_RNG`).
 
 # Returns
-Nothing
+`Nothing`
+
+# See Also
+[`initialize_reef`](@ref), [`initialize_coral_population!`](@ref),
+[`run_model`](@ref), [`coral_cover`](@ref)
 """
 function run_model!(
     reef_state::ReefState,
@@ -298,9 +314,43 @@ function run_model!(
 end
 
 """
-    run_model(; n_ts=75, n_locs=100, with_dhw=true, growth_models=growth_models, survival_models=survival_models)
+    run_model(;
+        n_ts=75,
+        n_locs=100,
+        with_dhw=true,
+        area=100.0,
+        pop_density=15.0,
+        growth_models=growth_models,
+        survival_models=survival_models
+    )::Tuple{ReefState, YAXArray}
 
-Run example with constant incoming larvae.
+Convenience wrapper that allocates a reef, seeds its population, generates
+synthetic environmental conditions, and returns the completed simulation results.
+
+Internally calls `initialize_reef`, `initialize_coral_population!`,
+`generate_example_environment`, and `run_model!` in sequence using the supplied
+keyword arguments.
+
+# Arguments
+- `n_ts` : Number of annual time steps (default: `75`).
+- `n_locs` : Number of reef locations (default: `100`).
+- `with_dhw` : Whether to generate DHW thermal forcing. Pass `false` to run
+  with zero thermal stress (default: `true`).
+- `area` : Reef area in m^2 used for carrying capacity (default: `100.0`).
+- `pop_density` : Initial colony density in colonies per m^2 used to size the
+  starting population (default: `15.0`).
+- `growth_models` : Fitted growth model collection (default: package-level
+  offshore-north models).
+- `survival_models` : Fitted survival model collection (default: package-level
+  offshore-north models).
+
+# Returns
+`Tuple{ReefState, YAXArray}` : The completed reef state containing the full
+time series and the environmental conditions used for the run.
+
+# See Also
+[`run_model!`](@ref), [`initialize_reef`](@ref),
+[`generate_example_environment`](@ref)
 """
 function run_model(;
     n_ts=75, n_locs=100, with_dhw=true, area=100.0, pop_density=15.0,

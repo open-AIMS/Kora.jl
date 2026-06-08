@@ -8,16 +8,40 @@ using TerminalLoggers, ProgressLogging
         rng::AbstractRNG=Random.GLOBAL_RNG
     )
 
-Run ensemble simulations with multiple parameter sets.
+Run an ensemble of simulations, one per column of `ensemble_params`, reusing
+`reef_state` across members (reset between each run via `set_population!`).
+Progress is reported to the terminal via `ProgressLogging`.
+
+When `ensemble_params` has more than 16 rows, rows 17 through
+`16 + n_groups(reef_state)` are interpreted as per-group location scalers passed
+to `assign_scalers!`, and the final two rows as `recruits` and `self_seed`
+parameters forwarded to `run_model!`.
 
 # Arguments
-- `reef_state` : ReefState (will be reused for each ensemble member)
-- `env_conditions` : Environmental conditions
-- `ensemble_params` : Matrix where each column is a parameter set
-- `rng` : Random number generator state
+- `reef_state` : `ReefState` used as the simulation template. Mutated during
+  each member run; contents after the call reflect only the last ensemble member.
+- `env_conditions` : Environmental forcing data shared across all members.
+- `ensemble_params` : Parameter matrix of shape `(n_params, n_members)`. Each
+  column defines one ensemble member. Rows 1-16 are population parameters
+  consumed by `set_population!`.
+- `rng` : Random number generator (default: `Random.GLOBAL_RNG`).
 
 # Returns
-- `ensemble_results` : NamedTuple with results from all ensemble members
+`NamedTuple` with the fields listed below.
+
+- `cover::Array{Float32,3}` : Total coral cover in m^2 with shape
+  `(n_timesteps, n_locations, n_members)`.
+- `group_cover::Array{Float32,4}` : Per-group cover in m^2 with shape
+  `(n_timesteps, n_locations, n_groups, n_members)`.
+- `juvenile_cover::Array{Float32,4}` : Sub-mature coral cover in m^2 with shape
+  `(n_timesteps, n_locations, n_groups, n_members)`.
+- `wild_dhw_tolerances::Array{Float32,5}` : DHW tolerance statistics with shape
+  `(n_timesteps, n_locations, n_groups, 2, n_members)`. The third inner
+  dimension holds mean (index 1) and standard deviation (index 2).
+- `params::Matrix{Float64}` : The input `ensemble_params` unchanged.
+
+# See Also
+[`run_model!`](@ref), [`set_population!`](@ref), [`assign_scalers!`](@ref)
 """
 function run_ensemble!(
     reef_state::ReefState,

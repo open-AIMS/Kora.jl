@@ -17,6 +17,31 @@ const SUPPORTED_FORMAT_VERSIONS = (1,)
 
 const _MODEL_TYPE_REGISTRY = Dict{String,Function}()
 
+"""
+    register_model_type!(tag::String, deserializer::Function)::Nothing
+
+Register a custom model type so that `load_models` can deserialise it from JSON.
+
+The `tag` string must match the `"type"` field written by your serialiser into
+each model entry. The `deserializer` receives the raw parsed JSON `Dict` for
+that entry and must return a callable representing the fitted model function.
+
+The built-in types `"PolyGrowthFunction"` and `"PolySurvivalFunction"` are
+registered automatically when the package is loaded via `__init__`. Registration
+is not thread-safe; all calls must occur before concurrent model loading begins.
+
+# Arguments
+- `tag::String` : Unique string identifier stored in the JSON file.
+- `deserializer::Function` : Function with signature
+  `(entry::AbstractDict) -> Function` that reconstructs a model callable from
+  the serialised `Dict`.
+
+# Returns
+`Nothing`
+
+# See Also
+[`load_models`](@ref), [`save_models`](@ref)
+"""
 function register_model_type!(tag::String, deserializer::Function)::Nothing
     _MODEL_TYPE_REGISTRY[tag] = deserializer
     return nothing
@@ -144,6 +169,30 @@ end
 # save_models
 # ---------------------------------------------------------------------------
 
+"""
+    save_models(m::PolyGrowthModel, filepath::String; region::String="")::Nothing
+    save_models(m::PolySurvivalModel, filepath::String; region::String="")::Nothing
+
+Serialise a fitted model collection to a versioned JSON file at `filepath`.
+
+The file records model kind (`"growth"` or `"survival"`), fit timestamp,
+polynomial coefficients, numeric range limits, and per-metric train/test
+performance. It can be reloaded without information loss using `load_models`.
+
+# Arguments
+- `m` : Fitted model collection to serialise (`PolyGrowthModel` or
+  `PolySurvivalModel`).
+- `filepath::String` : Destination path including filename and `.json` extension.
+- `region::String` : Optional label stored in the file header for reference.
+  Does not affect the model data (default: `""`).
+
+# Returns
+`Nothing`
+
+# See Also
+[`load_models`](@ref), [`register_model_type!`](@ref),
+[`fit_growth_models`](@ref), [`fit_survival_models`](@ref)
+"""
 function save_models(
     m::PolyGrowthModel, filepath::String; region::String=""
 )::Nothing
@@ -184,6 +233,42 @@ end
 # load_models
 # ---------------------------------------------------------------------------
 
+"""
+    load_models(filepath::String)::Union{PolyGrowthModel, PolySurvivalModel}
+
+Deserialise a model collection from a versioned JSON file previously written by
+`save_models`.
+
+The file must declare a supported `format_version`, a `model_kind` of either
+`"growth"` or `"survival"`, and a `"type"` tag for each model entry that has
+been registered via `register_model_type!`. An informative error is raised if
+any required field is missing or if an unknown type tag is encountered.
+
+# Arguments
+- `filepath::String` : Path to the JSON model file.
+
+# Returns
+`Union{PolyGrowthModel, PolySurvivalModel}` : The deserialised model collection,
+ready for use as the `growth_models` or `survival_models` argument to
+`initialize_reef`.
+
+# Examples
+```jldoctest
+julia> using Kora
+
+julia> path = joinpath(pkgdir(Kora), "assets", "models",
+           "offshore_north_growth_models.json");
+
+julia> m = load_models(path);
+
+julia> typeof(m)
+Kora.PolyGrowthModel
+```
+
+# See Also
+[`save_models`](@ref), [`register_model_type!`](@ref),
+[`initialize_reef`](@ref)
+"""
 function load_models(filepath::String)::Union{PolyGrowthModel,PolySurvivalModel}
     raw = JSON.parse(read(filepath, String))
 
