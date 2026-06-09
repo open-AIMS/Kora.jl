@@ -11,6 +11,7 @@ makedocs(;
     warnonly=Symbol[],
     checkdocs=:exports,
     pages=[
+        "Home" => "index.md",
         "Start Here" => "what-can-kora-tell-me.md",
         "Getting Started" => "getting-started.md",
         "Model Overview" => "model-overview.md",
