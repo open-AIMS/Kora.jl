@@ -4,7 +4,7 @@ makedocs(;
     sitename="Kora.jl",
     modules=[Kora],
     format=DocumenterVitepress.MarkdownVitepress(;
-        repo="https://github.com/ConnectedSystems/Kora.jl",
+        repo="https://github.com/open-AIMS/Kora.jl",
         devbranch="main",
         devurl="dev"
     ),
@@ -45,7 +45,7 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/ConnectedSystems/Kora.jl",
+    repo="github.com/open-AIMS/Kora.jl",
     target="build",
     branch="gh-pages",
     devbranch="main",
