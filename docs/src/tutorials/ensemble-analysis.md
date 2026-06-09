@@ -23,9 +23,12 @@ environ = generate_example_environment(50, 5; rng=rng)
 n_members = 50
 
 # Build a 16-row parameter matrix with one column per scenario.
-# Here we vary the first parameter across scenarios while holding others fixed.
+# Row 1: initial population density, varied across scenarios.
+# Rows 2-6: functional group proportions — must sum to 1.0.
+# Rows 7-16: size-distribution parameters; zeros here use the default LogNormals.
 baseline_params = zeros(Float64, 16, n_members)
 baseline_params[1, :] = range(0.5, 2.0; length=n_members)
+baseline_params[2:6, :] .= [0.1, 0.2, 0.25, 0.2, 0.25]
 
 results = run_ensemble!(reef, environ, baseline_params; rng=rng)
 ```

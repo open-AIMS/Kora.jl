@@ -10,7 +10,7 @@ These are questions about robustness under uncertainty, not questions asking for
 
 The following are representative questions that Kora is designed to help answer.
 
-- "Should we deploy heat-tolerant corals at this location, and at what scale?"
+- "Should we deploy heat-tolerant corals at this location, and if so, how many colonies and over what reef area?"
 - "How do different climate change scenarios affect potential restoration outcomes?"
 - "How sensitive is the outcome to our assumptions around thermal adaptation and coral demographic rates?"
 
@@ -41,8 +41,8 @@ Kora is well-suited for the following uses.
 
 The following uses require care.
 
-- Short-term site-specific projections: the model can provide an indication provided no major non-DHW disturbances are expected at the site during the projection period.
-- Mechanistic ecological research or validating ecological theory: Kora is calibrated for decision support at management scales, not for resolving fine-grained ecological mechanisms.
+- Short-term site-specific projections: the model can provide an indication provided no major non-DHW disturbances are expected at the site during the forecast period.
+- Mechanistic ecological research or validating ecological theory: Kora is designed for decision support at management scales, not for resolving fine-grained ecological mechanisms.
 
 Kora is less suited for the following situations.
 

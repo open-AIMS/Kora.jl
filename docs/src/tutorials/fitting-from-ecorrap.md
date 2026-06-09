@@ -180,9 +180,11 @@ Kora.save_models(survival_fits, "my_region_survival.json"; region="My Region")
 ```
 
 The JSON files record the polynomial coefficients, numeric range limits, performance metrics,
-a fitted-at timestamp, and the region label. The `format_version` field is set to 1. This
-version number is checked on load and an informative error is raised if the version is not
-supported by the installed Kora release.
+a fitted-at timestamp, and the region label. The `format_version` field is set to 1 and is
+checked on load; an informative error is raised if the version is not supported by the
+installed Kora release. For the full field-by-field schema and an annotated example, see
+[Fitted Model Files (JSON)](../reference/input-data-reference.md#section-3-fitted-model-files-json)
+in the Input Data Reference.
 
 ### Loading from JSON
 
