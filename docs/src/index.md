@@ -11,6 +11,22 @@ known extensibility target.
 
 See [What Can Kora Tell Me?](what-can-kora-tell-me.md) for an overview of model scope and purpose.
 
+## Kora and ADRIA in a Decision Workflow
+
+Kora and ADRIA serve different roles in a shared decision-support workflow.
+
+Kora provides the coral ecology representation. It simulates coral population dynamics and resulting cover trajectories under alternative climate, thermal adaptation, and restoration assumptions. These outputs are scenario-conditioned ecological outcomes, not forecasts of the most likely reef future.
+
+ADRIA.jl provides the surrounding assessment layer for scenario ensembles, sensitivity analysis, and comparison of strategy performance across plausible futures. In this context, robustness means identifying options that remain acceptable, or fail less severely, across a defined set of plausible futures.
+
+Current integration is workflow-level: Kora outputs can be transferred into ADRIA analyses, but there is not yet a unified package-level interface. An open Kora.jl issue proposes adopting data structures from open-AIMS/ADRIAIndicators.jl to reduce translation effort and improve interoperability. That alignment is planned work, not a completed interface.
+
+- Use Kora to define ecological scenarios and simulate coral outcome trajectories.
+- Use ADRIA to structure scenario ensembles, assess sensitivity to assumptions, and compare decision performance across plausible futures.
+- Feed insights back into Kora scenario design for iterative refinement of ecological assumptions and intervention options.
+
+See the [ADRIA.jl repository](https://github.com/open-AIMS/ADRIA.jl) and [ADRIAIndicators.jl](https://github.com/open-AIMS/ADRIAIndicators.jl).
+
 ## Quick Start
 
 For Julia newcomers, the steps below provide a minimal local install and first simulation workflow.
@@ -36,7 +52,7 @@ julia
 
 ### 2. Install Kora
 
-In the Julia REPL, press `]` to enter package mode.
+In the Julia REPL, press `]` to enter package mode. The prompt changes from `julia>` to `pkg>`.
 
 Standard install (from Julia General registry, once Kora is registered):
 

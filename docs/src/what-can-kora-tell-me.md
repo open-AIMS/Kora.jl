@@ -57,3 +57,25 @@ The annual timestep and functional-group aggregation in Kora are deliberate desi
 The EcoRRAP empirical grounding is the basis for trusting Kora's outputs for their intended purpose. The model parameters are constrained by field observations rather than assumed from first principles. This means the model is well-calibrated for the scale and question type it was designed for, even though it is not a high-fidelity mechanistic simulator.
 
 See the Input Data Reference for guidance on how to provide real DHW data and site-specific parameters.
+
+## How Kora and ADRIA Can Work Together
+
+Kora and ADRIA can be positioned as complementary components in one decision-support stack.
+
+- Kora provides the coral ecology representation. It maps ecological trajectories under alternative climate, adaptation, and restoration assumptions.
+- ADRIA provides the downstream assessment layer for scenario ensembles, sensitivity analysis, and comparison of strategy performance across plausible futures.
+
+For non-modellers, this can be read as: Kora simulates coral outcomes under different assumptions, and ADRIA helps compare those outcomes when selecting strategies.
+
+Current integration is workflow-level. Kora outputs can be used in ADRIA workflows, but there is not yet a unified package-level interface. An open Kora.jl issue proposes adopting data structures from open-AIMS/ADRIAIndicators.jl to improve interoperability. This indicates planned direction rather than completed integration.
+
+A practical integration pattern is:
+
+1. Define ecological assumptions and intervention strategies in Kora.
+2. Run scenario ensembles in Kora and export outcome metrics such as coral cover trajectories, group-specific outcomes, and restoration-versus-baseline differences.
+3. Use ADRIA to compare alternatives against decision objectives, assess sensitivity to assumptions, and evaluate robustness across plausible futures.
+4. Update Kora scenarios based on ADRIA findings and repeat until strategy choices are decision-ready.
+
+This separation of roles keeps ecological process representation explicit in Kora while using ADRIA as the analysis layer for robustness and trade-off assessment. Conclusions remain conditional on the modeled processes and scenario space.
+
+See the [ADRIA.jl repository](https://github.com/open-AIMS/ADRIA.jl) and [ADRIAIndicators.jl](https://github.com/open-AIMS/ADRIAIndicators.jl).

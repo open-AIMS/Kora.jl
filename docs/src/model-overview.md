@@ -2,6 +2,16 @@
 
 This page describes what Kora simulates and the assumptions behind each model component. It is intended for analysts who have read [What Can Kora Tell Me?](what-can-kora-tell-me.md) and want to understand the model structure before running it. For first-run setup steps, see [Getting Started](getting-started.md).
 
+## Role in a Broader Workflow
+
+Kora provides the coral ecology representation. It simulates coral population dynamics and resulting cover trajectories under alternative climate, thermal adaptation, and restoration assumptions.
+
+ADRIA.jl serves a different role. It provides the downstream assessment layer for scenario ensembles, sensitivity analysis, and comparison of strategy performance across plausible futures.
+
+Current integration is workflow-level: Kora outputs can be transferred into ADRIA analyses, but there is not yet a unified package-level interface. An open Kora.jl issue proposes adopting data structures from open-AIMS/ADRIAIndicators.jl to improve interoperability. That alignment is planned work, not a completed interface.
+
+This page focuses on Kora's ecological process representation. For the broader decision-support framing, see [What Can Kora Tell Me?](what-can-kora-tell-me.md). For the related analysis ecosystem, see [ADRIA.jl](https://github.com/open-AIMS/ADRIA.jl) and [ADRIAIndicators.jl](https://github.com/open-AIMS/ADRIAIndicators.jl).
+
 ## Simulation Structure
 
 Kora uses an annual timestep. Each run covers a configurable number of years, typically 50 to 100. Reef locations are treated as independent units: there is no connectivity between locations in the base model. Every location runs through the same sequence of operations at each timestep.
@@ -51,7 +61,7 @@ Growth is a function of current colony diameter. The polynomial maps $\log(d)$ t
 
 Survival is modelled using a complementary log-log regression of colony diameter against annual survival probability. Larger colonies have higher survival probability.
 
-Users who need region-specific parameters can supply alternative model sets using `load_models`. The `growth_models` and `survival_models` arguments to `initialize_reef` accept any fitted model collection that implements the required interface.
+Location-specific parameters can be supplied via alternative model sets loaded with `load_models`. The `growth_models` and `survival_models` arguments to `initialize_reef` accept any fitted model collection that implements the required interface.
 
 ## Scope and Limitations
 
