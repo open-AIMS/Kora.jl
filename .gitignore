@@ -6,3 +6,7 @@ sandbox/
 .claude/
 
 .graphify_python
+
+docs/node_modules/
+
+docs/build/
