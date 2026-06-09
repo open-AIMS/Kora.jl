@@ -149,6 +149,7 @@ end
     )::Nothing
 
 Update thermal tolerances for new recruits based on mixing between wild and deployed populations.
+Only mature corals contribute to offspring tolerance inheritance.
 
 # Arguments
 - `reef_state` : ReefState
@@ -165,6 +166,13 @@ function update_coral_tolerances!(
     n_recruits::Int64;
     h²::Float32=0.3f0
 )::Nothing
+    # Fast path: if no deployed corals exist, skip mixing calculations
+    if all(iszero, reef_state.deployed_population)
+        return _update_coral_tolerances_wild_only!(
+            reef_state, ts, loc, grp, n_recruits, h²
+        )
+    end
+
     ts2 = ts - 2
     if ts2 <= 0
         ts2 = 1
@@ -198,11 +206,52 @@ function update_coral_tolerances!(
     # Apply breeder's equation
     recruit_mean = breeders(prev_mean_mixed, mean_mixed, h²)
 
+    # Only mature corals reproduce; filter by maturity size
+    mature_size = susceptibility_size_thresholds()[grp]
+    wild_pop_t1 = reef_state.wild_population[ts1, loc, grp]
+    deployed_pop_t1 = reef_state.deployed_population[ts1, loc, grp]
+    n_existing_mature = count(wild_pop_t1 .>= mature_size) + count(deployed_pop_t1 .>= mature_size)
+
     # Weighted mean based on recruitment proportion
-    pop = reef_state.wild_population[ts1, loc, grp]
-    n_existing = count(pop .> 0.0)
-    prop = n_recruits / (n_recruits + n_existing)
-    new_grp_mean = Float32((recruit_mean * prop) + (mean_mixed * (1.0 - prop)))  # Changed from prev_mean_mixed
+    prop = n_recruits / (n_recruits + n_existing_mature)
+    new_grp_mean = Float32((recruit_mean * prop) + (mean_mixed * (1.0 - prop)))
+
+    return update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
+end
+
+function _update_coral_tolerances_wild_only!(
+    reef_state::ReefState,
+    ts::Int64,
+    loc::Int64,
+    grp::Int64,
+    n_recruits::Int64,
+    h²::Float32
+)::Nothing
+    ts2 = ts - 2
+    if ts2 <= 0
+        ts2 = 1
+    end
+
+    ts1 = ts - 1
+    if ts1 <= 0
+        ts1 = 1
+    end
+
+    # Get wild tolerance means only
+    wild_mean_t2 = reef_state.wild_dhw_tolerances[ts2, loc, grp, At(:mean)]
+    wild_mean_t1 = reef_state.wild_dhw_tolerances[ts1, loc, grp, At(:mean)]
+
+    # Apply breeder's equation with wild population only
+    recruit_mean = breeders(wild_mean_t2, wild_mean_t1, h²)
+
+    # Only mature corals reproduce; filter by maturity size
+    mature_size = susceptibility_size_thresholds()[grp]
+    wild_pop_t1 = reef_state.wild_population[ts1, loc, grp]
+    n_existing_mature = count(wild_pop_t1 .>= mature_size)
+
+    # Weighted mean based on recruitment proportion
+    prop = n_recruits / (n_recruits + n_existing_mature)
+    new_grp_mean = Float32((recruit_mean * prop) + (wild_mean_t1 * (1.0 - prop)))
 
     return update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
 end

@@ -565,16 +565,35 @@ function initialize_coral_population!(
 end
 
 """
-    deploy_corals!(reef_state, ts, loc, n, grp)
+    deploy_corals!(reef_state, ts, loc, n, grp; rng=Random.GLOBAL_RNG)
 
-"At a given time and location, deploy `n` of coral `grp`.
+Seed `n` outplanted coral colonies of functional group `grp` at location `loc`
+and timestep `ts`.
+
+Colony initial diameters are sampled from the truncated log-normal size distribution
+for `grp` (bounded by the group's diameter bin edges) and stored in
+`reef_state.deployed_population[ts, loc, grp]`. Any existing deployed population
+at that slot is overwritten.
+
+This function is called internally when coral deployment is active in `run_model!`.
+Direct calls are supported for testing but are not part of the standard simulation
+workflow -- use the deployment configuration in `run_model!` to trigger outplanting
+within a simulation run.
 
 # Arguments
-- `reef_state` : ReefState
-- `ts` : time of deployment
-- `loc` : location of deployment
-- `n` : number of corals to deploy
-- `grp` : coral group to deploy
+- `reef_state` : `ReefState` to update in-place.
+- `ts` : Timestep index at which deployment occurs (1-based).
+- `loc` : Location index at which corals are deployed (1-based).
+- `n` : Number of colonies to deploy.
+- `grp` : Functional group index (1-based).
+- `rng` : Random number generator for reproducible diameter draws
+  (default: `Random.GLOBAL_RNG`).
+
+# Returns
+`Nothing`
+
+# See Also
+[`initialize_coral_population!`](@ref), [`run_model!`](@ref)
 """
 function deploy_corals!(reef_state, ts, loc, n, grp; rng=Random.GLOBAL_RNG)
     size_dist = size_distribution()[grp]
@@ -807,7 +826,31 @@ function mature_coral_cover(reef_state::ReefState, ts::Int64)::Matrix{Float32}
 end
 
 """
-Temporary mock function to determine cover of new recruits
+    recruit_cover(recruits::Array{Float32})::Vector{Float32}
+    recruit_cover(recruits::Matrix{Vector{Float32}})::Vector{Float32}
+    recruit_cover(ecostate::ReefState, recruits::Array{Float32})
+    recruit_cover(ecostate::ReefState, recruits::Matrix{Vector{Float32}})
+
+Compute total coral cover in m^2 for a cohort of new recruits, summed per location.
+
+The single-argument forms allocate a fresh output vector. The two-argument forms
+write into `ecostate._recruit_buffer` and return that view, avoiding allocation
+inside the simulation loop.
+
+Colony area is computed as `pi/4 * (d/100)^2` (m^2) for each recruit diameter `d`
+in cm via [`cover_cm_to_m2`](@ref).
+
+# Arguments
+- `ecostate` : `ReefState` whose `_recruit_buffer` is used to store results.
+- `recruits` : Per-location recruit diameter data. Either a 3-D `Array{Float32}`
+  with axes `[location, group, colony]`, or a `Matrix{Vector{Float32}}` with
+  dimensions `[location, group]`.
+
+# Returns
+`Vector{Float32}` : Total recruit cover in m^2, one element per location.
+
+# See Also
+[`coral_cover`](@ref), [`cover_cm_to_m2`](@ref)
 """
 function recruit_cover(recruits::Array{Float32})::Vector{Float32}
     loc_cover = zeros(Float32, axes(recruits, 1))  # zeros for each location

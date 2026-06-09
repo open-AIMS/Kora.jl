@@ -10,10 +10,35 @@ const TEST_CLASS_STD_ID = :class_test_std
 
 """
     area_to_diam(area::AbstractFloat)::AbstractFloat
+    area_to_diam(area::AbstractString)::Union{AbstractFloat, Missing}
     area_to_diam(_::Missing)::Missing
 
-Calculate the diameter of a coral given its area (in cm²) by assuming it is a circle.
-If data is missing, returns `missing`.
+Convert a coral planar area (cm^2) to an equivalent circle diameter (cm).
+
+Assumes the coral footprint is circular. The conversion solves for `d` in
+`area = pi * (d/2)^2`, giving `d = sqrt(4 * area / pi)`.
+
+String inputs are parsed to `Float64`; strings that cannot be parsed are
+returned as `missing`.
+
+# Arguments
+- `area`: Planar area of the coral colony in cm^2. Accepts `AbstractFloat`,
+  `AbstractString`, or `Missing`.
+
+# Returns
+- `AbstractFloat`: Equivalent circle diameter in cm when input is numeric.
+- `Missing`: Returned when `area` is `missing` or is a non-numeric string.
+
+# Examples
+```jldoctest
+julia> using Kora
+
+julia> area_to_diam(Float64(pi))
+2.0
+
+julia> area_to_diam(missing)
+missing
+```
 """
 function area_to_diam(area::AbstractFloat)::AbstractFloat
     return sqrt(4.0 * area / π)
@@ -95,16 +120,34 @@ end
 """
     get_growth_entries(standardized_data::DataFrame)::DataFrame
 
-Prep data for growth modeling based on data standardized to known format.
+Extract and prepare rows suitable for growth model fitting from a standardized
+EcoRRAP demographic dataset.
 
-Removes rows not related to the calculation of growth statistics and adds diameter, log
-diameter and linear extension columns to the datset of coral demographics.
-This method also marks each relevant row as train/test data.
+Rows are kept when `growth_use == "yes"`, `survival_use == "yes"`, and
+`size != "NA"`. Rows with no recorded date between observations
+(`days_t1.t2` missing) are excluded by forcing their `growth_use` to "no".
+Only rows with positive linear extension (i.e., net growth) are retained.
 
-Note: This method is sufficient for the dataset with indicated date 2025-05-10.
+The returned DataFrame adds the following derived columns:
+- `diam`: equivalent circle diameter at observation time (cm)
+- `diamnext`: equivalent circle diameter at next observation (cm)
+- `logdiam`: log base-2 of `diam`
+- `growth`: raw area change between observations (cm^2)
+- `lin_ext`: linear extension -- diameter change between observations (cm)
+- `growth_rate`: annualised linear extension (cm/yr)
+- `est_1yo_growth`: estimated diameter after one year at `growth_rate`
 
-See also:
-- `standardize_ecorrap_data!()`
+# Arguments
+- `standardized_data::DataFrame`: Output of `standardize_ecorrap_data!`. Must
+  contain columns `growth_use`, `survival_use`, `size`, `sizenext`, `taxa`,
+  and `days_t1.t2`.
+
+# Returns
+- `DataFrame`: Filtered and augmented subset of `standardized_data` ready for
+  `organize_functional_groups`.
+
+# See Also
+`standardize_ecorrap_data!`, `get_survival_entries`, `organize_functional_groups`
 """
 function get_growth_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
@@ -154,15 +197,29 @@ end
 """
     get_survival_entries(standardized_data::DataFrame)::DataFrame
 
-Given the standardized dataframe from containing all entries of the coral demograph data,
-remove rows not related to the calculation of survival statistics and add diameter and log
-diameter columns. This method also marks each relevant row as train/test data.
+Extract and prepare rows suitable for survival model fitting from a standardized
+EcoRRAP demographic dataset.
 
-Survival model is trained/calibrated on data found in the `sizenext`/`diam_mort` columns.
-(i.e., observed size at mortality event).
+Rows are kept when `survival_use == "yes"`. For rows where `sizenext` is
+missing or zero, the `size` column is used as a fallback so that the
+`diam_mort` column (size at the mortality event) is always populated.
 
-See also:
-- `standardize_ecorrap_data!()`
+The returned DataFrame adds the following derived columns:
+- `diam`: equivalent circle diameter at observation time (cm)
+- `diam_mort`: equivalent circle diameter at next observation or mortality
+  event (cm), derived from `sizenext`
+- `logdiam`: natural log of `diam`
+
+# Arguments
+- `standardized_data::DataFrame`: Output of `standardize_ecorrap_data!`. Must
+  contain columns `survival_use`, `size`, `sizenext`, and `taxa`.
+
+# Returns
+- `DataFrame`: Filtered and augmented subset of `standardized_data` ready for
+  `organize_functional_groups`.
+
+# See Also
+`standardize_ecorrap_data!`, `get_growth_entries`, `organize_functional_groups`
 """
 function get_survival_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
@@ -226,16 +283,38 @@ end
         src_gdf::GroupedDataFrame,
         cluster_name::String;
         reef_name::Union{String,Nothing}=nothing
-    )
+    )::DataFrame
+
+Collect and concatenate all demographic records belonging to a single functional
+group and reef cluster.
+
+Looks up the species codes (`Code` column) in `group_map` whose `Cscape_group`
+field contains `target`, then vertically concatenates the matching sub-groups
+from `src_gdf`. A `Cscape_group` column set to `target` is appended to the
+result.
+
+Throws `ArgumentError` if no valid species codes are found for `target` in the
+specified cluster (or reef, when `reef_name` is supplied).
 
 # Arguments
-- `target` : Target functional group to collate data for
-- `group_map` : Identified mapping between species and the functional group
-- `src_gdf` : Data grouped for each taxa and cluster
-- `cluster_name` : Name of target cluster as defined in `src_gdf`
-- `reef_name` : Name of target reef as defined in `src_gdf`
+- `target::String`: Functional group name to collect (matched as a substring of
+  `group_map.Cscape_group`).
+- `group_map::DataFrame`: Species-to-functional-group mapping table. Must have
+  columns `Code` (species code string) and `Cscape_group` (functional group
+  label).
+- `src_gdf::GroupedDataFrame`: Demographic data grouped by `(:taxa, :cluster)`
+  or `(:taxa, :cluster, :reef)` -- typically the result of applying `groupby`
+  to output from `get_growth_entries` or `get_survival_entries`.
+- `cluster_name::String`: Reef cluster to extract (e.g., `"offshore_central"`).
+- `reef_name::Union{String,Nothing}`: Optional reef name for finer filtering.
+  When `nothing` (default), all reefs within the cluster are included.
 
-Collate data for functional groups in the indicated cluster.
+# Returns
+- `DataFrame`: Concatenated records for all species mapping to `target` within
+  the specified cluster, with a `Cscape_group` column added.
+
+# See Also
+`organize_functional_groups`, `get_growth_entries`, `get_survival_entries`
 """
 function collate_functional_groups(
     target::String,
@@ -280,11 +359,40 @@ end
         gdf::GroupedDataFrame,
         cluster_name::String;
         reef::Union{String,Nothing}=nothing,
-        n_bins=10,
+        n_bins::Int=10,
         rng::AbstractRNG=Random.default_rng()
     )::OrderedDict
 
-Organize entries for each functional group of interest into an OrderedDict.
+Build an ordered mapping from functional group name to train/test-split
+demographic data for use in model fitting.
+
+For each name in `target_groups`, calls `collate_functional_groups` to
+assemble the raw records, then applies `train_test_split!` to add size-binned
+train/test class columns. The result is an `OrderedDict` keyed by group name,
+preserving the order of `target_groups`.
+
+# Arguments
+- `target_groups::Vector{String}`: Ordered list of functional group names to
+  process (e.g., `Kora.TARGET_GROUPS`).
+- `group_map::DataFrame`: Species-to-functional-group mapping table -- see
+  `collate_functional_groups` for column requirements.
+- `gdf::GroupedDataFrame`: Demographic data grouped by `(:taxa, :cluster)` or
+  `(:taxa, :cluster, :reef)`.
+- `cluster_name::String`: Reef cluster to extract (e.g., `"offshore_central"`).
+- `reef::Union{String,Nothing}`: Optional reef name. When `nothing` (default),
+  all reefs in the cluster are included.
+- `n_bins::Int`: Target number of size bins passed to `train_test_split!`
+  (default: 10).
+- `rng::AbstractRNG`: Random number generator for reproducible train/test splits.
+
+# Returns
+- `OrderedDict{String, DataFrame}`: Keys are functional group names from
+  `target_groups`; values are the corresponding DataFrames with train/test
+  split columns added in place.
+
+# See Also
+`collate_functional_groups`, `train_test_split!`, `process_growth_models`,
+`process_survival_models`
 """
 function organize_functional_groups(
     target_groups::Vector{String},

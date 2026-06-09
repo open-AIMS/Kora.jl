@@ -16,7 +16,7 @@ Maximum error of 1.5 × 10^{-7}.
    New York: United States Department of Commerce, National Bureau of Standards;
    Dover Publications. p. 297
 """
-function rational_erf(x::F)::F where {F<:Union{Float32, Float64}}
+function rational_erf(x::F)::F where {F<:Union{Float32,Float64}}
     coef::F = 1.0
     if (x < 0)
         x *= -1
@@ -61,22 +61,33 @@ end
 """
     truncated_standard_normal_mean(lb::F, ub::F)::F where {F<:Real}
 
-Calculates the mean of the truncated standard normal distribution. Implementation taken
-from Distributions.jl [1] excluding unused error checks.
+Compute the mean of the standard normal distribution truncated to the interval
+[`lb`, `ub`].
 
-Note: This implementation attempts to avoid NaNs where possible. In cases where `lb` > `ub`,
-      `ub` is returned.
+Implementation follows Distributions.jl, excluding unused error checks. When
+`lb` > `ub`, `ub` is returned to avoid NaN propagation.
 
 # Arguments
-- `lb` : lower bound of the truncated distribution
-- `ub` : upper bound of the truncated distribution
+- `lb` : Lower bound of the truncated distribution.
+- `ub` : Upper bound of the truncated distribution.
 
 # Returns
-The mean of the truncated standard normal distribution or the upper bound if `lb` > `ub`.
+`F` : Mean of the truncated standard normal distribution, or `ub` if `lb` > `ub`.
+
+# Examples
+```jldoctest
+julia> using Kora
+
+julia> truncated_standard_normal_mean(-1.0, 1.0)
+0.0
+
+julia> truncated_standard_normal_mean(0.0, 0.0)
+0.0
+```
 
 # References
-1. Documentation of (Distributions.jl)[https://juliastats.org/Distributions.jl/stable/],
-   Specific code taken from (truncated normal directory)[https://github.com/JuliaStats/Distributions.jl/blob/c1705a3015d438f7e841e82ef5148224813831e8/src/truncated/normal.jl#L24-L46] on 24/01/2024
+1. Distributions.jl truncated normal implementation:
+   https://github.com/JuliaStats/Distributions.jl/blob/c1705a3015d438f7e841e82ef5148224813831e8/src/truncated/normal.jl#L24-L46
 """
 function truncated_standard_normal_mean(lb::F, ub::F)::F where {F<:Real}
     if abs(lb) > abs(ub)
@@ -108,18 +119,36 @@ end
         normal_stdev::F,
         lower_bound::F,
         upper_bound::F
-    )::F where {F<:Real}
+    )::F where {F<:AbstractFloat}
 
-Calculates the mean of the truncated normal distribution.
+Compute the mean of the normal distribution with mean `normal_mean` and standard
+deviation `normal_stdev`, truncated to the interval [`lower_bound`, `upper_bound`].
+
+Delegates to [`truncated_standard_normal_mean`](@ref) after standardising the
+bounds to the unit-normal scale.
 
 # Arguments
-- `normal_mean` : mean of the underlying (untruncated) normal distribution
-- `normal_stdev` : standard deviation of the underlying (untruncated) normal distribution
-- `lower_bound` : lower bound of the truncated normal distribution
-- `upper_bound` : upper bound of the truncated normal distributionk
+- `normal_mean` : Mean of the underlying (untruncated) normal distribution.
+- `normal_stdev` : Standard deviation of the underlying (untruncated) normal distribution.
+- `lower_bound` : Lower bound of the truncated normal distribution.
+- `upper_bound` : Upper bound of the truncated normal distribution.
 
 # Returns
-The mean of the truncated normal distribution
+`F` : Mean of the truncated normal distribution.
+
+# Examples
+```jldoctest
+julia> using Kora
+
+julia> truncated_normal_mean(0.0, 1.0, -1.0, 1.0)
+0.0
+
+julia> truncated_normal_mean(5.0, 2.0, 5.0, 5.0)
+5.0
+```
+
+# See Also
+[`truncated_standard_normal_mean`](@ref), [`truncated_normal_cdf`](@ref)
 """
 function truncated_normal_mean(
     normal_mean::F, normal_stdev::F, lower_bound::F, upper_bound::F
@@ -131,21 +160,49 @@ function truncated_normal_mean(
 end
 
 """
-    truncated_normal_cdf(x::F, normal_mean::F, normal_stdev::F,
-        lower_bound::F, upper_bound::F)::F where {F<:Real}
+    truncated_normal_cdf(
+        x::F,
+        normal_mean::F,
+        normal_stdev::F,
+        lower_bound::F,
+        upper_bound::F
+    )::F where {F<:Real}
 
-Calculates the cdf of a truncated normal distribution given the mean and standard deviation
-of the normal distribution, and the lower and upper bounds of the truncated distribution.
+Evaluate the CDF of the normal distribution with mean `normal_mean` and standard
+deviation `normal_stdev`, truncated to the interval [`lower_bound`, `upper_bound`],
+at the point `x`.
+
+Returns `0.0` when `x <= lower_bound` and `1.0` when `x >= upper_bound`. Uses a
+rational approximation of the error function via `rational_erf` for
+efficiency; falls back to `SpecialFunctions.erf` when the truncation bounds lie
+more than 3 standard deviations from the mean to avoid precision loss.
 
 # Arguments
-- `x` : value to evaluate cdf at
-- `mean` : mean of underlying normal distribution
-- `stdev` : standard deviation of underlying normal Distribution
-- `lower_bound` : lower bound of the truncated distribution
-- `upper_bound` : upper bound of the truncated distribution
+- `x` : Value at which to evaluate the CDF.
+- `normal_mean` : Mean of the underlying (untruncated) normal distribution.
+- `normal_stdev` : Standard deviation of the underlying (untruncated) normal distribution.
+- `lower_bound` : Lower bound of the truncated distribution.
+- `upper_bound` : Upper bound of the truncated distribution.
 
 # Returns
-The cdf of truncated normal distribution evaluated at `x`
+`F` : CDF of the truncated normal distribution evaluated at `x`, in [0, 1].
+
+# Examples
+```jldoctest
+julia> using Kora
+
+julia> truncated_normal_cdf(-2.0, 0.0, 1.0, -1.0, 1.0)
+0.0
+
+julia> truncated_normal_cdf(2.0, 0.0, 1.0, -1.0, 1.0)
+1.0
+
+julia> truncated_normal_cdf(0.0, 0.0, 1.0, -1.0, 1.0)
+0.5
+```
+
+# See Also
+[`truncated_normal_mean`](@ref), [`truncated_standard_normal_mean`](@ref)
 """
 function truncated_normal_cdf(
     x::F,
