@@ -14,7 +14,7 @@ using Kora
 const OUT = joinpath(@__DIR__, "src", "assets")
 mkpath(OUT)
 
-rng = Random.MersenneTwister(42)
+rng = Random.default_rng()
 
 # ---------------------------------------------------------------------------
 # Figure 1: timeseries (single run)

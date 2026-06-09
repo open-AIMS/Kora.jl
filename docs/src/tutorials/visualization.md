@@ -26,7 +26,7 @@ For a single simulation run, `timeseries()` creates a comprehensive plot showing
 using Kora
 using Random
 
-rng = Random.MersenneTwister(42)
+rng = Random.default_rng()
 
 reef = initialize_reef(; n_timesteps=50, n_locs=1, area=300.0, density=9)
 initialize_coral_population!(reef; rng)
@@ -45,6 +45,10 @@ To save the figure:
 ```julia
 save("docs/src/assets/viz_timeseries.png", fig)
 ```
+
+Example output:
+
+![Timeseries visualization](../assets/viz_timeseries.png)
 
 ## Ensemble Timeseries
 
@@ -68,6 +72,10 @@ display(fig)
 
 save("docs/src/assets/viz_ensemble_timeseries.png", fig)
 ```
+
+Example output:
+
+![Ensemble timeseries visualization](../assets/viz_ensemble_timeseries.png)
 
 The output shows:
 - Median coral cover (solid line)
@@ -119,6 +127,10 @@ This creates an animated GIF showing:
 - Histogram of colony diameters (top panel)
 - Size distribution changes as cohorts grow or die (middle)
 - DHW conditions over time (bottom), with a vertical line marking the current timestep
+
+Example output:
+
+![Population animation](../assets/viz_population_animation.gif)
 
 ## Multiple Runs and Comparison
 

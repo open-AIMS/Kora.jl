@@ -25,8 +25,8 @@ so calling `run_model!` a second time on the same object produces a fresh result
   the reef each timestep (default: `0.06`).
 - `self_seed` : Fraction of recruitment attributed to self-seeding from the
   local population (default: `0.3`).
-- `rng` : Random number generator. Pass a seeded `Xoshiro` or similar for
-  reproducible runs (default: `Random.GLOBAL_RNG`).
+- `rng` : Random number generator. Use `Random.default_rng()` for standard
+    runs (default: `Random.GLOBAL_RNG`).
 
 # Returns
 `Nothing`
