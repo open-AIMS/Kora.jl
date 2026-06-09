@@ -42,7 +42,7 @@ function Kora.viz.ensemble_timeseries(
     timesteps = 1:n_ts
 
     # Convert to percentages
-    cover_pct = (ensemble_results.cover[:, loc, :] ./ area) .* 100.0
+    cover_pct = (ensemble_results.cover[:, loc, :] ./ area[loc]) .* 100.0
 
     # Calculate statistics
     cover_median = [quantile(cover_pct[ts, :], quantiles[2]) for ts in 1:n_ts]
