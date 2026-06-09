@@ -127,17 +127,91 @@ that does not supply explicit model arguments uses these defaults.
 
 ### File structure
 
+The top-level object contains the following fields.
+
 | Field | Type | Description |
 |---|---|---|
-| `format_version` | integer | Schema version; currently 1 |
-| `model_kind` | string | Either "growth" or "survival" |
-| `region` | string | Optional label supplied at save time |
+| `format_version` | integer | Schema version; currently 1. Checked on load; an error is raised if the version is not supported by the installed Kora release |
+| `model_kind` | string | `"growth"` or `"survival"` |
+| `region` | string | Optional label supplied at save time; not used during simulation |
 | `fitted_at` | string | ISO 8601 timestamp recording when the models were fitted |
-| `models` | array | One entry per functional group, each containing polynomial coefficients and numeric range limits |
-| `performance` | object | Train and test metrics per group: RMSE, R-squared, Pearson, Spearman, and Kendall |
+| `models` | array | One entry per functional group; see below |
+| `performance` | object | Per-group train and test metrics; see below |
 
-The `format_version` field is checked on load. An informative error is raised if the version
-in the file is not in the list of versions supported by the installed Kora release.
+#### models array
+
+Each element of `models` represents one functional group.
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Functional group identifier; one of the five values in `Kora.TARGET_GROUPS` |
+| `type` | string | `"PolyGrowthFunction"` or `"PolySurvivalFunction"` |
+| `dtype` | string | Numeric precision: `"float32"` for growth models, `"float64"` for survival models |
+| `poly_coeffs` | array of numbers | Polynomial coefficients in ascending degree order (constant term first) |
+| `min_x` | number | Minimum colony diameter in the training data (cm); inputs below this value return `min_y` directly |
+| `min_y` | number | Model output at `min_x`; used as the floor for extrapolation below the training range |
+| `max_x` | number | Maximum colony diameter in the training data (cm) |
+| `max_y` | number | Maximum output observed in the training data; used as the ceiling for growth models |
+
+The polynomial is evaluated as `p(log(x))` where `x` is colony diameter in cm. For growth
+models the result is clamped to `[min_y, max_y]`; for survival models it is clamped to
+`[0, 1]`. Inputs below `min_x` short-circuit the polynomial and return `min_y` directly.
+
+#### performance object
+
+The `performance` object has two sub-objects, `"train"` and `"test"`. Each contains five
+arrays with one value per functional group, in `Kora.TARGET_GROUPS` order
+(`acro_table`, `acro_corym`, `corym_non_acro`, `small_massive`, `large_massive`).
+
+| Field | Description |
+|---|---|
+| `R2` | Coefficient of determination |
+| `RMSE` | Root mean squared error |
+| `pearson` | Pearson correlation |
+| `spearman` | Spearman rank correlation |
+| `kendall` | Kendall rank correlation |
+
+#### Annotated example
+
+The following shows a single-group excerpt of a growth model file. A complete file contains
+all five groups and five values in each performance array.
+
+```json
+{
+  "format_version": 1,
+  "model_kind": "growth",
+  "region": "offshore_north",
+  "fitted_at": "2026-06-04T14:50:58",
+  "models": [
+    {
+      "name": "acro_table",
+      "type": "PolyGrowthFunction",
+      "dtype": "float32",
+      "poly_coeffs": [2.223, 1.691, 0.100],
+      "min_x": 2.2,
+      "min_y": 1.035,
+      "max_x": 83.9,
+      "max_y": 24.47
+    }
+  ],
+  "performance": {
+    "train": {
+      "R2":      [0.956],
+      "RMSE":    [3.918],
+      "pearson": [0.978],
+      "spearman":[0.970],
+      "kendall": [0.858]
+    },
+    "test": {
+      "R2":      [0.942],
+      "RMSE":    [3.801],
+      "pearson": [0.971],
+      "spearman":[0.971],
+      "kendall": [0.856]
+    }
+  }
+}
+```
 
 ### Loading custom model files
 
