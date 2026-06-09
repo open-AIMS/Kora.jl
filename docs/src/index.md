@@ -9,7 +9,7 @@ stressors are not currently represented. Growth and survival models are extensib
 functional group; disturbances are currently implemented case-by-case and represent a
 known extensibility target.
 
-See [What Can Kora Tell Me?](what-can-kora-tell-me.md) for the full scope discussion.
+See [What Can Kora Tell Me?](what-can-kora-tell-me.md) for an overview of model scope and purpose.
 
 ## Quick Start
 
