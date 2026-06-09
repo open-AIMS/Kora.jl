@@ -148,11 +148,11 @@ gm = Kora.load_models("my_region_growth.json")
 sm = Kora.load_models("my_region_survival.json")
 
 reef = Kora.initialize_reef(;
-    n_timesteps     = 50,
-    n_locs          = 20,
-    area            = 90.0,
-    growth_models   = gm,
-    survival_models = sm
+    n_timesteps=50,
+    n_locs=20,
+    area=90.0,
+    growth_models=gm,
+    survival_models=sm
 )
 ```
 
@@ -173,14 +173,14 @@ are empty after this call. Call `initialize_coral_population!` before running th
 
 ```julia
 reef = Kora.initialize_reef(;
-    n_timesteps     = 75,
-    n_locs          = 100,
-    group_names     = Kora.TARGET_GROUPS,
-    density         = 20,
-    area            = 90.0,
-    depths          = 9.0,
-    growth_models   = Kora.growth_models,
-    survival_models = Kora.survival_models
+    n_timesteps=75,
+    n_locs=100,
+    group_names=Kora.TARGET_GROUPS,
+    density=20,
+    area=90.0,
+    depths=9.0,
+    growth_models=Kora.growth_models,
+    survival_models=Kora.survival_models
 )
 ```
 

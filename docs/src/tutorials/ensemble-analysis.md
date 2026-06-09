@@ -16,18 +16,18 @@ using Random
 
 rng = Random.default_rng()
 
-reef = initialize_reef(; n_timesteps = 50, n_locs = 5, area = 200.0)
-initialize_coral_population!(reef; rng = rng)
-environ = generate_example_environment(50, 5; rng = rng)
+reef = initialize_reef(; n_timesteps=50, n_locs=5, area=200.0)
+initialize_coral_population!(reef; rng=rng)
+environ = generate_example_environment(50, 5; rng=rng)
 
 n_members = 50
 
 # Build a 16-row parameter matrix with one column per scenario.
 # Here we vary the first parameter across scenarios while holding others fixed.
 baseline_params = zeros(Float64, 16, n_members)
-baseline_params[1, :] = range(0.5, 2.0; length = n_members)
+baseline_params[1, :] = range(0.5, 2.0; length=n_members)
 
-results = run_ensemble!(reef, environ, baseline_params; rng = rng)
+results = run_ensemble!(reef, environ, baseline_params; rng=rng)
 ```
 
 **Note on environmental uncertainty:** This ensemble samples ecological and biological parameter space while holding `environ` constant. To account for deep uncertainty in environmental futures (climate trajectories, thermal adaptation rates), repeat this ensemble procedure with different environmental representations. Each environmental scenario paired with the full parameter matrix produces a complete characterization of outcomes across both ecological and climate uncertainty.
@@ -56,11 +56,11 @@ cover = results.cover   # (n_timesteps, n_locs, n_members)
 
 # Mean cover across locations at each timestep and scenario
 using Statistics
-mean_cover = dropdims(mean(cover; dims = 2); dims = 2)   # (n_timesteps, n_members)
+mean_cover = dropdims(mean(cover; dims=2); dims=2)   # (n_timesteps, n_members)
 
 # 10th, 50th, 90th percentile ribbons across scenarios at each timestep
 # (averaging over locations first)
-ts_mean = dropdims(mean(cover; dims = 2); dims = 2)   # (n_timesteps, n_members)
+ts_mean = dropdims(mean(cover; dims=2); dims=2)   # (n_timesteps, n_members)
 p10 = [quantile(ts_mean[t, :], 0.10) for t in axes(ts_mean, 1)]
 p50 = [quantile(ts_mean[t, :], 0.50) for t in axes(ts_mean, 1)]
 p90 = [quantile(ts_mean[t, :], 0.90) for t in axes(ts_mean, 1)]
@@ -76,15 +76,15 @@ To do this, run both strategies with the same parameter matrix. The climate scen
 
 ```julia
 # Baseline run: no deployments
-reef_base = initialize_reef(; n_timesteps = 50, n_locs = 5, area = 200.0)
-initialize_coral_population!(reef_base; rng = Random.default_rng())
-results_base = run_ensemble!(reef_base, environ, baseline_params; rng = Random.default_rng())
+reef_base = initialize_reef(; n_timesteps=50, n_locs=5, area=200.0)
+initialize_coral_population!(reef_base; rng=Random.default_rng())
+results_base = run_ensemble!(reef_base, environ, baseline_params; rng=Random.default_rng())
 
 # Restoration run: configure deployment schedule in reef_restore before running
-reef_restore = initialize_reef(; n_timesteps = 50, n_locs = 5, area = 200.0)
-initialize_coral_population!(reef_restore; rng = Random.default_rng())
+reef_restore = initialize_reef(; n_timesteps=50, n_locs=5, area=200.0)
+initialize_coral_population!(reef_restore; rng=Random.default_rng())
 # ... set reef_restore.deployment_times here ...
-results_restore = run_ensemble!(reef_restore, environ, baseline_params; rng = Random.default_rng())
+results_restore = run_ensemble!(reef_restore, environ, baseline_params; rng=Random.default_rng())
 
 # Restoration benefit per scenario at the final timestep
 base_final   = results_base.cover[end, :, :]     # (n_locs, n_members)
@@ -104,7 +104,7 @@ Start by defining an acceptability criterion. The example below classifies each 
 area_per_loc = 200.0f0
 
 # Mean cover across locations at final timestep, one value per scenario member
-final_cover = dropdims(mean(results.cover[end, :, :]; dims = 1); dims = 1)
+final_cover = dropdims(mean(results.cover[end, :, :]; dims=1); dims=1)
 
 # Express as fraction of reef area
 final_cover_frac = final_cover ./ area_per_loc
@@ -138,4 +138,3 @@ Varying more parameters requires more ensemble members to achieve the same cover
 Kora's annual timestep keeps individual run times short. A 50-scenario ensemble over 5 locations and 75 timesteps completes in seconds on a modern laptop. A 1000-scenario ensemble over the same setup is practical in a single session. That run count is typical for the kind of scenario space exploration that supports Scenario Discovery analysis.
 
 Start with a small ensemble to verify that your setup is correct, then scale up for the final analysis.
-

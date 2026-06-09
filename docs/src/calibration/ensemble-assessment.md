@@ -18,12 +18,12 @@ calibration data has successfully constrained versus left largely unconstrained.
 
 ## Global versus Constrained Sensitivity
 
-Two sensitivity analyses are run on the calibrated ensemble.
+For comparison, two sensitivity analyses are run on the calibrated ensemble.
 
 **Global (unconstrained) sensitivity** evaluates parameter importance over the full
 prior parameter space defined by the original search bounds. It answers: *if you knew
 nothing about the system and sampled parameters at random from the prior, which
-parameters would have the largest effect on coral cover?*
+parameters could have the largest effect on coral cover?*
 
 **Constrained (posterior) sensitivity** repeats the analysis using only the parameter
 ranges spanned by the calibrated ensemble. It answers: *within the part of parameter

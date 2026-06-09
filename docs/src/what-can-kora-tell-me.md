@@ -14,7 +14,7 @@ The following are representative questions that Kora is designed to help answer.
 - "How do different climate change scenarios affect potential restoration outcomes?"
 - "How sensitive is the outcome to our assumptions around thermal adaptation and coral demographic rates?"
 
-The shift in question type matters. Asking which strategy is best requires predicting the future. Asking which strategy avoids poor outcomes across all the climate scenarios we are uncertain about does not. Kora is calibrated for the second type of question.
+The shift in question type matters. Asking which strategy is best requires predicting the future. Asking which strategy avoids poor outcomes across all the climate scenarios we are uncertain about does not. Kora is intended for the second type of question.
 
 ## Required Inputs
 

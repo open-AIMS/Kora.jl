@@ -81,8 +81,8 @@ using Kora
 results = process_ecorrap_models(
     "ecorrap_demographics.csv",
     "taxon_group_mapping.csv";
-    region = "Offshore_North",
-    output_dir = "my_models"
+    region="Offshore_North",
+    output_dir="my_models"
 )
 
 growth_fits   = results.growth_fits
@@ -157,8 +157,8 @@ to its corresponding DataFrame, with a train/test split already applied.
 Once the groupings are prepared, the fitting step is straightforward.
 
 ```julia
-growth_fits   = Kora.fit_growth_models(growth_groupings;   degree = 2)
-survival_fits = Kora.fit_survival_models(survival_groupings; degree = 2)
+growth_fits = Kora.fit_growth_models(growth_groupings; degree=2)
+survival_fits = Kora.fit_survival_models(survival_groupings; degree=2)
 ```
 
 The `degree` keyword controls the degree of the polynomial fitted to log-transformed colony
@@ -175,8 +175,8 @@ Kendall correlations.
 ### Saving to JSON
 
 ```julia
-Kora.save_models(growth_fits,   "my_region_growth.json";   region = "My Region")
-Kora.save_models(survival_fits, "my_region_survival.json"; region = "My Region")
+Kora.save_models(growth_fits, "my_region_growth.json"; region="My Region")
+Kora.save_models(survival_fits, "my_region_survival.json"; region="My Region")
 ```
 
 The JSON files record the polynomial coefficients, numeric range limits, performance metrics,
@@ -221,18 +221,18 @@ gm = Kora.load_models("my_region_growth.json")
 sm = Kora.load_models("my_region_survival.json")
 
 reef = Kora.initialize_reef(;
-    n_timesteps = 50,
-    n_locs      = 20,
-    area        = 100.0,
-    density     = 15,
-    growth_models   = gm,
-    survival_models = sm
+    n_timesteps=50,
+    n_locs=20,
+    area=100.0,
+    density=15,
+    growth_models=gm,
+    survival_models=sm
 )
 
 Kora.initialize_coral_population!(reef)
 
 environ = Kora.generate_example_environment(50, 20)
-Kora.run_model!(reef, environ; rng = Random.default_rng())
+Kora.run_model!(reef, environ; rng=Random.default_rng())
 ```
 
 Any call to `initialize_reef` that does not supply explicit model arguments falls back to

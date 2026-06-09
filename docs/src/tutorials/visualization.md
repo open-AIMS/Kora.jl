@@ -10,11 +10,11 @@ For a single simulation run, `timeseries()` creates a comprehensive plot showing
 using Kora
 using Random
 
-reef = initialize_reef(; n_timesteps = 50, n_locs = 10, area = 200.0, density = 15)
-initialize_coral_population!(reef; rng = Random.default_rng())
+reef = initialize_reef(; n_timesteps=50, n_locs=10, area=200.0, density=15)
+initialize_coral_population!(reef; rng=Random.default_rng())
 environ = generate_example_environment(50, 10)
 
-run_model!(reef, environ; rng = Random.default_rng())
+run_model!(reef, environ; rng=Random.default_rng())
 
 fig = Kora.viz.timeseries(reef, environ)
 display(fig)
@@ -37,9 +37,9 @@ n_scenarios = 50
 
 # Build parameter matrix: vary density across scenarios
 params = zeros(Float64, 23, n_scenarios)
-params[1, :] = range(10.0, 25.0; length = n_scenarios)
+params[1, :] = range(10.0, 25.0; length=n_scenarios)
 
-results = run_ensemble!(reef, environ, params; rng = Random.default_rng())
+results = run_ensemble!(reef, environ, params; rng=Random.default_rng())
 
 fig = Kora.viz.ensemble_timeseries(reef, results, environ)
 display(fig)
@@ -86,9 +86,9 @@ Animate the size distribution of colonies over time to see how populations chang
 ```julia
 Kora.viz.animate_population(
     reef, environ,
-    loc = 1,           # Location index
-    grp = 1,           # Functional group (1 = tabular Acropora)
-    filename = "population_evolution.gif"
+    loc=1,           # Location index
+    grp=1,           # Functional group (1 = tabular Acropora)
+    filename="population_evolution.gif"
 )
 ```
 
@@ -103,20 +103,20 @@ To compare outcomes across different scenarios or strategies:
 
 ```julia
 # Scenario A: baseline
-run_model!(reef, environ; rng = Random.default_rng())
+run_model!(reef, environ; rng=Random.default_rng())
 cover_a = Kora.coral_cover(reef)
 
 # Scenario B: different DHW
 Kora.reset!(reef)
-initialize_coral_population!(reef; rng = Random.default_rng())
+initialize_coral_population!(reef; rng=Random.default_rng())
 environ_alt = generate_example_environment(50, 10)  # Different synthetic DHW
-run_model!(reef, environ_alt; rng = Random.default_rng())
+run_model!(reef, environ_alt; rng=Random.default_rng())
 cover_b = Kora.coral_cover(reef)
 
 # Plot both timeseries on the same axes
 using CairoMakie
-fig, ax = CairoMakie.scatter(cover_a; label = "Baseline")
-lines!(ax, cover_b; label = "High DHW", color = :red)
+fig, ax = CairoMakie.scatter(cover_a; label="Baseline")
+lines!(ax, cover_b; label="High DHW", color=:red)
 axislegend()
 display(fig)
 ```
@@ -126,12 +126,12 @@ display(fig)
 When fitting custom growth or survival models, `growth_performance_plots()` and `survival_performance_plots()` visualize model accuracy against empirical data:
 
 ```julia
-growth_fits = Kora.fit_growth_models(growth_groupings; degree = 2)
+growth_fits = Kora.fit_growth_models(growth_groupings; degree=2)
 
 fig = Kora.viz.growth_performance_plots(
     growth_groupings,
     growth_fits;
-    save_path = "growth_model_fits.png"
+    save_path="growth_model_fits.png"
 )
 ```
 
@@ -155,7 +155,7 @@ save("output.svg", fig)
 save("output.pdf", fig)
 
 # Specify DPI for raster formats
-save("output_highres.png", fig; px_per_unit = 2)
+save("output_highres.png", fig; px_per_unit=2)
 ```
 
 ## Notes on Visualization Limits

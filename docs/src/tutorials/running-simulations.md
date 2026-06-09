@@ -10,13 +10,13 @@ This tutorial covers the full simulation workflow in detail. It builds on [Getti
 using Kora
 
 reef = initialize_reef(;
-    n_timesteps     = 75,
-    n_locs          = 30,
-    area            = 250.0,
-    density         = 18,
-    depths          = 9.0,
-    growth_models   = Kora.growth_models,
-    survival_models = Kora.survival_models
+    n_timesteps=75,
+    n_locs=30,
+    area=250.0,
+    density=18,
+    depths=9.0,
+    growth_models=Kora.growth_models,
+    survival_models=Kora.survival_models
 )
 ```
 
@@ -41,13 +41,13 @@ areas  = fill(200.0, 30)
 depths = rand(5.0:1.0:15.0, 30)
 
 reef = initialize_reef(;
-    n_timesteps     = 75,
-    n_locs          = 30,
-    area            = areas,
-    density         = 18,
-    depths          = depths,
-    growth_models   = Kora.growth_models,
-    survival_models = Kora.survival_models
+    n_timesteps=75,
+    n_locs=30,
+    area=areas,
+    density=18,
+    depths=depths,
+    growth_models=Kora.growth_models,
+    survival_models=Kora.survival_models
 )
 ```
 
@@ -66,7 +66,7 @@ For reproducible initial populations, pass a seeded random number generator.
 ```julia
 using Random
 rng = Random.default_rng()
-initialize_coral_population!(reef; rng = rng)
+initialize_coral_population!(reef; rng=rng)
 ```
 
 ## Preparing Environment Data
@@ -104,13 +104,13 @@ The `rng` keyword enables reproducible stochastic draws for survival and recruit
 
 ```julia
 rng = Random.default_rng()
-run_model!(reef, environ; rng = rng)
+run_model!(reef, environ; rng=rng)
 ```
 
 Two optional keyword arguments control recruitment behaviour. `recruits` is the fraction of local larval production that successfully recruits each timestep (default: `0.06`). `self_seed` is the fraction of recruitment attributed to self-seeding from the local population (default: `0.3`).
 
 ```julia
-run_model!(reef, environ; recruits = 0.05f0, self_seed = 0.25f0)
+run_model!(reef, environ; recruits=0.05f0, self_seed=0.25f0)
 ```
 
 After `run_model!` returns, the reef state contains the full time series for all locations, groups, and timesteps.
@@ -164,10 +164,10 @@ n_scenarios = 10
 params = zeros(Float64, 23, n_scenarios)
 
 # Vary density across scenarios (parameter 1)
-params[1, :] = range(10.0, 25.0; length = n_scenarios)
+params[1, :] = range(10.0, 25.0; length=n_scenarios)
 
 # Run ensemble
-results = run_ensemble!(reef, environ, params; rng = rng)
+results = run_ensemble!(reef, environ, params; rng=rng)
 
 # Results is a NamedTuple containing:
 #   results.cover        - shape (n_timesteps, n_locs, n_scenarios)
@@ -176,4 +176,3 @@ results = run_ensemble!(reef, environ, params; rng = rng)
 ```
 
 For reproducible ensemble members, seed the RNG. Each column of the parameter matrix corresponds to one ensemble member and will be run in parallel if Julia is started with multiple threads.
-

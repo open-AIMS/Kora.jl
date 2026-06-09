@@ -1,6 +1,8 @@
 # Decision Support Under Uncertainty
 
-This page provides the intellectual framework behind how Kora is used. The [What Can Kora Tell Me?](../what-can-kora-tell-me.md) page is a shorter action-oriented introduction. This page is where the depth lives.
+This page provides the intellectual framework behind how Kora is used. The [What Can Kora
+Tell Me?](../what-can-kora-tell-me.md) page is a shorter action-oriented introduction.
+
 
 ## Prediction vs. Scenario Analysis
 

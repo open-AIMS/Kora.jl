@@ -1,6 +1,6 @@
 # Getting Started
 
-This page walks through the minimum steps needed to install Kora, load a reef, run a simulation, and read the output. It assumes you have Julia 1.9 or later installed. For background on what the model does and why, see [What Can Kora Tell Me?](what-can-kora-tell-me.md) and the [Model Overview](model-overview.md).
+This page walks through the minimum steps needed to install Kora, load a reef, run a simulation, and read the output. It assumes you have Julia 1.11 or later installed. For background on what the model does and why, see [What Can Kora Tell Me?](what-can-kora-tell-me.md) and the [Model Overview](model-overview.md).
 
 ## Installation
 
@@ -33,12 +33,12 @@ using Kora
 
 ```julia
 reef = initialize_reef(;
-    n_timesteps = 50,
-    n_locs      = 10,
-    area        = 200.0,
-    density     = 15,
-    growth_models   = Kora.growth_models,
-    survival_models = Kora.survival_models
+    n_timesteps=50,
+    n_locs=10,
+    area=200.0,
+    density=15,
+    growth_models=Kora.growth_models,
+    survival_models=Kora.survival_models
 )
 ```
 
@@ -113,4 +113,3 @@ fig = Kora.viz.ensemble_timeseries(reef, results, environ)
 ```
 
 Additional visualization functions are available for group-level cover, juvenile dynamics, and detailed analysis. Plotly support may be added in the future. For a complete list of visualization functions and examples, see the [API Reference](reference/api-reef-state.md).
-

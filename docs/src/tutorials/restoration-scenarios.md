@@ -53,15 +53,15 @@ environ = Kora.generate_environment(
 )
 
 baseline_reef = Kora.initialize_reef(;
-    n_timesteps = n_ts,
-    n_locs      = n_locs,
-    area        = reef_area,
-    density     = 15,
-    depths      = 9.0
+    n_timesteps=n_ts,
+    n_locs=n_locs,
+    area=reef_area,
+    density=15,
+    depths=9.0
 )
 
-Kora.initialize_coral_population!(baseline_reef; rng = Random.default_rng())
-Kora.run_model!(baseline_reef, environ; rng = Random.default_rng())
+Kora.initialize_coral_population!(baseline_reef; rng=Random.default_rng())
+Kora.run_model!(baseline_reef, environ; rng=Random.default_rng())
 ```
 
 Using the same default RNG state for both the baseline and the restoration run is important.
@@ -76,14 +76,14 @@ array is filled to describe the intervention schedule before the simulation is r
 
 ```julia
 restoration_reef = Kora.initialize_reef(;
-    n_timesteps = n_ts,
-    n_locs      = n_locs,
-    area        = reef_area,
-    density     = 15,
-    depths      = 9.0
+    n_timesteps=n_ts,
+    n_locs=n_locs,
+    area=reef_area,
+    density=15,
+    depths=9.0
 )
 
-Kora.initialize_coral_population!(restoration_reef; rng = Random.default_rng())
+Kora.initialize_coral_population!(restoration_reef; rng=Random.default_rng())
 
 # Schedule 50 tabular Acropora deployments at each location in years 5, 10, and 15.
 # Group index 1 corresponds to acro_table in the default TARGET_GROUPS ordering.
@@ -91,7 +91,7 @@ for deploy_year in [5, 10, 15]
     restoration_reef.deployment_times[deploy_year, :, 1] .= 50.0f0
 end
 
-Kora.run_model!(restoration_reef, environ; rng = Random.default_rng())
+Kora.run_model!(restoration_reef, environ; rng=Random.default_rng())
 ```
 
 Both runs use the same `environ` object, the same RNG state, and the same initial population.
@@ -134,16 +134,16 @@ for dhw in dhw_scenarios
     env_i = Kora.generate_environment(dhw)
 
     b = Kora.initialize_reef(; n_timesteps=n_ts, n_locs=n_locs, area=reef_area, density=15)
-    Kora.initialize_coral_population!(b; rng = Random.default_rng())
-    Kora.run_model!(b, env_i; rng = Random.default_rng())
+    Kora.initialize_coral_population!(b; rng=Random.default_rng())
+    Kora.run_model!(b, env_i; rng=Random.default_rng())
     push!(cover_baselines, Kora.coral_cover(b))
 
     r = Kora.initialize_reef(; n_timesteps=n_ts, n_locs=n_locs, area=reef_area, density=15)
-    Kora.initialize_coral_population!(r; rng = Random.default_rng())
+    Kora.initialize_coral_population!(r; rng=Random.default_rng())
     for deploy_year in [5, 10, 15]
         r.deployment_times[deploy_year, :, 1] .= 50.0f0
     end
-    Kora.run_model!(r, env_i; rng = Random.default_rng())
+    Kora.run_model!(r, env_i; rng=Random.default_rng())
     push!(cover_restorations, Kora.coral_cover(r))
 end
 ```
