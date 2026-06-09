@@ -7,14 +7,14 @@
 ## What Calibration Does
 
 Kora's default bundled models and parameter ranges are derived from offshore northern
-Great Barrier Reef survey data. When you apply Kora to a different reef or a specific
+Great Barrier Reef survey data. When Kora is applied to a different reef or a specific
 site with its own monitoring record, those defaults may not reproduce the observed
 dynamics well. Calibration addresses this by searching for parameter sets that minimise
-the mismatch between model output and the observed coral cover time series at your target
+the mismatch between model output and the observed coral cover time series at the target
 site.
 
 The result of a successful calibration is not a single best-fit parameter vector. It is
-an *ensemble* of parameter vectors — typically on the order of 100 members — that all
+an *ensemble* of parameter vectors, typically on the order of 100 members, that all
 reproduce the observations within an acceptable tolerance. This ensemble captures the
 range of parameter combinations consistent with the data and is used as the starting
 point for subsequent forward projections and sensitivity analysis.
@@ -47,8 +47,8 @@ lower RMSE indicates a better-fitting candidate.
 Multiple independent optimisation trials are run in parallel. Candidates below a
 fitness threshold are collected into a shared pool, and the best-performing members
 are retained as the calibrated ensemble. Because the objective landscape is
-multi-modal — many different combinations of growth scalers, densities, and
-proportions can reproduce a similar cover trajectory — running many trials and
+multi-modal, with many different combinations of growth scalers, densities, and
+proportions reproducing a similar cover trajectory, so running many trials and
 collecting a diverse ensemble is more informative than finding a single global
 optimum.
 

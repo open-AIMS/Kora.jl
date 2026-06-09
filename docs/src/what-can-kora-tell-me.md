@@ -2,7 +2,7 @@
 
 Kora is a simulation model for decision support in coral reef restoration planning. It is built for conditions of deep uncertainty, where the future trajectory of climate stress, larval supply, and thermal adaptation cannot be reliably predicted, and the goal is to find strategies that perform acceptably across a wide range of futures rather than to optimise for a single expected outcome.
 
-## The Decision Kora Helps You Make
+## Decision Context Kora Supports
 
 Reef managers and ecologists typically need to make decisions before the relevant science is resolved. Kora is designed for that setting. It is not a forecasting tool. It is a tool for comparing strategies under conditions where the future cannot be reliably predicted.
 

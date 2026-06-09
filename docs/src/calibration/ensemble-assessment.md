@@ -21,8 +21,8 @@ calibration data has successfully constrained versus left largely unconstrained.
 For comparison, two sensitivity analyses are run on the calibrated ensemble.
 
 **Global (unconstrained) sensitivity** evaluates parameter importance over the full
-prior parameter space defined by the original search bounds. It answers: *if you knew
-nothing about the system and sampled parameters at random from the prior, which
+prior parameter space defined by the original search bounds. It answers: *with no prior
+system knowledge and parameters sampled at random from the prior, which
 parameters could have the largest effect on coral cover?*
 
 **Constrained (posterior) sensitivity** repeats the analysis using only the parameter
@@ -43,7 +43,7 @@ no assumptions about linearity or parameter independence.
 
 A single aggregate sensitivity index collapses the time dimension and can miss
 important structure. Bleaching events create sharp transitions in which parameters
-drive cover dynamics — the dominant parameters during an acute bleaching year are
+drive cover dynamics, and the dominant parameters during an acute bleaching year are
 different from those that drive recovery in the years that follow.
 
 Temporal sensitivity analysis computes PAWN indices at each timestep independently,

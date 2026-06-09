@@ -15,7 +15,7 @@ The central idea in this tutorial is robustness rather than prediction. A deploy
 that consistently produces moderate improvement across many scenarios is often more useful to
 a reef manager than one that produces a large improvement under optimistic conditions and
 fails under pessimistic ones. Running both baseline and restoration configurations over the
-same set of DHW scenarios gives you the distribution of benefit, not a single expected number.
+same set of DHW scenarios gives the distribution of benefit, not a single expected number.
 
 ## What a Restoration Configuration Looks Like
 
@@ -24,7 +24,7 @@ In Kora, a restoration scenario is defined by populating the `deployment_times` 
 `(n_timesteps, n_locations, n_groups)`. Each entry holds the number of corals to be deployed
 at a given timestep, location, and functional group.
 
-You do not call `deploy_corals!` yourself. It is an internal function executed by the
+`deploy_corals!` is not called directly. It is an internal function executed by the
 simulation loop at each scheduled deployment timestep.
 
 The baseline scenario uses the same `ReefState` configuration with `deployment_times` left at
@@ -148,10 +148,10 @@ for dhw in dhw_scenarios
 end
 ```
 
-The collection of `cover_baselines` and `cover_restorations` across all scenarios gives you
+The collection of `cover_baselines` and `cover_restorations` across all scenarios gives
 the spread of outcomes. Each element is a `Vector{Float32}` of total cover over time.
 Summarising this spread at representative timesteps, for example year 20 and year 50,
-produces the distribution of restoration benefit across the scenarios you considered.
+produces the distribution of restoration benefit across the considered scenarios.
 
 A strategy that produces positive benefit across most scenarios is more robust than one
 that only produces benefit in the most optimistic scenario. The width of the benefit
@@ -162,12 +162,12 @@ is not very sensitive to which climate future materialises.
 
 After running many scenarios, the natural next question is which conditions separate the
 scenarios where restoration helped from those where it did not. This is the domain of
-Scenario Discovery: instead of summarising average performance, you identify the axes of
+Scenario Discovery: instead of summarising average performance, the analysis identifies the axes of
 the scenario space that predict whether a strategy crosses a defined success threshold.
 
 Inputs to Scenario Discovery might include the DHW trajectory (total accumulated stress over
 the simulation period), the initial population state, the deployment scale, and the frequency
-of deployment events. Any parameter that varies across your ensemble members is a candidate
+of deployment events. Any parameter that varies across ensemble members is a candidate
 axis.
 
 Kora does not implement Scenario Discovery algorithms. It generates the ensemble outputs

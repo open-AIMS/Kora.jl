@@ -24,7 +24,7 @@ Bleaching is the temporary expulsion or loss of function of the symbiotic algae 
 
 In Kora, bleaching outcome is abstracted as a change in colony diameter. A bleaching event reduces the modelled diameter of affected colonies. This is an explicit model simplification. It captures the net effect of the bleaching and partial-recovery process without modelling the recovery phase in detail. The diameter reduction is not empirically calibrated against recovery trajectory data from specific bleaching events. It is a structural assumption about the magnitude of setback that bleaching imposes on colony development.
 
-From a conceptual standpoint, this abstraction could be understood as analogous to super-individuals in agent-based modelling—where a diameter reduction reflects population-level dynamics (mortality, partial recovery, cohort size change) rather than individual coral shrinkage. This framing underscores that the model operates at population scales rather than tracking individual trajectories.
+From a conceptual standpoint, this abstraction could be understood as analogous to super-individuals in agent-based modelling, where a diameter reduction reflects population-level dynamics (mortality, partial recovery, cohort size change) rather than individual coral shrinkage. This framing underscores that the model operates at population scales rather than tracking individual trajectories.
 
 The abstraction is appropriate for the model's purpose. Kora is not designed to predict recovery trajectories at individual colonies. It is designed to capture how bleaching events affect population-level cover dynamics over years to decades.
 
@@ -52,7 +52,7 @@ The following processes cannot be resolved at annual resolution.
 - The rate at which thermal stress accumulates during a bleaching event.
 - Back-to-back event compounding when consecutive bleaching events occur less than one year apart.
 
-The last point is particularly relevant to the recent GBR record. The GBR experienced severe mass bleaching events in 2016, 2017, 2020, and 2022. The 2016 and 2017 events were separated by less than one year. A model with annual resolution cannot represent the compounding mortality that occurs when a reef that has not recovered from one event is hit by another. Users modelling conditions analogous to the 2016-2017 sequence should interpret Kora outputs with this limitation in mind.
+The last point is particularly relevant to the recent GBR record. The GBR experienced severe mass bleaching events in 2016, 2017, 2020, and 2022. The 2016 and 2017 events were separated by less than one year. A model with annual resolution cannot represent the compounding mortality that occurs when a reef that has not recovered from one event is hit by another. Analyses modelling conditions analogous to the 2016-2017 sequence should interpret Kora outputs with this limitation in mind.
 
 ## Depth Refugia and Connectivity Assumptions
 

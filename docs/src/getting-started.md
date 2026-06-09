@@ -1,6 +1,6 @@
 # Getting Started
 
-This page walks through the minimum steps needed to install Kora, load a reef, run a simulation, and read the output. It assumes you have Julia 1.11 or later installed. For background on what the model does and why, see [What Can Kora Tell Me?](what-can-kora-tell-me.md) and the [Model Overview](model-overview.md).
+This page walks through the minimum steps needed to install Kora, load a reef, run a simulation, and read the output. It assumes Julia 1.11 or later is installed. For background on what the model does and why, see [What Can Kora Tell Me?](what-can-kora-tell-me.md) and the [Model Overview](model-overview.md).
 
 ## Installation
 
@@ -19,9 +19,9 @@ Pkg.add("Kora")
 
 ## Loading the Package
 
-Load Kora with `using Kora`. The bundled growth and survival models are loaded automatically at startup and are available as `Kora.growth_models` and `Kora.survival_models`. You do not need to load them manually.
+Load Kora with `using Kora`. The bundled growth and survival models are loaded automatically at startup and are available as `Kora.growth_models` and `Kora.survival_models`. Manual loading is not required.
 
-These bundled models were fitted to offshore northern Great Barrier Reef sites. They are provided for demonstration purposes only. Any serious application should use models fitted to survey data from the target region. See the [Fitting Models from EcoRRAP Data](tutorials/fitting-from-ecorrap.md) tutorial for how to fit and supply your own models.
+These bundled models were fitted to offshore northern Great Barrier Reef sites. They are provided for demonstration purposes only. Any serious application should use models fitted to survey data from the target region. See the [Fitting Models from EcoRRAP Data](tutorials/fitting-from-ecorrap.md) tutorial for guidance on fitting and supplying custom models.
 
 ```julia
 using Kora

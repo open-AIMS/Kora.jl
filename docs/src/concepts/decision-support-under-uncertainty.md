@@ -10,7 +10,7 @@ A prediction asks what will happen. It requires a reliable model of the future a
 
 Kora is a model for scenario assessment. The annual timestep and functional-group aggregation are not approximations to some higher-fidelity truth. They are the appropriate fidelity for the question being asked. When the question is how restoration outcomes compare across a wide range of climate and ecological conditions, adding sub-annual resolution would increase computational cost and model complexity without improving the quality of the answer.
 
-This distinction matters for how Kora outputs should be interpreted. An ensemble run does not produce a predictive probability distribution that represents what will actually occur. Instead, it produces an empirical map showing how coral cover outcomes vary across a structured scenario space defined by different climate trajectories, ecological parameters, and deployment strategies. The distribution of outcomes you observe reflects variation in scenario assumptions, not the likelihood of different futures. The analyst's job is to examine that map and ask which strategies perform acceptably across the range of scenarios considered most plausible or concerning.
+This distinction matters for how Kora outputs should be interpreted. An ensemble run does not produce a predictive probability distribution that represents what will actually occur. Instead, it produces an empirical map showing how coral cover outcomes vary across a structured scenario space defined by different climate trajectories, ecological parameters, and deployment strategies. The observed distribution of outcomes reflects variation in scenario assumptions, not the likelihood of different futures. The analyst's job is to examine that map and ask which strategies perform acceptably across the range of scenarios considered most plausible or concerning.
 
 ## Deep Uncertainty in Coral Reef Management
 
@@ -34,7 +34,7 @@ Deep uncertainty means we cannot assign reliable probabilities to future states.
 
 A robust strategy performs adequately across many futures rather than optimally in one. Consider two strategies: Strategy A produces a 20% cover gain in every scenario examined. Strategy B produces a 40% cover gain in the median scenario but only 5% gain under high-DHW conditions. Strategy A is more robust, and in most management contexts that robustness is more valuable than B's upside.
 
-Kora ensemble output makes this comparison directly. The ensemble does not tell you the expected outcome. It tells you the distribution of outcomes across the scenario space, which is what you need to evaluate robustness.
+Kora ensemble output makes this comparison directly. The ensemble does not provide an expected outcome. It provides the distribution of outcomes across the scenario space, which is needed to evaluate robustness.
 
 This framing changes how results should be communicated. The relevant question is not "what will coral cover be in 2050?" but "under which conditions does this deployment strategy maintain cover above X%, and how likely are those conditions relative to the scenarios we are concerned about?" Kora provides the first part of that answer. The second part is a matter of judgment about which scenarios are plausible.
 
@@ -42,13 +42,13 @@ Robustness analysis also changes what counts as a good result. A strategy that d
 
 ## Scenario Discovery
 
-Scenario Discovery is a method for identifying the specific conditions under which a management strategy succeeds or fails. Rather than asking which strategy is best on average, Scenario Discovery asks what would have to be true -- about climate trajectories, parameter values, or deployment scales -- for a given strategy to achieve its target outcome.
+Scenario Discovery is a method for identifying the specific conditions under which a management strategy succeeds or fails. Rather than asking which strategy is best on average, Scenario Discovery asks what would have to be true, about climate trajectories, parameter values, or deployment scales, for a given strategy to achieve its target outcome.
 
 Kora supports Scenario Discovery by acting as the simulation engine that generates the scenario outcomes. Three features make Kora suitable for this role.
 
 The annual timestep makes large ensembles computationally practical. Running thousands of scenarios is feasible where a daily-timestep model would not be.
 
-The structured parameter space -- DHW scenario, heritability, deployment scale, self-seeding proportion, and others -- provides a representative spread of ecological and climate outcomes. Each dimension of that space can be treated as a Scenario Discovery axis.
+The structured parameter space, including DHW scenario, heritability, deployment scale, self-seeding proportion, and others, provides a representative spread of ecological and climate outcomes. Each dimension of that space can be treated as a Scenario Discovery axis.
 
 Outputs from Kora ensemble runs are well-suited to workshop discussions. Managers can explore what would have to be true for a strategy to work, rather than being asked to accept or reject a single projection.
 

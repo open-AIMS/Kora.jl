@@ -4,7 +4,7 @@ This tutorial covers the full simulation workflow in detail. It builds on [Getti
 
 ## Setting Up a Reef
 
-`initialize_reef` allocates a `ReefState` and configures the simulation dimensions. All keyword arguments have defaults; only supply the ones you want to override.
+`initialize_reef` allocates a `ReefState` and configures the simulation dimensions. All keyword arguments have defaults; supply only the arguments that need to be overridden.
 
 ```julia
 using Kora
@@ -147,7 +147,7 @@ jc = juvenile_cover(reef, 10)   # Vector of length n_groups
 
 ## Running Ensembles
 
-In practice, you often want to run many simulations to explore how outcomes vary across different uncertain parameter combinations or environmental scenarios. The `run_ensemble!` function automates this: it accepts a parameter matrix where each column is one scenario and runs one simulation per column.
+In practice, many simulations are often needed to explore how outcomes vary across uncertain parameter combinations or environmental scenarios. The `run_ensemble!` function automates this: it accepts a parameter matrix where each column is one scenario and runs one simulation per column.
 
 The parameter matrix has shape `(n_params, n_members)`. Rows 1–16 control the population state (density, group proportions, initial size distributions). Rows 17–21 are per-group location scalers (multipliers applied to growth at each location). Rows 22–23 are `recruits` and `self_seed` parameters.
 

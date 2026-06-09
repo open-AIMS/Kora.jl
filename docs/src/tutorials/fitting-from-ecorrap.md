@@ -4,11 +4,11 @@
 
 Kora ships with bundled growth and survival models fitted to offshore northern Great Barrier
 Reef data from the Ecological and Reef Restoration Action Program (EcoRRAP). These models
-are loaded automatically at startup and are used whenever you call `initialize_reef` without
+are loaded automatically at startup and are used whenever `initialize_reef` is called without
 providing custom models.
 
-If your sites are in a different region, or if you want models constrained by a specific reef
-or time period, you can fit your own from raw EcoRRAP demographic survey data. The fitting
+If sites are in a different region, or if models constrained by a specific reef
+or time period are needed, custom models can be fitted from raw EcoRRAP demographic survey data. The fitting
 process produces `PolyGrowthModel` and `PolySurvivalModel` objects. Both can be serialised to
 JSON and reloaded in future sessions without refitting.
 
@@ -42,7 +42,7 @@ splitting and should be included if available.
 The function `standardize_ecorrap_data!` normalises column names automatically before any
 further processing. It renames `area_t1_sqcm` to `size`, `area_t2_sqcm` to `sizenext`,
 `taxon` to `taxa`, and `survival` to `surv`. It also standardises cluster name strings
-to match the expected internal values. You do not need to rename columns manually before
+to match the expected internal values. Manual column renaming is not required before
 calling any of the processing functions.
 
 ### Species-to-functional-group mapping
@@ -93,8 +93,7 @@ The `region` keyword is used to label the saved JSON files and is stored in the 
 for reference. It does not affect which data are used for fitting. The files are saved as
 `<region>_growth_models.json` and `<region>_survival_models.json` in `output_dir`.
 
-The `degree` keyword sets the polynomial degree for both models (default is 2). If you want
-different degrees for growth and survival, use `process_growth_models` and
+The `degree` keyword sets the polynomial degree for both models (default is 2). If different degrees are needed for growth and survival, use `process_growth_models` and
 `process_survival_models` separately.
 
 ## Processing Data Step by Step
@@ -199,7 +198,7 @@ sm = Kora.load_models("my_region_survival.json")
 
 ### Checking that growth and survival files match
 
-If you are unsure whether two model files were fitted from the same dataset and fitting run,
+If it is unclear whether two model files were fitted from the same dataset and fitting run,
 use `check_model_pair_skew` to compare their fitted-at timestamps.
 
 ```julia

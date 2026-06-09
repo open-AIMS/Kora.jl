@@ -13,7 +13,7 @@ See [What Can Kora Tell Me?](what-can-kora-tell-me.md) for an overview of model 
 
 ## Quick Start
 
-If you are new to Julia, the steps below are the simplest way to install Kora locally and run your first simulation.
+For Julia newcomers, the steps below provide a minimal local install and first simulation workflow.
 
 ### 1. Install Julia
 
@@ -21,7 +21,7 @@ Install Julia 1.11+ with `juliaup` (recommended Julia installer and version mana
 
 - https://julialang.org/install/
 
-If `juliaup` is already installed, you can install or update Julia from a terminal:
+If `juliaup` is already installed, install or update Julia from a terminal:
 
 ```bash
 juliaup add release

@@ -1,6 +1,6 @@
 # Model Overview
 
-This page describes what Kora simulates and the assumptions behind each model component. It is intended for analysts who have read [What Can Kora Tell Me?](what-can-kora-tell-me.md) and want to understand the model structure before running it. If you are ready to run your first simulation, go to [Getting Started](getting-started.md).
+This page describes what Kora simulates and the assumptions behind each model component. It is intended for analysts who have read [What Can Kora Tell Me?](what-can-kora-tell-me.md) and want to understand the model structure before running it. For first-run setup steps, see [Getting Started](getting-started.md).
 
 ## Simulation Structure
 
@@ -58,4 +58,3 @@ Users who need region-specific parameters can supply alternative model sets usin
 The following processes are not represented in the current model: crown-of-thorns starfish outbreaks, cyclone damage, flood plumes and water quality effects, disease, macroalgae competition, and local anthropogenic stressors. The model is calibrated for scenario-space exploration at annual resolution. It is not designed for sub-annual dynamics, mechanistic ecological research, or sites where non-DHW disturbances dominate reef state.
 
 See [What Can Kora Tell Me?](what-can-kora-tell-me.md) for a summary of the question types the model is and is not suited to answer.
-

@@ -34,8 +34,8 @@ save(joinpath(OUT, "viz_timeseries.png"), fig1)
 n_scenarios = 50
 
 # Row 1: initial population density (colonies/m²), varied across scenarios.
-# Rows 2-6: functional group proportions — must sum to 1.0.
-# Rows 7-16: size-distribution parameters (left at 0 → default LogNormals used).
+# Rows 2-6: functional group proportions, must sum to 1.0.
+# Rows 7-16: size-distribution parameters (left at 0 -> default LogNormals used).
 const DEFAULT_PROPORTIONS = [0.2, 0.2, 0.2, 0.2, 0.2]
 params = zeros(Float64, 6, n_scenarios)
 params[1, :] = range(5.0, 20.0; length=n_scenarios)

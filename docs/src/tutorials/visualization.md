@@ -58,7 +58,7 @@ When running multiple scenarios, `ensemble_timeseries()` visualizes the full ens
 n_scenarios = 50
 
 # Row 1: initial population density (colonies/m²), varied across scenarios.
-# Rows 2-6: functional group proportions — must sum to 1.0.
+# Rows 2-6: functional group proportions, must sum to 1.0.
 # Rows 7-16: size-distribution parameters can be omitted to use defaults.
 const DEFAULT_PROPORTIONS = [0.2, 0.2, 0.2, 0.2, 0.2]
 params = zeros(Float64, 6, n_scenarios)

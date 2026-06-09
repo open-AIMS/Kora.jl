@@ -4,7 +4,7 @@ This tutorial covers running multi-scenario ensembles and interpreting their out
 
 ## Running an Ensemble
 
-`run_ensemble!` accepts a parameter matrix and runs one simulation per column. Each column defines a single scenario with specific ecological and biological assumptions (initial population structure, growth rates, recruitment dynamics). Varying the columns lets you sample different points in the parameter space, holding the environmental scenario constant, which lets you characterise how outcomes shift across assumptions about internal reef dynamics.
+`run_ensemble!` accepts a parameter matrix and runs one simulation per column. Each column defines a single scenario with specific ecological and biological assumptions (initial population structure, growth rates, recruitment dynamics). Varying the columns samples different points in the parameter space while holding the environmental scenario constant, which characterises how outcomes shift across assumptions about internal reef dynamics.
 
 The parameter matrix has shape `(n_params, n_members)`. Rows 1 through 16 are population parameters consumed by `set_population!`. If the matrix has more than 16 rows, rows 17 through `16 + n_groups` are per-group location scalers, and the final two rows are `recruits` and `self_seed` values for `run_model!`.
 
@@ -24,7 +24,7 @@ n_members = 50
 
 # Build a 16-row parameter matrix with one column per scenario.
 # Row 1: initial population density, varied across scenarios.
-# Rows 2-6: functional group proportions — must sum to 1.0.
+# Rows 2-6: functional group proportions, must sum to 1.0.
 # Rows 7-16: size-distribution parameters; zeros here use the default LogNormals.
 baseline_params = zeros(Float64, 16, n_members)
 baseline_params[1, :] = range(0.5, 2.0; length=n_members)
@@ -51,7 +51,7 @@ Progress is reported to the terminal during the run.
 
 ## Reading Ensemble Output
 
-With the results in hand, you can extract per-scenario cover trajectories and compute summary statistics across the scenario space.
+With the results in hand, per-scenario cover trajectories and summary statistics can be extracted across the scenario space.
 
 ```julia
 # Total cover across all locations, all timesteps, all scenarios
@@ -69,7 +69,7 @@ p50 = [quantile(ts_mean[t, :], 0.50) for t in axes(ts_mean, 1)]
 p90 = [quantile(ts_mean[t, :], 0.90) for t in axes(ts_mean, 1)]
 ```
 
-The 10th, 50th, and 90th percentile ribbons summarise scenario-space coverage. They are not a confidence interval. A confidence interval implies a known sampling distribution and makes claims about parameter estimation. These ribbons show where model outcomes cluster across the scenarios you defined and where they spread. A narrow ribbon means outcomes are similar across the scenario space you sampled. A wide ribbon means the answer is sensitive to which scenario materialises, which is itself useful information for decision support.
+The 10th, 50th, and 90th percentile ribbons summarise scenario-space coverage. They are not a confidence interval. A confidence interval implies a known sampling distribution and makes claims about parameter estimation. These ribbons show where model outcomes cluster across the defined scenarios and where they spread. A narrow ribbon means outcomes are similar across the sampled scenario space. A wide ribbon means the answer is sensitive to which scenario materialises, which is itself useful information for decision support.
 
 ## Comparing Two Strategies Across the Ensemble
 
@@ -95,7 +95,7 @@ restore_final = results_restore.cover[end, :, :] # (n_locs, n_members)
 benefit = restore_final .- base_final             # (n_locs, n_members)
 ```
 
-The result is the distribution of restoration benefit across the scenario space. Some scenarios will show a large benefit; others will show little. Examining that distribution tells you which types of conditions are required for restoration to make a meaningful difference.
+The result is the distribution of restoration benefit across the scenario space. Some scenarios will show a large benefit; others will show little. Examining that distribution identifies which types of conditions are required for restoration to make a meaningful difference.
 
 ## Introduction to Outcome Partitioning
 
@@ -116,7 +116,7 @@ final_cover_frac = final_cover ./ area_per_loc
 acceptable = final_cover_frac .> 0.15f0
 ```
 
-With this labelling, you can export the parameter matrix and outcome labels to CSV for downstream analysis.
+With this labelling, the parameter matrix and outcome labels can be exported to CSV for downstream analysis.
 
 ```julia
 using CSV, DataFrames
@@ -130,14 +130,14 @@ df[!, :acceptable] = acceptable
 CSV.write("ensemble_labelled.csv", df)
 ```
 
-With the ensemble labelled in this way, you can examine which regions of the scenario space consistently fall into each group. Tools such as PRIM (Patient Rule Induction Method) or CART can identify the input conditions that best separate the two groups. Kora does not implement these algorithms internally. It provides the ensemble output that feeds into them.
+With the ensemble labelled in this way, it is possible to examine which regions of the scenario space consistently fall into each group. Tools such as PRIM (Patient Rule Induction Method) or CART can identify the input conditions that best separate the two groups. Kora does not implement these algorithms internally. It provides the ensemble output that feeds into them.
 
 ## Choosing Ensemble Size
 
-The right ensemble size depends on how many parameters you vary and how precisely you need to characterise the boundaries between outcome groups.
+The right ensemble size depends on how many parameters are varied and how precisely the boundaries between outcome groups must be characterised.
 
 Varying more parameters requires more ensemble members to achieve the same coverage of the scenario space. Characterising outcome group boundaries precisely also requires more members. As a rule, err on the side of more runs rather than fewer.
 
 Kora's annual timestep keeps individual run times short. A 50-scenario ensemble over 5 locations and 75 timesteps completes in seconds on a modern laptop. A 1000-scenario ensemble over the same setup is practical in a single session. That run count is typical for the kind of scenario space exploration that supports Scenario Discovery analysis.
 
-Start with a small ensemble to verify that your setup is correct, then scale up for the final analysis.
+Start with a small ensemble to verify that the setup is correct, then scale up for the final analysis.

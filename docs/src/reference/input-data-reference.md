@@ -1,6 +1,6 @@
 # Input Data Reference
 
-This page answers the question: what exactly does Kora expect me to provide, and in what
+This page answers the question: what exactly does Kora require, and in what
 format? It covers the environmental forcing array, the EcoRRAP survey CSV files used for
 model fitting, the fitted model JSON files, and the full parameter set for `initialize_reef`.
 
@@ -22,7 +22,7 @@ produced by `generate_environment` or `generate_example_environment`.
 
 ### Construction
 
-To wrap your own DHW data, pass a `Matrix{Float32}` of shape `(n_years, n_locs)` to
+To wrap site-specific DHW data, pass a `Matrix{Float32}` of shape `(n_years, n_locs)` to
 `generate_environment`.
 
 ```julia
@@ -90,7 +90,7 @@ and "Offshore_Southern" are normalised automatically by `standardize_ecorrap_dat
 Column name normalisation is applied automatically. The function `standardize_ecorrap_data!`
 lowercases all column names and renames `area_t1_sqcm` to `size`, `area_t2_sqcm` to
 `sizenext`, `taxon` to `taxa`, and `survival` to `surv`. Downstream processing functions
-expect these normalised names. You do not need to rename columns manually before calling
+expect these normalised names. Manual renaming is not required before calling
 `process_ecorrap_models`, `process_growth_models`, or `process_survival_models`.
 
 ### Species-to-functional-group mapping
@@ -110,7 +110,7 @@ from model fitting. Taxon codes with no entry in this file are also excluded.
 
 Growth and survival models are serialised to JSON by `save_models` and deserialised by
 `load_models`. The same format is used for both the bundled assets and for custom models
-you fit yourself.
+fitted by the user.
 
 ### Bundled model files
 
@@ -275,13 +275,13 @@ reef = Kora.initialize_reef(;
 
 The `area` and `density` parameters each accept either a scalar or a per-location vector.
 When a scalar is provided, it is broadcast to all locations internally. Providing a
-per-location `Vector` allows you to model sites with different productive areas and different
+per-location `Vector` allows modelling of sites with different productive areas and different
 maximum standing populations.
 
 The `group_names` parameter must match the group ordering used by the `growth_models` and
-`survival_models` you supply. If you use the bundled models, pass `Kora.TARGET_GROUPS` or
-omit the argument entirely. If you fit custom models, use the same `target_groups` argument
-you passed to `process_ecorrap_models`.
+`survival_models` supplied. If the bundled models are used, pass `Kora.TARGET_GROUPS` or
+omit the argument entirely. If custom models are fitted, use the same `target_groups` argument
+passed to `process_ecorrap_models`.
 
 The `depths` parameter affects the bleaching mortality coefficient applied at each location.
 Shallower sites experience more intense bleaching than deeper sites for a given DHW value.
