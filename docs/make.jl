@@ -45,7 +45,7 @@ makedocs(;
     ]
 )
 
-deploydocs(;
+DocumenterVitepress.deploydocs(;
     repo="github.com/open-AIMS/Kora.jl",
     target="build",
     branch="gh-pages",
