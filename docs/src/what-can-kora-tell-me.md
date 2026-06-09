@@ -10,7 +10,7 @@ These are questions about robustness under uncertainty, not questions asking for
 
 The following are representative questions that Kora is designed to help answer.
 
-- "Should we deploy heat-tolerant corals at this site, and at what scale?"
+- "Should we deploy heat-tolerant corals at this location, and at what scale?"
 - "How do different climate change scenarios affect potential restoration outcomes?"
 - "How sensitive is the outcome to our assumptions around thermal adaptation and coral demographic rates?"
 
