@@ -42,7 +42,7 @@ Kora.PolyGrowthModel
 [`save_models`](/reference/api-interface#Kora.save_models), [`register_model_type!`](/reference/api-interface#Kora.register_model_type!), [`initialize_reef`](/reference/api-reef-state#Kora.initialize_reef)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/interface/model_io.jl#L236-L271" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/interface/model_io.jl#L236-L271" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -78,7 +78,7 @@ The file records model kind (`"growth"` or `"survival"`), fit timestamp, polynom
 [`load_models`](/reference/api-interface#Kora.load_models), [`register_model_type!`](/reference/api-interface#Kora.register_model_type!), [`fit_growth_models`](/reference/api-interface#Kora.fit_growth_models), [`fit_survival_models`](/reference/api-interface#Kora.fit_survival_models)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/interface/model_io.jl#L172-L195" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/interface/model_io.jl#L172-L195" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -113,7 +113,7 @@ The built-in types `"PolyGrowthFunction"` and `"PolySurvivalFunction"` are regis
 [`load_models`](/reference/api-interface#Kora.load_models), [`save_models`](/reference/api-interface#Kora.save_models)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/interface/model_io.jl#L20-L44" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/interface/model_io.jl#L20-L44" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -146,7 +146,7 @@ A `PolyGrowthModel` containing one fitted function per functional group and trai
 [`fit_survival_models`](/reference/api-interface#Kora.fit_survival_models), [`save_models`](/reference/api-interface#Kora.save_models)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/interface/regressions.jl#L1-L21" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/interface/regressions.jl#L1-L21" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -169,7 +169,7 @@ Fit survival models to grouped coral data using logistic regression.
 Tuple of (models, mcfadden_r2_scores, log_likelihood_scores, brier_scores)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/interface/regressions.jl#L81-L90" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/interface/regressions.jl#L81-L90" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -216,7 +216,7 @@ Throws `ArgumentError` if no valid species codes are found for `target` in the s
 `organize_functional_groups`, `get_growth_entries`, `get_survival_entries`
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/interface/observations.jl#L279-L318" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/interface/observations.jl#L279-L318" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -267,7 +267,7 @@ For each name in `target_groups`, calls `collate_functional_groups` to assemble 
 `collate_functional_groups`, `train_test_split!`, `process_growth_models`, `process_survival_models`
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/interface/observations.jl#L355-L396" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/interface/observations.jl#L355-L396" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -314,7 +314,7 @@ The returned DataFrame adds the following derived columns:
 `standardize_ecorrap_data!`, `get_survival_entries`, `organize_functional_groups`
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/interface/observations.jl#L120-L151" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/interface/observations.jl#L120-L151" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -353,7 +353,7 @@ The returned DataFrame adds the following derived columns:
 `standardize_ecorrap_data!`, `get_growth_entries`, `organize_functional_groups`
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/interface/observations.jl#L197-L223" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/interface/observations.jl#L197-L223" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 

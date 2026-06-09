@@ -37,7 +37,7 @@ All other fields (YAXArray tolerance and mortality stores, and fields prefixed w
 [`initialize_reef`](/reference/api-reef-state#Kora.initialize_reef), [`run_model!`](/reference/api-simulation#Kora.run_model!)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L5-L37" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L5-L37" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -103,7 +103,7 @@ julia> n_timesteps(rs), n_locations(rs)
 [`initialize_coral_population!`](/reference/api-reef-state#Kora.initialize_coral_population!), [`run_model!`](/reference/api-simulation#Kora.run_model!), [`load_models`](/reference/api-interface#Kora.load_models)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L299-L354" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L299-L354" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -153,7 +153,7 @@ The no-location convenience method seeds all locations using a target population
 [`initialize_reef`](/reference/api-reef-state#Kora.initialize_reef), [`run_model!`](/reference/api-simulation#Kora.run_model!)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L478-L517" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L478-L517" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -277,7 +277,7 @@ The parameters are tuned based on coral bleaching research:
   
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L985-L1061" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L985-L1061" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -329,7 +329,7 @@ julia> size(env)
 [`generate_example_environment`](/reference/api-reef-state#Kora.generate_example_environment)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L1212-L1261" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L1212-L1261" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -371,7 +371,7 @@ Colony area is computed as pi/4 * (d/100)^2 (m^2) for each diameter d in cm.
 [`group_cover`](/reference/api-reef-state#Kora.group_cover), [`juvenile_cover`](/reference/api-reef-state#Kora.juvenile_cover), [`cover_cm_to_m2`](/reference/api-reef-state#Kora.cover_cm_to_m2)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L672-L700" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L672-L700" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -383,14 +383,14 @@ Colony area is computed as pi/4 * (d/100)^2 (m^2) for each diameter d in cm.
 Obtain the sum of all area (in m^2) for a given set of diameters.
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/corals/size_classes.jl#L115-L117" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/corals/size_classes.jl#L115-L117" target="_blank" rel="noreferrer">source</a></Badge>
 
 
 
 Convert centimeter diameter to meters area (m^2)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/corals/size_classes.jl#L129-L131" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/corals/size_classes.jl#L129-L131" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -424,7 +424,7 @@ The no-timestep form delegates to `group_cover_timeseries` and returns results f
 [`coral_cover`](/reference/api-reef-state#Kora.coral_cover), [`group_cover_timeseries`](/reference/api-reef-state#Kora.group_cover_timeseries), [`juvenile_cover`](/reference/api-reef-state#Kora.juvenile_cover)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L730-L753" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L730-L753" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -453,7 +453,7 @@ Compute mean coral cover in m^2 per functional group for every timestep, average
 [`group_cover`](/reference/api-reef-state#Kora.group_cover), [`coral_cover`](/reference/api-reef-state#Kora.coral_cover)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L774-L790" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L774-L790" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -492,7 +492,7 @@ A colony is classified as juvenile when its diameter is strictly less than the m
 [`group_cover`](/reference/api-reef-state#Kora.group_cover), [`coral_cover`](/reference/api-reef-state#Kora.coral_cover)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L896-L924" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L896-L924" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -530,7 +530,7 @@ Colony area is computed as `pi/4 * (d/100)^2` (m^2) for each recruit diameter `d
 [`coral_cover`](/reference/api-reef-state#Kora.coral_cover), [`cover_cm_to_m2`](/reference/api-reef-state#Kora.cover_cm_to_m2)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L828-L854" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L828-L854" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -576,7 +576,7 @@ missing
 
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/interface/observations.jl#L11-L42" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/interface/observations.jl#L11-L42" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -624,7 +624,7 @@ julia> truncated_standard_normal_mean(0.0, 0.0)
   
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/stats.jl#L61-L91" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/stats.jl#L61-L91" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -679,7 +679,7 @@ julia> truncated_normal_mean(5.0, 2.0, 5.0, 5.0)
 [`truncated_standard_normal_mean`](/reference/api-reef-state#Kora.truncated_standard_normal_mean), [`truncated_normal_cdf`](/reference/api-reef-state#Kora.truncated_normal_cdf)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/stats.jl#L116-L152" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/stats.jl#L116-L152" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -740,7 +740,7 @@ julia> truncated_normal_cdf(0.0, 0.0, 1.0, -1.0, 1.0)
 [`truncated_normal_mean`](/reference/api-reef-state#Kora.truncated_normal_mean), [`truncated_standard_normal_mean`](/reference/api-reef-state#Kora.truncated_standard_normal_mean)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/stats.jl#L162-L206" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/stats.jl#L162-L206" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 

@@ -54,7 +54,7 @@ julia> RMSE([1.0, 1.0, 1.0], [1.0, 1.0, 1.0])
 [`R2`](/reference/api-metrics#Kora.R2), [`pearson`](/reference/api-metrics#Kora.pearson)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/metrics.jl#L1-L48" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/metrics.jl#L1-L48" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -112,7 +112,7 @@ julia> R2([2.0, 2.0, 2.0], [1.0, 2.0, 3.0])
 [`RMSE`](/reference/api-metrics#Kora.RMSE), [`pearson`](/reference/api-metrics#Kora.pearson)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/metrics.jl#L51-L103" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/metrics.jl#L51-L103" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -172,7 +172,7 @@ julia> pearson([1.0, 2.0, 3.0], [-1.0, -2.0, -3.0])
 [`spearman`](/reference/api-metrics#Kora.spearman), [`kendall`](/reference/api-metrics#Kora.kendall), [`R2`](/reference/api-metrics#Kora.R2)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/metrics.jl#L106-L156" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/metrics.jl#L106-L156" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -232,7 +232,7 @@ julia> spearman([1.0, 2.0, 3.0], [6.0, 5.0, 4.0])
 [`pearson`](/reference/api-metrics#Kora.pearson), [`kendall`](/reference/api-metrics#Kora.kendall)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/metrics.jl#L159-L211" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/metrics.jl#L159-L211" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -292,7 +292,7 @@ julia> kendall([1.0, 2.0, 3.0], [3.0, 2.0, 1.0])
 [`spearman`](/reference/api-metrics#Kora.spearman), [`pearson`](/reference/api-metrics#Kora.pearson)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/metrics.jl#L214-L270" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/metrics.jl#L214-L270" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -330,7 +330,7 @@ true
 [`RMSE`](/reference/api-metrics#Kora.RMSE), [`R2`](/reference/api-metrics#Kora.R2), [`pearson`](/reference/api-metrics#Kora.pearson), [`spearman`](/reference/api-metrics#Kora.spearman), [`kendall`](/reference/api-metrics#Kora.kendall)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/metrics.jl#L273-L303" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/metrics.jl#L273-L303" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 

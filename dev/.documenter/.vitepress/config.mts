@@ -19,6 +19,7 @@ const baseTemp = {
 
 const navTemp = {
   nav: [
+{ text: 'Home', link: '/index' },
 { text: 'Start Here', link: '/what-can-kora-tell-me' },
 { text: 'Getting Started', link: '/getting-started' },
 { text: 'Model Overview', link: '/model-overview' },
@@ -125,6 +126,7 @@ export default defineConfig({
     },
     nav,
     sidebar: [
+{ text: 'Home', link: '/index' },
 { text: 'Start Here', link: '/what-can-kora-tell-me' },
 { text: 'Getting Started', link: '/getting-started' },
 { text: 'Model Overview', link: '/model-overview' },

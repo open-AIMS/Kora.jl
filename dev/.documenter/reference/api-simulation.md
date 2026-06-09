@@ -47,7 +47,7 @@ Internally calls `initialize_reef`, `initialize_coral_population!`, `generate_ex
 [`run_model!`](/reference/api-simulation#Kora.run_model!), [`initialize_reef`](/reference/api-reef-state#Kora.initialize_reef), [`generate_example_environment`](/reference/api-reef-state#Kora.generate_example_environment)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/run_model.jl#L297-L335" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/run_model.jl#L297-L335" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -92,7 +92,7 @@ Advance the reef simulation forward in time, writing results into `reef_state` i
 [`initialize_reef`](/reference/api-reef-state#Kora.initialize_reef), [`initialize_coral_population!`](/reference/api-reef-state#Kora.initialize_coral_population!), [`run_model`](/reference/api-simulation#Kora.run_model), [`coral_cover`](/reference/api-reef-state#Kora.coral_cover)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/run_model.jl#L1-L37" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/run_model.jl#L1-L37" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -144,7 +144,7 @@ When `ensemble_params` has more than 16 rows, rows 17 through `16 + n_groups(ree
 [`run_model!`](/reference/api-simulation#Kora.run_model!), [`set_population!`](/reference/api-simulation#Kora.set_population!), [`assign_scalers!`](/reference/api-simulation#Kora.assign_scalers!)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/run_ensemble.jl#L3-L45" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/run_ensemble.jl#L3-L45" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -161,7 +161,7 @@ set_population!(reef_state::ReefState, x::Vector)::Nothing
 Set the initial population state.
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/interface.jl#L24-L28" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/interface.jl#L24-L28" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -178,7 +178,7 @@ assign_scalers!(reef_state::ReefState, x::Vector)::Nothing
 Assign growth and survival scalers, assuming they are identical for each location.
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/interface.jl#L3-L7" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/interface.jl#L3-L7" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
@@ -225,7 +225,7 @@ This function is called internally when coral deployment is active in `run_model
 [`initialize_coral_population!`](/reference/api-reef-state#Kora.initialize_coral_population!), [`run_model!`](/reference/api-simulation#Kora.run_model!)
 
 
-<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/9ccdfd81b778a9c3de77df920a4498af80a8832a/src/reefs/ReefState.jl#L567-L597" target="_blank" rel="noreferrer">source</a></Badge>
+<Badge type="info" class="source-link" text="source"><a href="https://github.com/open-AIMS/Kora.jl/blob/319707aa5d4659465eb42066e8cff7c4b1e14e2e/src/reefs/ReefState.jl#L567-L597" target="_blank" rel="noreferrer">source</a></Badge>
 
 </details>
 
