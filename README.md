@@ -3,6 +3,9 @@
 <a href="https://doi.org/10.5281/zenodo.20300715">
   <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.20300715.svg" alt="DOI">
 </a>
+<a href="https://open-aims.github.io/Kora.jl/dev/">
+  <img src="https://img.shields.io/badge/docs-dev-blue.svg" alt="Documentation (dev)">
+</a>
 
 A Julia framework for simulating coral reef population dynamics, including growth, mortality, bleaching, and larval recruitment. Designed for decision support purposes, with use of [EcoRRAP](https://apps.aims.gov.au/metadata/view/5d14f00f-6c24-43c1-b44e-70fe013d0757) field survey data to fit empirically grounded models and evaluate restoration scenarios under climate stress.
 
