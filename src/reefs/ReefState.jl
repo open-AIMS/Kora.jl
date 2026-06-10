@@ -599,7 +599,8 @@ function deploy_corals!(reef_state, ts, loc, n, grp; rng=Random.GLOBAL_RNG)
     size_dist = size_distribution()[grp]
     edges = bin_edges()[grp, :]
 
-    dist = truncated(size_dist, 0.0, maximum(edges[grp, :]))
+    # edges is already the selected group's bin-edge vector.
+    dist = truncated(size_dist, 0.0, maximum(edges))
     deploy_sample = convert.(Float32, rand(rng, dist, n))
 
     return update_deployed_sample!(reef_state, ts, loc, grp, deploy_sample)
@@ -1263,10 +1264,12 @@ function generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::YAX
     n_years, n_locs = size(dhw)
 
     if n_years == 0 || n_locs == 0
-        throw(ArgumentError(
-            "DHW matrix must have at least one timestep and one location, " *
-            "got size $(size(dhw))"
-        ))
+        throw(
+            ArgumentError(
+                "DHW matrix must have at least one timestep and one location, " *
+                "got size $(size(dhw))"
+            )
+        )
     end
 
     if any(dhw .< 0.0f0)
@@ -1281,17 +1284,17 @@ function generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::YAX
     # periods and early simulation years).
     if minimum(dhw) > 20.0f0
         @warn "Minimum DHW value is $(minimum(dhw)) across all locations and timesteps. " *
-              "Real DHW data should include near-zero values during non-bleaching periods. " *
-              "A uniformly high floor may indicate raw sea-surface temperature was passed " *
-              "instead of accumulated degree heating weeks."
+            "Real DHW data should include near-zero values during non-bleaching periods. " *
+            "A uniformly high floor may indicate raw sea-surface temperature was passed " *
+            "instead of accumulated degree heating weeks."
     end
 
     # Values above 40 DHW are approximately twice the ~20 DHW projected under SSP5-8.5
     # and are likely a data quality issue rather than an intentional scenario.
     if maximum(dhw) > 40.0f0
         @warn "DHW values exceed 40 (maximum = $(maximum(dhw))). This is roughly twice the " *
-              "~20 DHW projected under SSP5-8.5. Consider checking for data quality issues " *
-              "or confirming the scenario is intentionally extreme."
+            "~20 DHW projected under SSP5-8.5. Consider checking for data quality issues " *
+            "or confirming the scenario is intentionally extreme."
     end
 
     env = generate_example_environment(
@@ -1305,16 +1308,20 @@ end
 
 function generate_environment(dhw::YAXArray; start_year::Int64=2020)::YAXArray
     if ndims(dhw) != 2
-        throw(ArgumentError(
-            "DHW YAXArray must be 2D with dimensions (timestep, location), " *
-            "got $(ndims(dhw))D"
-        ))
+        throw(
+            ArgumentError(
+                "DHW YAXArray must be 2D with dimensions (timestep, location), " *
+                "got $(ndims(dhw))D"
+            )
+        )
     end
 
     if size(dhw, 1) == 0 || size(dhw, 2) == 0
-        throw(ArgumentError(
-            "DHW YAXArray dimensions must be non-zero, got size $(size(dhw))"
-        ))
+        throw(
+            ArgumentError(
+                "DHW YAXArray dimensions must be non-zero, got size $(size(dhw))"
+            )
+        )
     end
 
     return generate_environment(
