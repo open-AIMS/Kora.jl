@@ -164,3 +164,8 @@ Kora.jl/
     ├── target_groups.csv     # Functional group definitions
     └── models/               # Serialized fitted models
 ```
+
+## AI Usage Disclosure
+
+AI was used later in the development process to assist in code structure/organization,
+documentation setup, and test generation. All AI generated material was reviewed.
