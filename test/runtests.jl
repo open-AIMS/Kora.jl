@@ -757,8 +757,10 @@ end
             outlier_count = count(
                 (deployed_pop .< lower_bound) .| (deployed_pop .> upper_bound)
             )
-            # Expect < 1% outliers by IQR rule
-            @test outlier_count / n_deploy < 0.01f0
+
+            # Log-normal distributions typically produce 5-8% IQR outliers due to right skew;
+            # threshold of 10% catches degenerate distributions without rejecting correct ones.
+            @test outlier_count / n_deploy < 0.10f0
 
             # Test 5: Mode/center of distribution is reasonably within bounds
             # The truncated lognormal will have most mass in the middle region
