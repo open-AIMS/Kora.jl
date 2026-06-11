@@ -75,7 +75,7 @@ The 10th, 50th, and 90th percentile ribbons summarise scenario-space coverage. T
 
 A core use case is comparing restoration against a no-restoration baseline while holding the climate scenario fixed. This isolates the effect of the intervention.
 
-To do this, run both strategies with the same parameter matrix. The climate scenario columns are identical across the two runs, so any difference in outcomes is attributable to the deployment schedule rather than to differences in the climate input.
+Both strategies are run with the same parameter matrix. The climate scenario columns are identical across the two runs, so any difference in outcomes is attributable to the deployment schedule rather than to differences in the climate input.
 
 ```julia
 # Baseline run: no deployments
@@ -130,7 +130,7 @@ df[!, :acceptable] = acceptable
 CSV.write("ensemble_labelled.csv", df)
 ```
 
-With the ensemble labelled in this way, it is possible to examine which regions of the scenario space consistently fall into each group. Tools such as PRIM (Patient Rule Induction Method) or CART can identify the input conditions that best separate the two groups. Kora does not implement these algorithms internally. It provides the ensemble output that feeds into them.
+With the ensemble labelled in this way, regions of the scenario space that consistently fall into each outcome group can be identified. Tools such as PRIM (Patient Rule Induction Method) or CART can identify the input conditions that best separate the two groups. Kora does not implement these algorithms internally. It provides the ensemble output that feeds into them.
 
 ## Choosing Ensemble Size
 
@@ -140,4 +140,4 @@ Varying more parameters requires more ensemble members to achieve the same cover
 
 Kora's annual timestep keeps individual run times short. A 50-scenario ensemble over 5 locations and 75 timesteps completes in seconds on a modern laptop. A 1000-scenario ensemble over the same setup is practical in a single session. That run count is typical for the kind of scenario space exploration that supports Scenario Discovery analysis.
 
-Start with a small ensemble to verify that the setup is correct, then scale up for the final analysis.
+A small ensemble is sufficient to verify setup; run count can be scaled up for final analysis.

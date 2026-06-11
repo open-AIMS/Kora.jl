@@ -46,9 +46,9 @@ lower RMSE indicates a better-fitting candidate.
 
 Multiple independent optimisation trials are run in parallel. Candidates below a
 fitness threshold are collected into a shared pool, and the best-performing members
-are retained as the calibrated ensemble. Because the objective landscape is
+are retained as the calibrated ensemble. The objective landscape is
 multi-modal, with many different combinations of growth scalers, densities, and
-proportions reproducing a similar cover trajectory, so running many trials and
+proportions reproducing a similar cover trajectory. Running many trials and
 collecting a diverse ensemble is more informative than finding a single global
 optimum.
 

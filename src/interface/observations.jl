@@ -60,23 +60,15 @@ end
 """
     adaptive_min_sample_binning(data::Vector, min_samples::Int64)::Vector{Int64}
 
-Adaptive binning based on minimum samples per bin.
-Determines the number of bins based on ensuring each bin has at least
-`min_samples_per_bin` samples.
-
-Approach:
-1. Calculate maximum possible bins: n ÷ `min_samples_per_bin`
-2. Sort the data
-3. Sequentially assign samples to bins, ensuring minimum sample requirement
-4. Distribute any remainder samples across bins to balance them
+Adaptive binning ensures each bin has at least `min_samples` samples: calculate maximum possible bins, sort data, sequentially assign samples with minimum-sample enforcement, and distribute remainders to balance bins.
 """
 function adaptive_min_sample_binning(data::Vector, min_samples::Int64)::Vector{Int64}
     n = length(data)
 
-    # Calculate how many bins we can create with the minimum requirement
+    # Maximum bins given minimum-sample constraint:
     n_bins = n ÷ min_samples  # this is an integer division
 
-    # Handle edge case where we can't create any bins
+    # Edge case: insufficient data for even one bin
     if n_bins == 0
         throw(
             ArgumentError(
@@ -85,8 +77,8 @@ function adaptive_min_sample_binning(data::Vector, min_samples::Int64)::Vector{I
         )
     end
 
-    # Now we know n_bins, we can use similar logic to your original function
-    target_size = n ÷ n_bins  # This will be >= min_samples_per_bin
+    # n_bins is now known; apply equal-width bin-assignment:
+    target_size = n ÷ n_bins  # This will be >= min_samples
     remainder = n % n_bins
 
     # Get indices of sorted data
@@ -227,8 +219,8 @@ function get_survival_entries(standardized_data::DataFrame)::DataFrame
     for_survival[ismissing.(for_survival)] .= 0
 
     # If data is "missing" in the sizenext column, fill with data in `size` column
-    # as we make survival predictions based on the data in `diam_mort` (based on `sizenext`)
-    # We fill entries that are "missing" with entries from `size`
+    # survival predictions use `diam_mort` (based on `sizenext`)
+    # Missing entries are filled from `size`
     missing_sizenext = ismissing.(standardized_data.sizenext)
     standardized_data[missing_sizenext, :sizenext] .= standardized_data[
         missing_sizenext, :size
@@ -491,7 +483,7 @@ function train_test_split!(
     df[test_mask, TEST_CLASS] .= df[test_mask, BIN_ID]
 
     # Bin Merging (Option 2): Ensure every bin has data in both sets
-    # We iterate through bins and if one is empty, merge it with the neighbor that has more data
+    # Empty bins are merged with the neighbor having more data
     actual_bins = sort(unique(df[!, BIN_ID]))
 
     # Helper to calculate and assign bootstrap stats for a set of indices

@@ -5,7 +5,7 @@
 This tutorial shows how to use Kora to compare a baseline trajectory against a restoration
 intervention across a range of climate scenarios. The goal is not to predict what will happen
 at a specific site. The goal is to understand the distribution of restoration benefit across
-the climate futures we cannot rule out.
+the climate futures that cannot be ruled out.
 
 See [What Can Kora Tell Me?](../what-can-kora-tell-me.md) for a plain-language framing of
 the questions Kora is designed to answer. The focus here is on the practical steps for
@@ -49,7 +49,7 @@ n_locs = 10
 reef_area = 90.0
 
 environ = Kora.generate_environment(
-    my_dhw_matrix;       # Matrix{Float32} of shape (n_ts, n_locs)
+    site_dhw_matrix;       # Matrix{Float32} of shape (n_ts, n_locs)
 )
 
 baseline_reef = Kora.initialize_reef(;

@@ -14,7 +14,7 @@ This distinction matters for how Kora outputs should be interpreted. An ensemble
 
 ## Deep Uncertainty in Coral Reef Management
 
-Not all uncertainty is the same. Some parameters are uncertain but bounded by data. Others are genuinely unknown in a stronger sense: we cannot assign reliable probabilities to their future values even in principle, because the underlying processes are not stable enough or well-enough understood.
+Not all uncertainty is the same. Some parameters are uncertain but bounded by data. Others are genuinely unknown in a stronger sense: reliable probabilities cannot be assigned to their future values even in principle, because the underlying processes are not stable enough or well-enough understood.
 
 The following inputs to reef management decisions fall into the deep uncertainty category.
 
@@ -28,7 +28,7 @@ The following parameters are uncertain but not deeply so.
 - Polynomial growth model parameters, which are well constrained by EcoRRAP field data.
 - Background mortality rates, which are empirically bounded by long-term monitoring.
 
-Deep uncertainty means we cannot assign reliable probabilities to future states. It is not the same as imprecision in a well-defined distribution. When a parameter is uncertain in the ordinary sense, standard sensitivity analysis and probabilistic framing are appropriate. When a parameter is deeply uncertain, those tools can mislead by implying more structure than exists. The appropriate response is to evaluate strategies across many possible values of that parameter rather than to estimate a best guess.
+Deep uncertainty means reliable probabilities cannot be assigned to future states. It is not the same as imprecision in a well-defined distribution. When a parameter is uncertain in the ordinary sense, standard sensitivity analysis and probabilistic framing are appropriate. When a parameter is deeply uncertain, those tools can mislead by implying more structure than exists. The appropriate response is to evaluate strategies across many possible values of that parameter rather than to estimate a best guess.
 
 ## Robustness as the Design Target
 
@@ -36,7 +36,7 @@ A robust strategy performs adequately across many futures rather than optimally 
 
 Kora ensemble output makes this comparison directly. The ensemble does not provide an expected outcome. It provides the distribution of outcomes across the scenario space, which is needed to evaluate robustness.
 
-This framing changes how results should be communicated. The relevant question is not "what will coral cover be in 2050?" but "under which conditions does this deployment strategy maintain cover above X%, and how likely are those conditions relative to the scenarios we are concerned about?" Kora provides the first part of that answer. The second part is a matter of judgment about which scenarios are plausible.
+This framing changes how results should be communicated. The relevant question is not "what will coral cover be in 2050?" but "under which conditions does this deployment strategy maintain cover above X%, and how likely are those conditions relative to scenarios of concern?" Kora provides the first part of that answer. The second part is a matter of judgment about which scenarios are plausible.
 
 Robustness analysis also changes what counts as a good result. A strategy that dominates under most scenarios but fails badly under a small number of them may be less desirable than one that never fails badly, even if its average performance is lower. This is sometimes called satisficing: finding strategies that clear a threshold across many futures rather than maximising expected performance.
 

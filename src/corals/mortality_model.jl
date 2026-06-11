@@ -11,7 +11,7 @@ Modify susceptibility of corals to bleaching as a function of its diameter.
 
 # Arguments
 - `x` : Diameter of coral
-- `k` : Steepness parameter, where the larger the value, the faster the drop (suggest k=0.15).
+- `k` : Steepness parameter, where the larger the value, the faster the drop (recommended: k=0.15).
 - `x0` : Inflection point (based on diameter) where bleaching begins to have much less mortality (default: 150cm diameter).
 """
 function bleaching_susceptibility(x::F; k::F=0.15f0, x0::F=150.0f0)::F where {F<:Float32}

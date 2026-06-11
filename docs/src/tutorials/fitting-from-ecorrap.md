@@ -70,10 +70,7 @@ Any taxon code that does not appear in the mapping file, or that maps to a group
 
 ## Fitting Both Models in One Call
 
-For most workflows, `process_ecorrap_models` is the most convenient entry point. It loads
-the survey data and the group mapping, extracts growth and survival entries, organises them
-into functional groups, fits polynomial models for each, and saves the results to JSON files
-in a single call.
+For most workflows, `process_ecorrap_models` is the recommended entry point; it handles the full pipeline in one call. Individual steps are documented below for workflows requiring finer control.
 
 ```julia
 using Kora
@@ -98,8 +95,7 @@ The `degree` keyword sets the polynomial degree for both models (default is 2). 
 
 ## Processing Data Step by Step
 
-Users who want to inspect or modify intermediate outputs can call the individual steps
-directly.
+Intermediate outputs can be inspected or modified by calling the individual steps directly.
 
 ### Loading and standardising the survey data
 

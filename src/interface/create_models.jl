@@ -37,12 +37,12 @@ Process EcoRRAP data to create growth models for coral functional groups.
 - `functional_group_file::String`: Path to the functional group mapping CSV file
 - `region::String`: Region to process (default: "Offshore_Central")
 - `degree::Int`: Polynomial degree for growth models (default: 2)
-- `plot_validation::Bool=true`: Whether to plot model performance or not (default: true)
+- `plot_validation::Bool=true`: Whether to plot model performance (default: `true`)
 - `save_model::Bool`: Whether to serialize model to disk (default: true)
 - `output_dir::String`: Directory to save model (default: Kora package assets
 - `target_groups::Union{Vector, Nothing}`: Target groups to use (default: Kora.TARGET_GROUPS)
 - `seed::Int`: Random seed for reproducibility (default: 101)
-- `rng::Union{AbstractRNG, Nothing}`: Random number generator (default: create new with seed)
+- `rng::Union{AbstractRNG, Nothing}`: Random number generator (default: constructed from `seed`)
 
 # Returns
 - `NamedTuple`: Contains `growth_fits`, `growth_groupings`
@@ -161,10 +161,10 @@ Process EcoRRAP data to create survival models for coral functional groups.
 - `degree::Int`: Polynomial degree for survival models (default: 2)
 - `save_model::Bool`: Whether to serialize model to disk (default: true)
 - `output_dir::String`: Directory to save model (default: Kora package assets)
-- `plot_validation::Bool`: Whether to generate validation plots (default: true)
+- `plot_validation::Bool`: Whether to generate validation plots (default: `true`)
 - `target_groups::Union{Vector, Nothing}`: Target groups to use (default: Kora.TARGET_GROUPS)
 - `seed::Int64`: Random seed for reproducibility (default: 101)
-- `rng::Union{AbstractRNG, Nothing}`: Random number generator (default: create new with seed)
+- `rng::Union{AbstractRNG, Nothing}`: Random number generator (default: constructed from `seed`)
 
 # Returns
 - `NamedTuple`: Contains `survival_fits`, `survival_groupings`
@@ -292,7 +292,7 @@ This function combines the individual model creation functions for convenience.
 - `plot_validation::Bool`: Whether to generate validation plots (default: false)
 - `target_groups::Union{Vector, Nothing}`: Target groups to use (default: Kora.TARGET_GROUPS)
 - `seed::Int64`: Random seed for reproducibility (default: 101)
-- `rng::Union{AbstractRNG, Nothing}`: Random number generator (default: create new with seed)
+- `rng::Union{AbstractRNG, Nothing}`: Random number generator (default: constructed from `seed`)
 
 # Returns
 - `NamedTuple`: Contains `growth_fits`, `survival_fits`, `growth_groupings`, `survival_groupings`

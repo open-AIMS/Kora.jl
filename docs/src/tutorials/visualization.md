@@ -20,7 +20,7 @@ This writes the following files to `docs/src/assets/`:
 
 ## Basic Timeseries Plot
 
-For a single simulation run, `timeseries()` creates a comprehensive plot showing total coral cover and DHW conditions:
+For a single simulation run, `timeseries()` produces a plot showing total coral cover and DHW conditions:
 
 ```julia
 using Kora
@@ -83,11 +83,11 @@ The output shows:
 - Individual ensemble member trajectories (faint lines)
 - DHW conditions (bottom panel)
 
-Customize quantiles by passing `quantiles=[0.1, 0.5, 0.9]` to show 10th, 50th, and 90th percentiles instead.
+Quantile bands are configurable via the quantiles keyword: quantiles=[0.1, 0.5, 0.9] selects the 10th, 50th, and 90th percentiles.
 
 ## Group-Level Cover
 
-To examine how different functional groups respond, extract per-group coverage:
+Per-group cover shows how each functional group responds:
 
 ```julia
 group_cov = Kora.group_cover(reef)  # Returns (n_timesteps, n_groups) matrix
@@ -96,11 +96,11 @@ group_cov = Kora.group_cover(reef)  # Returns (n_timesteps, n_groups) matrix
 tabular_acro_cover = group_cov[:, 1]
 ```
 
-Then plot manually or use Makie directly for custom visualizations.
+Custom visualizations can be built manually or via Makie directly.
 
 ## Juvenile Cover
 
-Colonies below the maturity threshold for their group are classified as juveniles. Track juvenile recruitment and development:
+Colonies below the maturity threshold for their group are classified as juveniles. Juvenile recruitment and development can be tracked as follows:
 
 ```julia
 # Get juvenile cover for all groups at timestep 20
@@ -134,7 +134,7 @@ Example output:
 
 ## Multiple Runs and Comparison
 
-To compare outcomes across different scenarios or strategies:
+Comparing outcomes across scenarios or strategies:
 
 ```julia
 # Scenario A: baseline
@@ -150,7 +150,7 @@ cover_b = Kora.coral_cover(reef)
 
 # Plot both timeseries on the same axes
 using CairoMakie
-fig, ax = CairoMakie.scatter(cover_a; label="Baseline")
+fig, ax, _ = CairoMakie.scatter(cover_a; label="Baseline")
 lines!(ax, cover_b; label="High DHW", color=:red)
 axislegend()
 display(fig)
@@ -195,6 +195,6 @@ save("output_highres.png", fig; px_per_unit=2)
 
 ## Notes on Visualization Limits
 
-The current Makie-based visualization supports plotting single locations or aggregated results. For detailed spatial analysis across many locations, consider exporting raw data and visualizing with external tools (e.g., mapping libraries for geographic display).
+The current Makie-based visualization supports plotting single locations or aggregated results. For detailed spatial analysis across many locations, raw data can be exported for visualization with external tools (e.g., mapping libraries for geographic display).
 
 Bootstrap confidence intervals are also available via `bootstrap_cover()`, `bootstrap_ensemble_timeseries()` and related functions, but are typically used for internal analysis rather than publication figures.

@@ -22,7 +22,7 @@ const _MODEL_TYPE_REGISTRY = Dict{String,Function}()
 
 Register a custom model type so that `load_models` can deserialise it from JSON.
 
-The `tag` string must match the `"type"` field written by your serialiser into
+The `tag` string must match the `"type"` field written by the custom serialiser into
 each model entry. The `deserializer` receives the raw parsed JSON `Dict` for
 that entry and must return a callable representing the fitted model function.
 

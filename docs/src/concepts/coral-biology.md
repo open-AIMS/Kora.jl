@@ -2,7 +2,7 @@
 
 > Supporting reading. Not required to run simulations.
 
-This page provides biological context for the modelling choices in Kora. It is intended for readers who want to understand why the model is structured the way it is, not for readers who simply want to run simulations.
+This page provides biological context for the modelling choices in Kora. Readers wanting only to run simulations can skip this page.
 
 ## Coral Functional Groups
 
@@ -24,7 +24,7 @@ Bleaching is the temporary expulsion or loss of function of the symbiotic algae 
 
 In Kora, bleaching outcome is abstracted as a change in colony diameter. A bleaching event reduces the modelled diameter of affected colonies. This is an explicit model simplification. It captures the net effect of the bleaching and partial-recovery process without modelling the recovery phase in detail. The diameter reduction is not empirically calibrated against recovery trajectory data from specific bleaching events. It is a structural assumption about the magnitude of setback that bleaching imposes on colony development.
 
-From a conceptual standpoint, this abstraction could be understood as analogous to super-individuals in agent-based modelling, where a diameter reduction reflects population-level dynamics (mortality, partial recovery, cohort size change) rather than individual coral shrinkage. This framing underscores that the model operates at population scales rather than tracking individual trajectories.
+The abstraction is analogous to super-individuals in agent-based modelling, where a diameter reduction reflects population-level dynamics (mortality, partial recovery, cohort size change) rather than individual coral shrinkage. This framing underscores that the model operates at population scales rather than tracking individual trajectories.
 
 The abstraction is appropriate for the model's purpose. Kora is not designed to predict recovery trajectories at individual colonies. It is designed to capture how bleaching events affect population-level cover dynamics over years to decades.
 
@@ -32,7 +32,7 @@ The abstraction is appropriate for the model's purpose. Kora is not designed to 
 
 Kora applies the Breeder's equation to advance the tolerance distribution of each functional group after bleaching events. The logic is that bleaching is selective: colonies with lower thermal tolerance bleach and die at higher rates, and survivors' offspring will therefore be more tolerant on average. The shift in mean tolerance per generation depends on the selection differential and the heritability parameter ($h^2$).
 
-The Breeder's equation is a model assumption, not a confirmed GBR outcome. Evidence for heritable thermal tolerance in GBR corals exists -- Csaszar et al. (2010) and Dixon et al. (2015) provide relevant data for GBR populations -- but the degree to which in-situ natural selection is currently advancing thermal tolerance at management-relevant rates remains an active research question. Readers should verify before publication that the Csaszar et al. (2010) citation specifically reports $h^2$ for thermal tolerance traits rather than CO2-stress traits, as the distinction matters.
+The Breeder's equation is a model assumption, not a confirmed GBR outcome. Evidence for heritable thermal tolerance in GBR corals exists -- Csaszar et al. (2010) and Dixon et al. (2015) provide relevant data for GBR populations -- but the degree to which in-situ natural selection is currently advancing thermal tolerance at management-relevant rates remains an active research question. Note for publication: the Csaszar et al. (2010) citation should be verified for reporting $h^2$ for thermal tolerance traits rather than CO2-stress traits, as the distinction matters.
 
 In Kora, $h^2$ is held constant at $0.3$ across all timesteps, although this could be made a configurable parameter in future releases. Three caveats apply.
 

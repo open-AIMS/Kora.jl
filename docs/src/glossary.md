@@ -30,7 +30,7 @@ Accumulated thermal anomaly above the monthly mean maximum, in degrees C times w
 
 **Deep uncertainty**
 
-Conditions where we cannot assign reliable probabilities to future states. In reef management, the future pace of warming, the degree of in-situ thermal adaptation, and larval connectivity between reefs at management-relevant spatial scales are genuinely unknown rather than merely imprecisely estimated.
+Conditions under which reliable probabilities cannot be assigned to future states. In reef management, the future pace of warming, the degree of in-situ thermal adaptation, and larval connectivity between reefs at management-relevant spatial scales are genuinely unknown rather than merely imprecisely estimated.
 
 **Scenario Discovery**
 

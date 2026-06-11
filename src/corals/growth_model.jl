@@ -23,7 +23,7 @@ Modify growth as coral cover approaches total habitable area.
 
 # Arguments
 - `x` : proportion of available space currently taken
-- `k` : steepness parameter, where the larger the value, the faster the drop (suggest k=20).
+- `k` : steepness parameter, where the larger the value, the faster the drop (recommended: k=20).
 - `x0` : Inflection point where growth begins to be constrained (default: 96% of available area).
 """
 @inline function space_constraint(x::F, k::F; x0::F=0.96f0)::F where {F<:Float32}

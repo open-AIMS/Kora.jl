@@ -62,7 +62,7 @@ For real DHW data, see the [Running Simulations](tutorials/running-simulations.m
 
 ## Running the Model
 
-`run_model!` advances the simulation forward through all timesteps. It modifies the reef state in place. After it returns, the reef state object contains the complete simulation history.
+`run_model!` advances the simulation through all timesteps. It modifies the reef state in place. After it returns, the reef state object contains the complete simulation history.
 
 ```julia
 run_model!(reef, environ)
@@ -90,7 +90,7 @@ For more detail on interpreting these outputs, querying cover at a specific time
 
 Kora includes built-in visualization functions powered by Makie. These render publication-quality figures and can be displayed interactively or saved to disk.
 
-To create a simple timeseries plot of total coral cover and DHW conditions:
+A simple timeseries plot of total coral cover and DHW conditions:
 
 ```julia
 using Kora.viz
@@ -99,7 +99,7 @@ fig = Kora.viz.timeseries(reef, environ)
 display(fig)
 ```
 
-To save a figure instead of displaying it:
+Saving a figure instead of displaying it:
 
 ```julia
 save("coral_cover.png", fig)

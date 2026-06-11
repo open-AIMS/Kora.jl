@@ -10,7 +10,7 @@ ADRIA.jl serves a different role. It provides the downstream assessment layer fo
 
 Current integration is workflow-level: Kora outputs can be transferred into ADRIA analyses, but there is not yet a unified package-level interface. An open Kora.jl issue proposes adopting data structures from open-AIMS/ADRIAIndicators.jl to improve interoperability. That alignment is planned work, not a completed interface.
 
-This page focuses on Kora's ecological process representation. For the broader decision-support framing, see [What Can Kora Tell Me?](what-can-kora-tell-me.md). For the related analysis ecosystem, see [ADRIA.jl](https://github.com/open-AIMS/ADRIA.jl) and [ADRIAIndicators.jl](https://github.com/open-AIMS/ADRIAIndicators.jl).
+This page focuses on Kora's ecological process representation. For the broader decision-support framing, see [What Can Kora Tell Me?](what-can-kora-tell-me.md). For the related analysis ecosystem, see [ADRIA.jl](https://github.com/open-AIMS/ADRIA.jl), [CoralBlox.jl](https://github.com/open-AIMS/CoralBlox.jl) (ADRIA's companion coral model), and [ADRIAIndicators.jl](https://github.com/open-AIMS/ADRIAIndicators.jl).
 
 ## Simulation Structure
 
@@ -49,7 +49,7 @@ This mechanism is an explicit modelling assumption. It represents a plausible pa
 
 ## Restoration Deployments
 
-Corals can be deployed at specified timesteps and locations. Deployments add colony diameters directly to the size distribution of the target functional group. Users configure deployment schedules before running the simulation by populating `reef_state.deployment_times`. The model applies deployments internally during the run.
+Corals can be deployed at specified timesteps and locations. Deployments add colony diameters directly to the size distribution of the target functional group. Deployment schedules are configured before running the simulation by populating `reef_state.deployment_times`. The model applies deployments internally during the run.
 
 Deployed corals and wild corals are tracked in separate population arrays (`wild_population` and `deployed_population`), which allows their contributions to total cover to be distinguished in the output.
 

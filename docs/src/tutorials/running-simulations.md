@@ -83,10 +83,10 @@ The first argument is the number of timesteps and the second is the number of lo
 
 ### Real DHW data
 
-To use real DHW data, construct a `Matrix{Float32}` with shape `(n_timesteps, n_locs)` where rows are years and columns are reef locations. Then pass it to `generate_environment`.
+Real DHW data requires a `Matrix{Float32}` of shape `(n_timesteps, n_locs)` where rows are years and columns are reef locations. Then pass it to `generate_environment`.
 
 ```julia
-dhw_matrix = Matrix{Float32}(your_dhw_data)   # shape: (75, 30)
+dhw_matrix = Matrix{Float32}(site_dhw_data)   # shape: (75, 30)
 environ = generate_environment(dhw_matrix)
 ```
 

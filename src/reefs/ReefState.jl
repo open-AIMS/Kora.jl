@@ -647,7 +647,7 @@ function resample_wild_population!(
     if length(diams) <= max_sample_size
         update_pop_cache!(reef_state, diams)
     else
-        # Only resample if we exceed max sample size
+        # Resample only when population exceeds max sample size
         # Use size-stratified sampling to maintain size distribution
         size_weights = zeros(Float32, length(diams))
         for (sz_end, sz_start) in eachrow(class_diams)
