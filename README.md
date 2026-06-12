@@ -28,7 +28,7 @@ Key processes:
 
 - Julia ~1.11.7
 
-## Setup
+## Development Setup
 
 ### 1. Clone the repository
 
@@ -43,8 +43,7 @@ cd Kora.jl
 julia --project=.
 
 # In the Julia REPL:
-using Pkg
-Pkg.instantiate()
+] instantiate
 ```
 
 This installs all dependencies listed in [Project.toml](Project.toml).
@@ -54,12 +53,22 @@ This installs all dependencies listed in [Project.toml](Project.toml).
 For plotting support, install one or both optional backends:
 
 ```julia
-Pkg.add("Makie")          # 2D/3D interactive plots
-Pkg.add("UnicodePlots")   # Terminal plots
-Pkg.add("Term")           # Required alongside UnicodePlots
+] add CairoMakie  # One of the Makie backends
+
+# Or for plots in terminal
+] add UnicodePlots Term
 ```
 
 ## Usage
+
+Install from the Julia Registry:
+
+```julia
+julia> ] add Kora
+
+# Optionally add visualization packages as above
+julia> ] add CairoMakie
+```
 
 ### Programmatic usage
 
@@ -138,23 +147,23 @@ run_ensemble!(reef, env, ensemble_params)
 ```
 Kora.jl/
 ├── src/
-│   ├── Kora.jl          # Module entry point
-│   ├── stats.jl              # Statistical utilities
-│   ├── metrics.jl            # RMSE, R², correlation metrics
-│   ├── corals/               # Coral biology models
-│   │   ├── growth_model.jl   # Polynomial growth with habitat constraint
-│   │   ├── mortality_model.jl# DHW/size/depth-dependent bleaching
-│   │   ├── recruitment.jl    # Larval production and genetic selection
-│   │   └── size_classes.jl   # Size distribution management
-│   ├── reefs/                # Reef-level simulation
-│   │   ├── ReefState.jl      # Core state data structure
-│   │   ├── reef_dynamics.jl  # Annual timestep dynamics
-│   │   ├── run_model.jl    # Single simulation runner
-│   │   └── run_ensemble.jl   # Ensemble runner
-│   └── interface/            # Data ingestion and model fitting
-│       ├── observations.jl   # EcoRRAP data processing
-│       ├── regressions.jl    # Growth and survival model fitting
-│       └── create_models.jl  # High-level model creation API
+│   ├── Kora.jl                 # Module entry point
+│   ├── stats.jl                # Statistical utilities
+│   ├── metrics.jl              # RMSE, R², correlation metrics
+│   ├── corals/                 # Coral biology models
+│   │   ├── growth_model.jl     # Polynomial growth with habitat constraint
+│   │   ├── mortality_model.jl  # DHW/size/depth-dependent bleaching
+│   │   ├── recruitment.jl      # Larval production and genetic selection
+│   │   └── size_classes.jl     # Size distribution management
+│   ├── reefs/                  # Reef-level simulation
+│   │   ├── ReefState.jl        # Core state data structure
+│   │   ├── reef_dynamics.jl    # Annual timestep dynamics
+│   │   ├── run_model.jl        # Single simulation runner
+│   │   └── run_ensemble.jl     # Ensemble runner
+│   └── interface/              # Data ingestion and model fitting
+│       ├── observations.jl     # EcoRRAP data processing
+│       ├── regressions.jl      # Growth and survival model fitting
+│       └── create_models.jl    # High-level model creation API
 ├── ext/
 │   ├── MakieExt/             # Makie visualization extension
 │   └── UnicodePlotsExt/      # Terminal plotting extension
