@@ -1,10 +1,14 @@
 const TARGET_GROUPS = CSV.read(
-    joinpath(ASSET_DIR, "target_groups.csv"), DataFrame; types=String
-)[:, :functional_group]
+    joinpath(_kora_assets_dir(), "target_groups.csv"), DataFrame; types=String
+)[
+    :, :functional_group
+]
 
 const GROUP_NAMES = CSV.read(
-    joinpath(ASSET_DIR, "target_groups.csv"), DataFrame; types=String
-)[:, :group_name]
+    joinpath(_kora_assets_dir(), "target_groups.csv"), DataFrame; types=String
+)[
+    :, :group_name
+]
 
 include("FunctionalModels.jl")
 include("growth_model.jl")
