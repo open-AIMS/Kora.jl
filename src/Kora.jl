@@ -15,7 +15,7 @@ using PrecompileTools: @compile_workload
 
 function _kora_assets_dir()
     baked = pkgdir(Kora, "assets")
-    return isdir(baked) ? baked : joinpath(dirname(Sys.executable()), "..", "assets")
+    return isdir(baked) ? baked : joinpath(Sys.BINDIR, "..", "assets")
 end
 
 include("stats.jl")
