@@ -4,10 +4,11 @@ using CSV
 using DataFrames
 using Kora
 
-const _FILE_READERS = Dict{String, Function}(
+const _FILE_READERS = Dict{String,Function}(
     ".csv" => (f) -> CSV.read(f, DataFrame; missingstring=["NA", ""]),
-    ".parquet" => (f) -> error("Parquet2 must be loaded to read .parquet files: `using Parquet2`"),
-    ".arrow"   => (f) -> error("Arrow must be loaded to read .arrow files: `using Arrow`"),
+    ".parquet" =>
+        (f) -> error("Parquet2 must be loaded to read .parquet files: `using Parquet2`"),
+    ".arrow" => (f) -> error("Arrow must be loaded to read .arrow files: `using Arrow`")
 )
 
 function _read_datafile(filepath::String)::DataFrame
