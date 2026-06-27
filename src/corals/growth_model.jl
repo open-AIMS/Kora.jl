@@ -36,7 +36,7 @@ end
 
 struct PolyGrowthModel <: AbstractCoralBehavior
     names::Vector{String}
-    models::Vector{Function}
+    models::Vector{PolyGrowthFunction}
     performance::NamedTuple
 end
 
@@ -135,4 +135,4 @@ function (f::PolyGrowthFunction)(x::T)::T where T<:Float32
     return min(f.poly(log(x)), f.max_y)
 end
 
-growth_models = nothing
+growth_models::Union{Nothing,PolyGrowthModel} = nothing

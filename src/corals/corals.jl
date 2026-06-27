@@ -1,13 +1,17 @@
-const TARGET_GROUPS = CSV.read(
-    joinpath(_kora_assets_dir(), "target_groups.csv"), DataFrame; types=String
-)[
-    :, :functional_group
+const TARGET_GROUPS = [
+    "acro_table",
+    "acro_corym",
+    "corym_non_acro",
+    "small_massive",
+    "large_massive"
 ]
 
-const GROUP_NAMES = CSV.read(
-    joinpath(_kora_assets_dir(), "target_groups.csv"), DataFrame; types=String
-)[
-    :, :group_name
+const GROUP_NAMES = [
+    "tabular Acropora",
+    "corymbose Acropora",
+    "branching non-Acropora",
+    "Small Massives",
+    "Large Massives"
 ]
 
 include("FunctionalModels.jl")
