@@ -175,60 +175,6 @@ function brier_score(y_true, y_pred)
 end
 
 """
-    LogisticSurvivalModel <: AbstractCoralBehavior
-
-Functional relationships between coral size and survival.
-"""
-struct LogisticSurvivalModel <: AbstractCoralBehavior
-    models::Vector{Function}
-    rmse_scores::Vector{Float32}
-    log_likelihood_scores::Vector{Float32}
-    mcfadden_r2_scores::Vector{Float32}
-    brier_scores::Vector{Float32}
-
-    function LogisticSurvivalModel()
-        return new(
-            survival_models,
-            Float32.(mort_rmse_scores),
-            Float32.(mort_ll_scores),
-            Float32.(mort_mcfadden_scores),
-            Float32.(mort_brier_scores)
-        )
-    end
-end
-
-function Base.show(io::IO, ::MIME"text/plain", x::LogisticSurvivalModel)
-    println(io, "\nSurvival Model Performance Metrics:")
-    println(io, "─"^40)
-
-    group_names = ["Tabular Acropora", "Corymbose Acropora",
-        "branching non-Acropora", "Small massives", "Large massives"]
-
-    explainer = """
-        McFadden's R²: -∞ - 1.0; Higher is better.
-        Log Likelihood: -∞ - 0.0; Higher is better.
-        Brier Score: 0.0 - 1.0; Lower is better; 0.25 = random guess.
-        """
-
-    println(io, explainer)
-
-    for i in eachindex(x.models)
-        println(io, "\nGroup: $(group_names[i])")
-        println(io, "RMSE:     $(Printf.@sprintf("%.3f", x.rmse_scores[i]))")
-        println(
-            io, "McFadden's R²:     $(Printf.@sprintf("%.3f", x.mcfadden_r2_scores[i]))"
-        )
-        println(
-            io, "Log Likelihood:     $(Printf.@sprintf("%.3f", x.log_likelihood_scores[i]))"
-        )
-        println(io, "Brier Score:       $(Printf.@sprintf("%.3f", x.brier_scores[i]))")
-
-        # println(io, "\nConfusion Matrix (threshold = $(x.thresholds[i])):")
-        # println(io, format_confusion_matrix(x.confusion_matrices[i]))
-    end
-end
-
-"""
     PolySurvivalFunction{T<:AbstractFloat,P<:Polynomial} <: Function
 
 A callable struct that represents a coral survival model using a regression.
@@ -277,7 +223,7 @@ struct PolySurvivalModel <: AbstractCoralBehavior
     "Functional Group names"
     names::Vector{String}
     "Models for each functional group"
-    models::Vector{Function}
+    models::Vector{PolySurvivalFunction}
     "Performance metrics each model"
     performance::NamedTuple
 end
@@ -324,4 +270,4 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolySurvivalModel)
     )
 end
 
-survival_models = nothing
+survival_models::Union{Nothing,PolySurvivalModel} = nothing

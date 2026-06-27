@@ -4,49 +4,6 @@ using Dates: now, DateTime, format, value
 
 const SUPPORTED_FORMAT_VERSIONS = (1,)
 
-# ---------------------------------------------------------------------------
-# Registry
-# Deserializer functions are defined at include-time (stable named functions,
-# no closures). register_model_type! is called from __init__ so no function
-# reference is baked into the precompile cache.
-#
-# Thread safety: _MODEL_TYPE_REGISTRY is populated exclusively in __init__ and
-# is read-only after startup. Concurrent registration from user-spawned tasks
-# is not supported and is not thread-safe.
-# ---------------------------------------------------------------------------
-
-const _MODEL_TYPE_REGISTRY = Dict{String,Function}()
-
-"""
-    register_model_type!(tag::String, deserializer::Function)::Nothing
-
-Register a custom model type so that `load_models` can deserialise it from JSON.
-
-The `tag` string must match the `"type"` field written by the custom serialiser into
-each model entry. The `deserializer` receives the raw parsed JSON `Dict` for
-that entry and must return a callable representing the fitted model function.
-
-The built-in types `"PolyGrowthFunction"` and `"PolySurvivalFunction"` are
-registered automatically when the package is loaded via `__init__`. Registration
-is not thread-safe; all calls must occur before concurrent model loading begins.
-
-# Arguments
-- `tag::String` : Unique string identifier stored in the JSON file.
-- `deserializer::Function` : Function with signature
-  `(entry::AbstractDict) -> Function` that reconstructs a model callable from
-  the serialised `Dict`.
-
-# Returns
-`Nothing`
-
-# See Also
-[`load_models`](@ref), [`save_models`](@ref)
-"""
-function register_model_type!(tag::String, deserializer::Function)::Nothing
-    _MODEL_TYPE_REGISTRY[tag] = deserializer
-    return nothing
-end
-
 # Helpers
 
 function validate_spec(spec::AbstractDict, required::Vector{String}, path::String)::Nothing
@@ -57,14 +14,6 @@ function validate_spec(spec::AbstractDict, required::Vector{String}, path::Strin
         )
     end
     return nothing
-end
-
-function _checked_type_lookup(tag::String)::Function
-    if !haskey(_MODEL_TYPE_REGISTRY, tag)
-        valid = join(sort(collect(keys(_MODEL_TYPE_REGISTRY))), ", ")
-        error("Unknown model type tag \"$tag\". Valid tags: $valid")
-    end
-    return _MODEL_TYPE_REGISTRY[tag]
 end
 
 _dtype_str(::Type{Float32}) = "float32"
@@ -92,11 +41,21 @@ function _performance_to_dict(perf::NamedTuple)::Dict{String,Any}
 end
 
 function _dict_to_performance(obj::AbstractDict)::NamedTuple
-    train_nt = NamedTuple(
-        Symbol(k) => Float32.(obj["train"][k]) for k in _METRIC_NAMES
+    tr = obj["train"]
+    te = obj["test"]
+    train_nt = (
+        RMSE     = Float32.(tr["RMSE"]),
+        R2       = Float32.(tr["R2"]),
+        pearson  = Float32.(tr["pearson"]),
+        spearman = Float32.(tr["spearman"]),
+        kendall  = Float32.(tr["kendall"])
     )
-    test_nt = NamedTuple(
-        Symbol(k) => Float32.(obj["test"][k]) for k in _METRIC_NAMES
+    test_nt = (
+        RMSE     = Float32.(te["RMSE"]),
+        R2       = Float32.(te["R2"]),
+        pearson  = Float32.(te["pearson"]),
+        spearman = Float32.(te["spearman"]),
+        kendall  = Float32.(te["kendall"])
     )
     return (train=train_nt, test=test_nt)
 end
@@ -240,9 +199,9 @@ Deserialise a model collection from a versioned JSON file previously written by
 `save_models`.
 
 The file must declare a supported `format_version`, a `model_kind` of either
-`"growth"` or `"survival"`, and a `"type"` tag for each model entry that has
-been registered via `register_model_type!`. An informative error is raised if
-any required field is missing or if an unknown type tag is encountered.
+`"growth"` or `"survival"`, and a `"type"` tag for each model entry of either
+`"PolyGrowthFunction"` or `"PolySurvivalFunction"`. An informative error is
+raised if any required field is missing or if an unknown type tag is encountered.
 
 # Arguments
 - `filepath::String` : Path to the JSON model file.
@@ -288,22 +247,31 @@ function load_models(filepath::String)::Union{PolyGrowthModel,PolySurvivalModel}
 
     kind = raw["model_kind"]
     names = String[]
-    models = Function[]
+    growth_fns = PolyGrowthFunction[]
+    surv_fns = PolySurvivalFunction[]
 
     for (i, entry) in enumerate(raw["models"])
         validate_spec(entry, ["type", "name"], "$filepath models[$i]")
-        type_tag = String(entry["type"])
-        deserializer = _checked_type_lookup(type_tag)
         push!(names, String(entry["name"]))
-        push!(models, deserializer(entry))
+        tag = String(entry["type"])
+        if tag == "PolyGrowthFunction"
+            push!(growth_fns, _deserialize_poly_growth(entry))
+        elseif tag == "PolySurvivalFunction"
+            push!(surv_fns, _deserialize_poly_survival(entry))
+        else
+            error(
+                "Unknown model type tag \"$tag\" in \"$filepath\". " *
+                "Expected \"PolyGrowthFunction\" or \"PolySurvivalFunction\"."
+            )
+        end
     end
 
     performance = _dict_to_performance(raw["performance"])
 
     if kind == "growth"
-        return PolyGrowthModel(names, models, performance)
+        return PolyGrowthModel(names, growth_fns, performance)
     elseif kind == "survival"
-        return PolySurvivalModel(names, models, performance)
+        return PolySurvivalModel(names, surv_fns, performance)
     else
         error(
             "Unknown model_kind=\"$kind\" in \"$filepath\". " *

@@ -5,8 +5,8 @@ using OrderedCollections
 
 using Random
 using Statistics, Bootstrap
-using CurveFit, GLM, MLBase, Interpolations
-using Distributions, KernelDensity, StatsBase, StatsFuns
+using CurveFit
+using Distributions, StatsBase, StatsFuns
 
 using CSV, DataFrames, YAXArrays
 
@@ -98,15 +98,12 @@ export
     save_models,
     get_growth_models,
     get_survival_models,
-    check_model_pair_skew,
-    register_model_type!
+    check_model_pair_skew
 
 # Auto-generate precompilation signatures
 @precompile_signatures(Kora)
 
 @compile_workload begin
-    register_model_type!("PolyGrowthFunction", _deserialize_poly_growth)
-    register_model_type!("PolySurvivalFunction", _deserialize_poly_survival)
     _gm = load_models(
         joinpath(_kora_assets_dir(), "models", "offshore_north_growth_models.json")
     )
@@ -124,14 +121,28 @@ export
     initialize_coral_population!(_reef; rng=Xoshiro(1))
     _env = generate_example_environment(50, 20; rng=Xoshiro(42))
     run_model!(_reef, _env; rng=Xoshiro(1))
+
+    # Cover and metrics extraction entry points
+    coral_cover(_reef)
+    coral_cover(_reef, 1)
+    group_cover(_reef)
+    group_cover(_reef, 1)
+    juvenile_cover(_reef, 1)
+    group_cover_timeseries(_reef)
+
+    # YAXArray reconstruction path (Base.copy)
+    _reef2 = Base.copy(_reef)
+
+    # User-facing environment wrapper
+    _dhw = zeros(Float32, 50, 20)
+    generate_environment(_dhw)
+
+    # Ensemble path
+    _params = zeros(Float64, 16, 1)
+    run_ensemble!(_reef2, _env, _params; rng=Xoshiro(1))
 end
 
 function __init__()
-    # Populate registry at load-time, not precompile-time.
-    # Functions are defined at include-time; only the dict insertion happens here.
-    register_model_type!("PolyGrowthFunction", _deserialize_poly_growth)
-    register_model_type!("PolySurvivalFunction", _deserialize_poly_survival)
-
     _growth_path = joinpath(
         _kora_assets_dir(), "models", "offshore_north_growth_models.json"
     )
@@ -139,14 +150,14 @@ function __init__()
         _kora_assets_dir(), "models", "offshore_north_survival_models.json"
     )
 
-    global growth_models = try
+    global growth_models::Union{Nothing,PolyGrowthModel} = try
         load_models(_growth_path)
     catch e
         @warn "Pre-defined growth models could not be loaded." exception = e
         nothing
     end
 
-    global survival_models = try
+    global survival_models::Union{Nothing,PolySurvivalModel} = try
         load_models(_survival_path)
     catch e
         @warn "Pre-defined survival models could not be loaded." exception = e
