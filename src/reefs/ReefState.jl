@@ -3,7 +3,7 @@ import YAXArrays.DD: dims
 const SEL = Union{Int64,Colon}  # Defined selector type
 
 """
-    ReefState{F, P, Y3a, Y4a, Y4b}
+    ReefState{F, PG, PS, Y3a, Y4a, Y4b}
 
 Mutable container holding the full ecological state of a simulated reef system
 across time, space, and functional coral groups.
@@ -16,9 +16,9 @@ across time, space, and functional coral groups.
   corals, with the same `[timestep, location, group]` indexing.
 - `deployment_times::Array{F,3}` : Number of corals deployed at each
   `[timestep, location, group]` combination.
-- `growth_models::Vector{P}` : Per-group growth functions. Each callable maps a
+- `growth_models::Vector{PG}` : Per-group growth functions. Each callable maps a
   colony diameter (cm) to its expected diameter at the next annual timestep.
-- `survival_models::Vector{P}` : Per-group survival functions. Each callable maps
+- `survival_models::Vector{PS}` : Per-group survival functions. Each callable maps
   a colony diameter (cm) to an annual survival probability.
 - `carrying_capacity::Vector{F}` : Maximum coral-bearing area in m^2 for each
   location. Limits total cover and constrains recruitment.
@@ -37,7 +37,8 @@ versions.
 """
 struct ReefState{
     F<:AbstractFloat,
-    P<:Function,
+    PG<:Function,
+    PS<:Function,
     Y3a<:YAXArray{F,3},
     Y4a<:YAXArray{F,4},
     Y4b<:YAXArray{F,4}
@@ -45,8 +46,8 @@ struct ReefState{
     wild_population::Array{Vector{F},3}  # [time, location] ⋅ group
     deployed_population::Array{Vector{F},3}  # [time, location] ⋅ group
     deployment_times::Array{F,3}  # [time, location] ⋅ group
-    growth_models::Vector{P}
-    survival_models::Vector{P}
+    growth_models::Vector{PG}
+    survival_models::Vector{PS}
     location_scalers::Y3a
     density::Vector{Int64}  # Max population density per location
     depths::Vector{F}       # Depths of each location
