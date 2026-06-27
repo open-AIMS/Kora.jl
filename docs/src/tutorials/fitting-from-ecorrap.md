@@ -128,7 +128,34 @@ using DataFrames, CSV
 
 growth_gdf   = groupby(growth_data,   [:taxa, :cluster])
 survival_gdf = groupby(survival_data, [:taxa, :cluster])
+```
 
+`taxon_group_mapping.csv` is a user-supplied lookup table that maps each taxon code (as it
+appears in the raw EcoRRAP dataset) to one of Kora's functional groups. It must have four
+columns:
+
+| Column | Description |
+|--------|-------------|
+| `Dataset` | Source dataset name, e.g. `juv_quadrat` or `photogrammetry` |
+| `Code` | Taxon identifier as it appears in the raw data |
+| `Updated.name` | Full species name (may be `NA`) |
+| `Cscape_group` | Functional group label used by Kora, e.g. `acro_table`, `large_massive` |
+
+A minimal example:
+
+```
+Dataset,Code,Updated.name,Cscape_group
+juv_quadrat,Acropora,,acro_table and acro_corym
+juv_quadrat,Porites,,large_massive
+photogrammetry,Acor,Acropora corymbose,acro_corym
+photogrammetry,Atab,Acropora table,acro_table
+photogrammetry,Pmas,Porites massive,large_massive
+```
+
+The `Cscape_group` values must correspond to the functional group identifiers listed in
+`Kora.TARGET_GROUPS`.
+
+```julia
 group_map = CSV.read("taxon_group_mapping.csv", DataFrame; missingstring="NA")
 group_map.Code .= String.(group_map.Code)
 
