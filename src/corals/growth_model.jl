@@ -34,51 +34,6 @@ Modify growth as coral cover approaches total habitable area.
     return 1.0f0 / (1.0f0 + _euler_f32b^(k * (x - x0)))
 end
 
-struct PolyGrowthModel <: AbstractCoralBehavior
-    names::Vector{String}
-    models::Vector{PolyGrowthFunction}
-    performance::NamedTuple
-end
-
-Base.length(m::PolyGrowthModel) = length(m.models)
-Base.getindex(m::PolyGrowthModel, i::Int) = m.models[i]
-
-function Base.show(io::IO, ::MIME"text/plain", x::PolyGrowthModel)
-    title = "\nGrowth Model Performance Metrics"
-    println(io, title)
-    println(io, "─"^length(title))
-
-    pretty_table(
-        io,
-        hcat(x.names, getfield.(x.models, :poly));
-        column_labels=["Group", "Model"]
-    )
-
-    explainer = """
-        RMSE: 0.0 - Inf; Lower is better.
-        R²: -∞ - 1.0; Higher is better.
-        """
-    println(io, explainer)
-
-    performance_matrix = [
-        (getfield(x.performance.train, m), getfield(x.performance.test, m))
-        for m in Symbol.(Kora.ALL_METRICS)
-    ]
-
-    performances = hcat([hcat(t[1], t[2]) for t in performance_matrix]...)
-    perf_heads = [("Train $m", "Test $m") for m in Symbol.(ALL_METRICS)]
-    perf_headers = vcat([vcat(t[1], t[2]) for t in perf_heads]...)
-
-    data = hcat(
-        x.names,
-        round.(performances; digits=3)
-    )
-    return pretty_table(
-        io, data;
-        column_labels=["Group", perf_headers...]
-    )
-end
-
 """
     PolyGrowthFunction{T<:AbstractFloat,P<:Polynomial} <: Function
 
@@ -133,6 +88,51 @@ function (f::PolyGrowthFunction)(x::T)::T where T<:Float32
     end
 
     return min(f.poly(log(x)), f.max_y)
+end
+
+struct PolyGrowthModel <: AbstractCoralBehavior
+    names::Vector{String}
+    models::Vector{PolyGrowthFunction}
+    performance::NamedTuple
+end
+
+Base.length(m::PolyGrowthModel) = length(m.models)
+Base.getindex(m::PolyGrowthModel, i::Int) = m.models[i]
+
+function Base.show(io::IO, ::MIME"text/plain", x::PolyGrowthModel)
+    title = "\nGrowth Model Performance Metrics"
+    println(io, title)
+    println(io, "─"^length(title))
+
+    pretty_table(
+        io,
+        hcat(x.names, getfield.(x.models, :poly));
+        column_labels=["Group", "Model"]
+    )
+
+    explainer = """
+        RMSE: 0.0 - Inf; Lower is better.
+        R²: -∞ - 1.0; Higher is better.
+        """
+    println(io, explainer)
+
+    performance_matrix = [
+        (getfield(x.performance.train, m), getfield(x.performance.test, m))
+        for m in Symbol.(Kora.ALL_METRICS)
+    ]
+
+    performances = hcat([hcat(t[1], t[2]) for t in performance_matrix]...)
+    perf_heads = [("Train $m", "Test $m") for m in Symbol.(ALL_METRICS)]
+    perf_headers = vcat([vcat(t[1], t[2]) for t in perf_heads]...)
+
+    data = hcat(
+        x.names,
+        round.(performances; digits=3)
+    )
+    return pretty_table(
+        io, data;
+        column_labels=["Group", perf_headers...]
+    )
 end
 
 growth_models::Union{Nothing,PolyGrowthModel} = nothing
