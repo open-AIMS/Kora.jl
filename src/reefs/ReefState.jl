@@ -501,6 +501,20 @@ function size_distribution()::Vector{LogNormal}
     ]
 end
 
+function _sample_lognormal_bounded(
+    dist::LogNormal, lo::Float64, hi::Float64, n::Int64, rng::AbstractRNG
+)::Vector{Float32}
+    out = Vector{Float32}(undef, n)
+    for i in 1:n
+        x = rand(rng, dist)
+        while x < lo || x > hi
+            x = rand(rng, dist)
+        end
+        out[i] = Float32(x)
+    end
+    return out
+end
+
 """
     initialize_coral_population!(
         reef_state::ReefState,
@@ -556,11 +570,10 @@ function initialize_coral_population!(
 
     edges = bin_edges()
     for grp in 1:n_groups(reef_state)
-        dist = truncated(size_dist[grp], 0.0, maximum(edges[grp, :]))
-
-        # Scale the number of samples by the desired proportion
         n_samples = round(Int, target_pop_size * group_proportions[grp])
-        initial_population = convert.(Float32, rand(rng, dist, n_samples))
+        initial_population = _sample_lognormal_bounded(
+            size_dist[grp], 0.0, Float64(maximum(edges[grp, :])), n_samples, rng
+        )
 
         update_wild_sample!(reef_state, 1, loc, grp, initial_population)
     end
@@ -625,9 +638,7 @@ function deploy_corals!(reef_state, ts, loc, n, grp; rng=Random.GLOBAL_RNG)::Not
     size_dist = size_distribution()[grp]
     edges = bin_edges()[grp, :]
 
-    # edges is already the selected group's bin-edge vector.
-    dist = truncated(size_dist, 0.0, maximum(edges))
-    deploy_sample = convert.(Float32, rand(rng, dist, n))
+    deploy_sample = _sample_lognormal_bounded(size_dist, 0.0, Float64(maximum(edges)), n, rng)
 
     return update_deployed_sample!(reef_state, ts, loc, grp, deploy_sample)
 end
