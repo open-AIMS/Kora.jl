@@ -361,7 +361,7 @@ function initialize_reef(;
     depths::Union{Float64,Vector{Float64}}=9.0,
     growth_models::AbstractCoralBehavior=Kora.growth_models,
     survival_models::AbstractCoralBehavior=Kora.survival_models
-)
+)::ReefState
     n_groups = length(group_names)
 
     loc_ax = (
@@ -556,7 +556,7 @@ end
 function initialize_coral_population!(
     reef_state::ReefState;
     rng::AbstractRNG=Random.GLOBAL_RNG
-)
+)::Nothing
     n_locs = n_locations(reef_state)
     sample_size = ceil(Int64, maximum(reef_state.carrying_capacity) * 5)
     for loc in 1:n_locs
@@ -595,7 +595,7 @@ within a simulation run.
 # See Also
 [`initialize_coral_population!`](@ref), [`run_model!`](@ref)
 """
-function deploy_corals!(reef_state, ts, loc, n, grp; rng=Random.GLOBAL_RNG)
+function deploy_corals!(reef_state, ts, loc, n, grp; rng=Random.GLOBAL_RNG)::Nothing
     size_dist = size_distribution()[grp]
     edges = bin_edges()[grp, :]
 
