@@ -229,7 +229,9 @@ Kora.PolyGrowthModel
 [`initialize_reef`](@ref)
 """
 function load_models(filepath::String)
-    content = String(read(filepath))
+    _io = open(filepath, "r")::IOStream
+    content = String(read(_io, typemax(Int64)))
+    close(_io)
 
     # --- format_version ---
     fv_m = match(r"\"format_version\"\s*:\s*(\d+)", content)
@@ -477,7 +479,9 @@ function check_model_pair_skew(
     growth_path::String, surv_path::String; threshold_seconds::Int=86400
 )::Nothing
     function _read_fitted_at(path::String)::Union{String,Nothing}
-        content = String(read(path))
+        _io = open(path, "r")::IOStream
+        content = String(read(_io, typemax(Int64)))
+        close(_io)
         m = match(r"\"fitted_at\"\s*:\s*\"([^\"]+)\"", content)
         m === nothing && return nothing
         cap = m.captures[1]
