@@ -2,7 +2,7 @@
 const SEL = Union{Int64,Colon}  # Defined selector type
 
 """
-    ReefState{F, PG, PS, Y3a, Y4a, Y4b}
+    ReefState{F, PG, PS}
 
 Mutable container holding the full ecological state of a simulated reef system
 across time, space, and functional coral groups.
@@ -37,22 +37,19 @@ versions.
 struct ReefState{
     F<:AbstractFloat,
     PG<:Function,
-    PS<:Function,
-    Y3a<:DimArray{F,3},
-    Y4a<:DimArray{F,4},
-    Y4b<:DimArray{F,4}
+    PS<:Function
 }
     wild_population::Array{Vector{F},3}  # [time, location] ⋅ group
     deployed_population::Array{Vector{F},3}  # [time, location] ⋅ group
     deployment_times::Array{F,3}  # [time, location] ⋅ group
     growth_models::Vector{PG}
     survival_models::Vector{PS}
-    location_scalers::Y3a
+    location_scalers::Array{F,3}
     density::Vector{Int64}  # Max population density per location
     depths::Vector{F}       # Depths of each location
-    wild_dhw_tolerances::Y4a
-    deployed_dhw_tolerances::Y4a
-    mortalities::Y4b
+    wild_dhw_tolerances::Array{F,4}
+    deployed_dhw_tolerances::Array{F,4}
+    mortalities::Array{F,4}
     carrying_capacity::Vector{F}  # Area that supports coral in m^2 for each location
     _max_pop_size::Int            # When to sample down population
     _pop_cache::Matrix{F}         # Temporary store of population
@@ -95,12 +92,12 @@ function Base.copy(rs::ReefState)
         copy(rs.deployment_times),
         rs.growth_models,
         rs.survival_models,
-        DimArray(copy(rs.location_scalers.data), dims(rs.location_scalers)),
+        copy(rs.location_scalers),
         copy(rs.density),
         copy(rs.depths),
-        DimArray(copy(rs.wild_dhw_tolerances.data), dims(rs.wild_dhw_tolerances)),
-        DimArray(copy(rs.deployed_dhw_tolerances.data), dims(rs.deployed_dhw_tolerances)),
-        DimArray(copy(rs.mortalities.data), dims(rs.mortalities)),
+        copy(rs.wild_dhw_tolerances),
+        copy(rs.deployed_dhw_tolerances),
+        copy(rs.mortalities),
         copy(rs.carrying_capacity),
         rs._max_pop_size,
         copy(rs._pop_cache),
@@ -109,6 +106,56 @@ function Base.copy(rs::ReefState)
         copy(rs._pop_buffer),
         copy(rs._location_buffer),
         copy(rs._recruit_buffer)
+    )
+end
+
+function location_scalers_da(rs::ReefState)
+    return DimArray(
+        rs.location_scalers,
+        (
+            Dim{:scaler}([:growth, :mortality]),
+            Dim{:location}(1:size(rs.location_scalers, 2)),
+            Dim{:group}(1:size(rs.location_scalers, 3))
+        )
+    )
+end
+
+function wild_dhw_tolerances_da(rs::ReefState)
+    n_ts, n_locs, n_groups, _ = size(rs.wild_dhw_tolerances)
+    return DimArray(
+        rs.wild_dhw_tolerances,
+        (
+            Dim{:timestep}(1:n_ts),
+            Dim{:location}(1:n_locs),
+            Dim{:group}(1:n_groups),
+            Dim{:factor}([:mean, :stdev])
+        )
+    )
+end
+
+function deployed_dhw_tolerances_da(rs::ReefState)
+    n_ts, n_locs, n_groups, _ = size(rs.deployed_dhw_tolerances)
+    return DimArray(
+        rs.deployed_dhw_tolerances,
+        (
+            Dim{:timestep}(1:n_ts),
+            Dim{:location}(1:n_locs),
+            Dim{:group}(1:n_groups),
+            Dim{:factor}([:mean, :stdev])
+        )
+    )
+end
+
+function mortalities_da(rs::ReefState)
+    n_ts, n_locs, n_groups, _ = size(rs.mortalities)
+    return DimArray(
+        rs.mortalities,
+        (
+            Dim{:timestep}(1:n_ts),
+            Dim{:location}(1:n_locs),
+            Dim{:group}(1:n_groups),
+            Dim{:mortality}([:dhw, :cyclone])
+        )
     )
 end
 
@@ -276,14 +323,14 @@ end
 function update_dhw_tol_mean!(
     reef_state::ReefState, ts::Int64, grp::Int64, vals::AbstractVector{Float32}
 )::Nothing
-    reef_state.wild_dhw_tolerances.data[ts, :, grp, 1] = vals
+    reef_state.wild_dhw_tolerances[ts, :, grp, 1] = vals
 
     return nothing
 end
 function update_dhw_tol_mean!(
     reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64, val::Float32
 )::Nothing
-    reef_state.wild_dhw_tolerances.data[ts, loc, grp, 1] = val
+    reef_state.wild_dhw_tolerances[ts, loc, grp, 1] = val
 
     return nothing
 end
@@ -291,7 +338,7 @@ end
 function update_dhw_tol_std!(
     reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64, val::Float32
 )::Nothing
-    reef_state.wild_dhw_tolerances.data[ts, loc, grp, 2] = val
+    reef_state.wild_dhw_tolerances[ts, loc, grp, 2] = val
 
     return nothing
 end
@@ -364,12 +411,7 @@ function initialize_reef(;
 )::ReefState
     n_groups = length(group_names)
 
-    loc_ax = (
-        Dim{:scaler}([:growth, :mortality]),
-        Dim{:location}(1:n_locs),
-        Dim{:group}(group_names)
-    )
-    location_scalers = DimArray(fill(1.0f0, 2, n_locs, n_groups), loc_ax)
+    location_scalers = fill(1.0f0, 2, n_locs, n_groups)
 
     # Initialize empty vector arrays
     wild_population = Array{Vector{Float32},3}(undef, n_timesteps, n_locs, n_groups)
@@ -379,25 +421,9 @@ function initialize_reef(;
     deployed_population .= [Float32[]]
     deployment_times = zeros(Float32, n_timesteps, n_locs, n_groups)
 
-    dhw_ax = (
-        Dim{:timestep}(1:n_timesteps),
-        Dim{:location}(1:n_locs),
-        Dim{:group}(group_names),
-        Dim{:factor}([:mean, :stdev])
-    )
-    wild_dhw_tol = DimArray(zeros(Float32, n_timesteps, n_locs, n_groups, 2), dhw_ax)
-    deployed_dhw_tol = DimArray(zeros(Float32, n_timesteps, n_locs, n_groups, 2), dhw_ax)
-
-    mort_names = [:dhw, :cyclone]
-    mort_ax = (
-        Dim{:timestep}(1:n_timesteps),
-        Dim{:location}(1:n_locs),
-        Dim{:group}(group_names),
-        Dim{:mortality}(mort_names)
-    )
-    mort = DimArray(
-        zeros(Float32, n_timesteps, n_locs, n_groups, length(mort_names)), mort_ax
-    )
+    wild_dhw_tol = zeros(Float32, n_timesteps, n_locs, n_groups, 2)
+    deployed_dhw_tol = zeros(Float32, n_timesteps, n_locs, n_groups, 2)
+    mort = zeros(Float32, n_timesteps, n_locs, n_groups, 2)
 
     if !(depths isa Vector)
         depths = fill(depths, n_locs)
@@ -539,17 +565,17 @@ function initialize_coral_population!(
         update_wild_sample!(reef_state, 1, loc, grp, initial_population)
     end
 
-    reef_state.wild_dhw_tolerances[1, :, 1, At(:mean)] .= 3.751612251  # tabular Acropora
-    reef_state.wild_dhw_tolerances[1, :, 2, At(:mean)] .= 4.081622683  # corymbose Acropora
-    reef_state.wild_dhw_tolerances[1, :, 3, At(:mean)] .= 4.487465256  # Pocillopora + non-Acropora corymbose
-    reef_state.wild_dhw_tolerances[1, :, 4, At(:mean)] .= 6.165751937  # Small massives and encrusting
-    reef_state.wild_dhw_tolerances[1, :, 5, At(:mean)] .= 7.153507902  # Large massives
+    reef_state.wild_dhw_tolerances[1, :, 1, 1] .= 3.751612251  # tabular Acropora
+    reef_state.wild_dhw_tolerances[1, :, 2, 1] .= 4.081622683  # corymbose Acropora
+    reef_state.wild_dhw_tolerances[1, :, 3, 1] .= 4.487465256  # Pocillopora + non-Acropora corymbose
+    reef_state.wild_dhw_tolerances[1, :, 4, 1] .= 6.165751937  # Small massives and encrusting
+    reef_state.wild_dhw_tolerances[1, :, 5, 1] .= 7.153507902  # Large massives
 
-    reef_state.wild_dhw_tolerances[:, :, 1, At(:stdev)] .= 2.904433676  # tabular Acropora
-    reef_state.wild_dhw_tolerances[:, :, 2, At(:stdev)] .= 3.159922076  # corymbose Acropora
-    reef_state.wild_dhw_tolerances[:, :, 3, At(:stdev)] .= 3.474118416  # Pocillopora + non-Acropora corymbose
-    reef_state.wild_dhw_tolerances[:, :, 4, At(:stdev)] .= 4.773419097  # Small massives and encrusting
-    reef_state.wild_dhw_tolerances[:, :, 5, At(:stdev)] .= 5.538122776  # Large massives
+    reef_state.wild_dhw_tolerances[:, :, 1, 2] .= 2.904433676  # tabular Acropora
+    reef_state.wild_dhw_tolerances[:, :, 2, 2] .= 3.159922076  # corymbose Acropora
+    reef_state.wild_dhw_tolerances[:, :, 3, 2] .= 3.474118416  # Pocillopora + non-Acropora corymbose
+    reef_state.wild_dhw_tolerances[:, :, 4, 2] .= 4.773419097  # Small massives and encrusting
+    reef_state.wild_dhw_tolerances[:, :, 5, 2] .= 5.538122776  # Large massives
 
     return nothing
 end

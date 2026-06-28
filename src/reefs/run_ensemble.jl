@@ -111,10 +111,10 @@ function run_ensemble!(
 
                     # Store DHW tolerances (mean and stdev)
                     ensemble_wild_dhw_tolerances[ts, loc, grp, 1, i] = reef_state.wild_dhw_tolerances[
-                        ts, loc, grp, At(:mean)
+                        ts, loc, grp, 1
                     ]
                     ensemble_wild_dhw_tolerances[ts, loc, grp, 2, i] = reef_state.wild_dhw_tolerances[
-                        ts, loc, grp, At(:stdev)
+                        ts, loc, grp, 2
                     ]
 
                     # Accumulate total cover
@@ -186,9 +186,9 @@ function run_ensemble!(
                         cover_cm_to_m2.(pop[pop .< mature_sizes[grp]])
                     )
                     ensemble_wild_dhw_tolerances[ts, loc, grp, 1, i] =
-                        reef_state.wild_dhw_tolerances.data[ts, loc, grp, 1]
+                        reef_state.wild_dhw_tolerances[ts, loc, grp, 1]
                     ensemble_wild_dhw_tolerances[ts, loc, grp, 2, i] =
-                        reef_state.wild_dhw_tolerances.data[ts, loc, grp, 2]
+                        reef_state.wild_dhw_tolerances[ts, loc, grp, 2]
                     loc_cover += grp_cover
                 end
                 ensemble_cover[ts, loc, i] = loc_cover
@@ -294,10 +294,10 @@ function run_ensemble!(
                     )
 
                     ensemble_wild_dhw_tolerances[ts, loc, grp, 1, i] = reef_state.wild_dhw_tolerances[
-                        ts, loc, grp, At(:mean)
+                        ts, loc, grp, 1
                     ]
                     ensemble_wild_dhw_tolerances[ts, loc, grp, 2, i] = reef_state.wild_dhw_tolerances[
-                        ts, loc, grp, At(:stdev)
+                        ts, loc, grp, 2
                     ]
 
                     loc_cover += grp_cover
