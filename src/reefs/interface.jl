@@ -15,7 +15,7 @@ function assign_scalers!(reef_state::ReefState, x::Vector)::Nothing
 
     for i in 1:n_grps
         # reef_state.location_scalers[:, :, i] .= collated[i]
-        reef_state.location_scalers[At(:growth), :, i] .= growth_scalers[i]
+        reef_state.location_scalers[1, :, i] .= growth_scalers[i]
     end
 
     return nothing
@@ -53,4 +53,26 @@ function set_population!(reef_state::ReefState, x::Vector)::Nothing
     )
 
     return nothing
+end
+
+"""
+    mean_colony_cover_m2(n_per_grp::Int=20_000)::Float32
+
+Expected cover (m²) per colony, averaged across all functional groups, sampled
+from the same truncated log-normal size distributions used by
+`initialize_coral_population!`. Useful for converting a target cover fraction
+to an initial colony count.
+"""
+function mean_colony_cover_m2(n_per_grp::Int=20_000)::Float32
+    rng    = Random.MersenneTwister(0)
+    dists  = size_distribution()
+    edges  = bin_edges()
+    n_grps = size(edges, 1)
+    total  = 0.0f0
+    for grp in 1:n_grps
+        d      = truncated(dists[grp], 0.0f0, maximum(edges[grp, :]))
+        samples = Float32.(rand(rng, d, n_per_grp))
+        total  += sum(cover_cm_to_m2.(samples))
+    end
+    return total / (n_per_grp * n_grps)
 end

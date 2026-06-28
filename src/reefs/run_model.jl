@@ -110,7 +110,7 @@ function run_model!(
         apply_survival!(reef_state, grp, with_recruits, rng)
 
         # Bleaching mortality
-        tols = @view(reef_state.wild_dhw_tolerances.data[1, loc, grp, :])
+        tols = @view(reef_state.wild_dhw_tolerances[1, loc, grp, :])
         new_mean, new_std, area_lost = bleaching_mortality!(
             with_recruits,
             dhws[loc],
@@ -178,10 +178,10 @@ function run_model!(
                 update_coral_tolerances!(reef_state, ts, loc, grp, n_loc_recruits)
             else
                 # Copy previous tolerance when no recruits (no Breeder's equation applied)
-                reef_state.wild_dhw_tolerances.data[ts, loc, grp, 1] = reef_state.wild_dhw_tolerances.data[
+                reef_state.wild_dhw_tolerances[ts, loc, grp, 1] = reef_state.wild_dhw_tolerances[
                     prev_ts, loc, grp, 1
                 ]
-                reef_state.deployed_dhw_tolerances.data[ts, loc, grp, 1] = reef_state.deployed_dhw_tolerances.data[
+                reef_state.deployed_dhw_tolerances[ts, loc, grp, 1] = reef_state.deployed_dhw_tolerances[
                     prev_ts, loc, grp, 1
                 ]
             end
@@ -212,7 +212,7 @@ function run_model!(
             apply_survival!(reef_state, grp, with_recruits, rng)
 
             # Bleaching mortality
-            tols = @view(reef_state.wild_dhw_tolerances.data[ts, loc, grp, :])
+            tols = @view(reef_state.wild_dhw_tolerances[ts, loc, grp, :])
             new_mean, new_std, area_lost = bleaching_mortality!(
                 with_recruits,
                 dhws[loc],
