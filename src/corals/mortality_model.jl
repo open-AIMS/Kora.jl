@@ -57,7 +57,7 @@ end
         diams::Vector{F},
         dhw::F,
         depth_coeff::F,
-        tols::YAXArray{F, 1},
+        tols::AbstractVector{F},
         grp::Int64
     )::Tuple where {F<:Float32}
 
@@ -67,7 +67,7 @@ Diameter size reduction due to bleaching mortality and partial mortality.
 - `diams` : population diameter(s)
 - `dhw` : Degree heating week experienced
 - `depth_coeff` : Depth coefficient that ameliorates heat stress
-- `tols` : population heat tolerances (mean and stdev)
+- `tols` : population heat tolerances (mean and stdev) as `AbstractVector{F}`
 - `grp` : Group ID
 
 # Returns

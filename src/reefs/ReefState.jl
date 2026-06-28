@@ -1,4 +1,3 @@
-import YAXArrays.DD: dims
 
 const SEL = Union{Int64,Colon}  # Defined selector type
 
@@ -28,7 +27,7 @@ across time, space, and functional coral groups.
   location. Recruitment is suppressed when the total population approaches this
   ceiling.
 
-All other fields (YAXArray tolerance and mortality stores, and fields prefixed
+All other fields (DimArray tolerance and mortality stores, and fields prefixed
 with `_`) are internal implementation details that may change between minor
 versions.
 
@@ -39,9 +38,9 @@ struct ReefState{
     F<:AbstractFloat,
     PG<:Function,
     PS<:Function,
-    Y3a<:YAXArray{F,3},
-    Y4a<:YAXArray{F,4},
-    Y4b<:YAXArray{F,4}
+    Y3a<:DimArray{F,3},
+    Y4a<:DimArray{F,4},
+    Y4b<:DimArray{F,4}
 }
     wild_population::Array{Vector{F},3}  # [time, location] ⋅ group
     deployed_population::Array{Vector{F},3}  # [time, location] ⋅ group
@@ -74,13 +73,13 @@ end
 Create a thread-safe independent copy of `rs` for use in parallel model
 evaluation (e.g. sensitivity analysis with `Threads.@threads`).
 
-`deepcopy(rs)` is unsafe because `YAXArray` is an immutable struct — Julia
+`deepcopy(rs)` is unsafe because `DimArray` is an immutable struct — Julia
 returns the same instance rather than creating a new one with copied data.
 Fields like `wild_dhw_tolerances` are therefore shared across copies and
 corrupted by concurrent writes in `run_model!`.
 
 This method avoids that by:
-- Reconstructing each `YAXArray` field explicitly with `copy(field.data)`,
+- Reconstructing each `DimArray` field explicitly with `copy(field.data)`,
   guaranteeing independent underlying arrays.
 - Using `deepcopy` only for `wild_population` / `deployed_population`, whose
   elements are `Vector{F}` objects that must also be independent.
@@ -96,12 +95,12 @@ function Base.copy(rs::ReefState)
         copy(rs.deployment_times),
         rs.growth_models,
         rs.survival_models,
-        YAXArray(dims(rs.location_scalers), copy(rs.location_scalers.data)),
+        DimArray(copy(rs.location_scalers.data), dims(rs.location_scalers)),
         copy(rs.density),
         copy(rs.depths),
-        YAXArray(dims(rs.wild_dhw_tolerances), copy(rs.wild_dhw_tolerances.data)),
-        YAXArray(dims(rs.deployed_dhw_tolerances), copy(rs.deployed_dhw_tolerances.data)),
-        YAXArray(dims(rs.mortalities), copy(rs.mortalities.data)),
+        DimArray(copy(rs.wild_dhw_tolerances.data), dims(rs.wild_dhw_tolerances)),
+        DimArray(copy(rs.deployed_dhw_tolerances.data), dims(rs.deployed_dhw_tolerances)),
+        DimArray(copy(rs.mortalities.data), dims(rs.mortalities)),
         copy(rs.carrying_capacity),
         rs._max_pop_size,
         copy(rs._pop_cache),
@@ -370,7 +369,7 @@ function initialize_reef(;
         Dim{:location}(1:n_locs),
         Dim{:group}(group_names)
     )
-    location_scalers = YAXArray(loc_ax, fill(1.0f0, 2, n_locs, n_groups))
+    location_scalers = DimArray(fill(1.0f0, 2, n_locs, n_groups), loc_ax)
 
     # Initialize empty vector arrays
     wild_population = Array{Vector{Float32},3}(undef, n_timesteps, n_locs, n_groups)
@@ -386,8 +385,8 @@ function initialize_reef(;
         Dim{:group}(group_names),
         Dim{:factor}([:mean, :stdev])
     )
-    wild_dhw_tol = YAXArray(dhw_ax, zeros(Float32, n_timesteps, n_locs, n_groups, 2))
-    deployed_dhw_tol = YAXArray(dhw_ax, zeros(Float32, n_timesteps, n_locs, n_groups, 2))
+    wild_dhw_tol = DimArray(zeros(Float32, n_timesteps, n_locs, n_groups, 2), dhw_ax)
+    deployed_dhw_tol = DimArray(zeros(Float32, n_timesteps, n_locs, n_groups, 2), dhw_ax)
 
     mort_names = [:dhw, :cyclone]
     mort_ax = (
@@ -396,8 +395,8 @@ function initialize_reef(;
         Dim{:group}(group_names),
         Dim{:mortality}(mort_names)
     )
-    mort = YAXArray(
-        mort_ax, zeros(Float32, n_timesteps, n_locs, n_groups, length(mort_names))
+    mort = DimArray(
+        zeros(Float32, n_timesteps, n_locs, n_groups, length(mort_names)), mort_ax
     )
 
     if !(depths isa Vector)
@@ -1061,7 +1060,7 @@ The parameters are tuned based on coral bleaching research:
 - `dhw_threshold`: Temperature threshold above which DHW accumulates (default: 4.0°C)
 - `noise_amplitude`: Magnitude of random weather variations (default: 0.9°C)
 """
-function generate_example_environment(
+function generate_example_dhw(
     n_years::Int64,
     n_locations::Int64;
     rng::AbstractRNG=Random.GLOBAL_RNG,
@@ -1071,11 +1070,8 @@ function generate_example_environment(
     seasonal_amplitude::Float32=1.2f0,
     dhw_threshold::Float32=4.0f0,
     noise_amplitude::Float32=0.9f0
-)::YAXArray
-    # Calculate baseline parameters
+)::Matrix{Float32}
     years = range(start_year; length=n_years) .- start_year
-
-    # Initialize vectors
     dhw_data = zeros(Float32, n_years, n_locations)
 
     if with_dhw
@@ -1201,22 +1197,40 @@ function generate_example_environment(
         end
     end
 
-    # Variable axes
+    return dhw_data
+end
+
+function generate_example_environment(
+    n_years::Int64,
+    n_locations::Int64;
+    rng::AbstractRNG=Random.GLOBAL_RNG,
+    start_year::Int64=2020,
+    with_dhw=true,
+    warming_rate::Float32=0.15f0,
+    seasonal_amplitude::Float32=1.2f0,
+    dhw_threshold::Float32=4.0f0,
+    noise_amplitude::Float32=0.9f0
+)::DimArray
+    dhw_data::Matrix{Float32} = generate_example_dhw(
+        n_years, n_locations;
+        rng=rng, start_year=start_year, with_dhw=with_dhw,
+        warming_rate=warming_rate, seasonal_amplitude=seasonal_amplitude,
+        dhw_threshold=dhw_threshold, noise_amplitude=noise_amplitude
+    )
     v_axes = (
         Dim{:timestep}(1:n_years),
         Dim{:location}(1:n_locations),
         Dim{:variable}([:dhw])
     )
-
-    return YAXArray(v_axes, reshape(dhw_data, n_years, n_locations, 1))
+    return DimArray(reshape(dhw_data, n_years, n_locations, 1), v_axes)
 end
 
 """
-    generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::YAXArray
-    generate_environment(dhw::YAXArray; start_year::Int64=2020)::YAXArray
+    generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::DimArray
+    generate_environment(dhw::DimArray; start_year::Int64=2020)::DimArray
 
 Wrap user-supplied Degree Heating Weeks data in a correctly structured environment
-YAXArray, suitable for direct use with Kora.jl model runs.
+DimArray, suitable for direct use with Kora.jl model runs.
 
 `n_years` and `n_locations` are inferred from the input dimensions. Structure
 creation is delegated to `generate_example_environment` so dimension names and
@@ -1226,14 +1240,14 @@ function are then replaced with the caller's real data.
 # Arguments
 - `dhw` : DHW data with shape `(n_timesteps, n_locations)`. Each row is one
   year (or timestep) and each column is one reef location. Accepts either a
-  `Matrix{Float32}` or a 2D `YAXArray` whose first dimension is timestep and
+  `Matrix{Float32}` or a 2D `DimArray` whose first dimension is timestep and
   second dimension is location.
 - `start_year` : First year label for the timestep axis (default: 2020). Passed
   through to `generate_example_environment` for axis labelling only; it does not
   alter the data.
 
 # Returns
-A 3D `YAXArray` with axes `(Dim{:timestep}, Dim{:location}, Dim{:variable})`
+A 3D `DimArray` with axes `(Dim{:timestep}, Dim{:location}, Dim{:variable})`
 identical in structure to the output of `generate_example_environment`, with the
 `:dhw` variable populated from `dhw`.
 
@@ -1261,7 +1275,7 @@ julia> size(env)
 # See Also
 [`generate_example_environment`](@ref)
 """
-function generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::YAXArray
+function generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::DimArray
     n_years, n_locs = size(dhw)
 
     if n_years == 0 || n_locs == 0
@@ -1307,11 +1321,11 @@ function generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::YAX
     return env
 end
 
-function generate_environment(dhw::YAXArray; start_year::Int64=2020)::YAXArray
+function generate_environment(dhw::DimArray; start_year::Int64=2020)::DimArray
     if ndims(dhw) != 2
         throw(
             ArgumentError(
-                "DHW YAXArray must be 2D with dimensions (timestep, location), " *
+                "DHW DimArray must be 2D with dimensions (timestep, location), " *
                 "got $(ndims(dhw))D"
             )
         )
@@ -1320,7 +1334,7 @@ function generate_environment(dhw::YAXArray; start_year::Int64=2020)::YAXArray
     if size(dhw, 1) == 0 || size(dhw, 2) == 0
         throw(
             ArgumentError(
-                "DHW YAXArray dimensions must be non-zero, got size $(size(dhw))"
+                "DHW DimArray dimensions must be non-zero, got size $(size(dhw))"
             )
         )
     end

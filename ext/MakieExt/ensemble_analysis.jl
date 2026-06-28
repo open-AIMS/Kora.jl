@@ -1,7 +1,7 @@
 """
     ensemble_timeseries(
         ensemble_results::NamedTuple,
-        env_conditions::YAXArray,
+        env_conditions::DimArray,
         area::Float32;
         loc::Int=1,
         quantiles::Vector{Float64}=[0.025, 0.5, 0.975],
@@ -26,7 +26,7 @@ Makie Figure object
 function Kora.viz.ensemble_timeseries(
     reef_state::ReefState,
     ensemble_results::NamedTuple,
-    env_conditions::YAXArray;
+    env_conditions::DimArray;
     loc::Int=1,
     quantiles::Vector{Float64}=[0.025, 0.5, 0.975],
     observations::Union{Nothing,NamedTuple}=nothing

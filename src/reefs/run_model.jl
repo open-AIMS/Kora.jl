@@ -1,7 +1,7 @@
 """
     run_model!(
         reef_state::ReefState,
-        env_conditions::YAXArray;
+        env_conditions::DimArray;
         recruits=0.06f0,
         self_seed=0.3f0,
         rng::AbstractRNG=Random.GLOBAL_RNG
@@ -11,7 +11,7 @@ Advance the reef simulation forward in time, writing results into `reef_state`
 in-place. The state is reset to its timestep-1 population before the run begins,
 so calling `run_model!` a second time on the same object produces a fresh result.
 
-`env_conditions` must be a 3D `YAXArray` with axes
+`env_conditions` must be a 3D `DimArray` with axes
 `(Dim{:timestep}, Dim{:location}, Dim{:variable})` containing at minimum a
 `:dhw` variable slice. This is the format returned by both
 `generate_example_environment` and `generate_environment`.
@@ -37,7 +37,18 @@ so calling `run_model!` a second time on the same object produces a fresh result
 """
 function run_model!(
     reef_state::ReefState,
-    env_conditions::YAXArray;
+    env_conditions::DimArray;
+    recruits=0.06f0,
+    self_seed=0.3f0,
+    rng::AbstractRNG=Random.GLOBAL_RNG
+)::Nothing
+    dhw = Matrix{Float32}(env_conditions[:, :, At(:dhw)].data)
+    return run_model!(reef_state, dhw; recruits=recruits, self_seed=self_seed, rng=rng)
+end
+
+function run_model!(
+    reef_state::ReefState,
+    dhw::Matrix{Float32};
     recruits=0.06f0,
     self_seed=0.3f0,
     rng::AbstractRNG=Random.GLOBAL_RNG
@@ -83,7 +94,7 @@ function run_model!(
 
     # Apply initial bleaching mortality (for ts = 1)
     # TODO: Abstract into separate callable method
-    dhws = env_conditions[1, :, At(:dhw)].data
+    dhws = @view dhw[1, :]
     for loc in 1:n_locs, grp in 1:n_grps
         pop_buffer .= 0.0f0  # Reset buffer
 
@@ -182,8 +193,8 @@ function run_model!(
             end
         end
 
-        dhws = env_conditions[ts, :, At(:dhw)].data
-        # cyclone_cats = env_conditions[ts, :, At(:cyclone_category)].data
+        dhws = @view dhw[ts, :]
+        # cyclone_cats = dhw_cyclone[ts, :]
 
         # Mortality occurs
         for loc in 1:n_locs, grp in 1:n_grps
@@ -303,7 +314,7 @@ end
         pop_density=15.0,
         growth_models=growth_models,
         survival_models=survival_models
-    )::Tuple{ReefState, YAXArray}
+    )::Tuple{ReefState, DimArray}
 
 Convenience wrapper that allocates a reef, seeds its population, generates
 synthetic environmental conditions, and returns the completed simulation results.
@@ -326,7 +337,7 @@ keyword arguments.
   offshore-north models).
 
 # Returns
-`Tuple{ReefState, YAXArray}` : The completed reef state containing the full
+`Tuple{ReefState, DimArray}` : The completed reef state containing the full
 time series and the environmental conditions used for the run.
 
 # See Also
