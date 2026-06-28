@@ -491,18 +491,18 @@ function reset!(reef_state::ReefState)
     return reef_state.deployed_dhw_tolerances[2:end, :, :, 1] .= 0.0f0
 end
 
-function size_distribution()::Vector{LogNormal}
+function size_distribution()::Vector{LogNormal{Float32}}
     return [
-        LogNormal{Float32}(2.2382145f0, 0.74870664f0),  # tabular Acropora
-        LogNormal{Float32}(2.1610258f0, 0.64033926f0),  # corymbose Acropora
-        LogNormal{Float32}(1.7919482f0, 0.62202924f0),  # Pocillopora + non-Acropora corymbose
-        LogNormal{Float32}(2.0454452f0, 1.4701339f0),   # Small massives and encrusting
-        LogNormal{Float32}(1.9826132f0, 1.4488107f0)    # Large massives
+        LogNormal{Float32}(2.2382145f0, 0.74870664f0),
+        LogNormal{Float32}(2.1610258f0, 0.64033926f0),
+        LogNormal{Float32}(1.7919482f0, 0.62202924f0),
+        LogNormal{Float32}(2.0454452f0, 1.4701339f0),
+        LogNormal{Float32}(1.9826132f0, 1.4488107f0)
     ]
 end
 
 function _sample_lognormal_bounded(
-    dist::LogNormal, lo::Float64, hi::Float64, n::Int64, rng::AbstractRNG
+    dist::LogNormal{Float32}, lo::Float64, hi::Float64, n::Int64, rng::AbstractRNG
 )::Vector{Float32}
     out = Vector{Float32}(undef, n)
     for i in 1:n
