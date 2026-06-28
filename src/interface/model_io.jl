@@ -229,54 +229,186 @@ Kora.PolyGrowthModel
 [`initialize_reef`](@ref)
 """
 function load_models(filepath::String)::Union{PolyGrowthModel,PolySurvivalModel}
-    raw = JSON.parse(read(filepath, String))
+    content = read(filepath, String)
 
-    validate_spec(
-        raw,
-        ["format_version", "model_kind", "fitted_at", "models", "performance"],
-        filepath
-    )
+    # --- format_version ---
+    fv_m = match(r"\"format_version\"\s*:\s*(\d+)", content)
+    fv_m === nothing && error("missing format_version in $filepath")
+    fvc = fv_m.captures[1]
+    fvc === nothing && error("format_version capture failed in $filepath")
+    fv = parse(Int, fvc::SubString{String})
+    fv == 1 || error("unsupported format_version $fv in $filepath")
 
-    fv = raw["format_version"]
-    if fv ∉ SUPPORTED_FORMAT_VERSIONS
-        error(
-            "Unsupported format_version=$fv in \"$filepath\". " *
-            "Supported: $(SUPPORTED_FORMAT_VERSIONS)"
-        )
-    end
+    # --- model_kind ---
+    mk_m = match(r"\"model_kind\"\s*:\s*\"([^\"]+)\"", content)
+    mk_m === nothing && error("missing model_kind in $filepath")
+    mkc = mk_m.captures[1]
+    mkc === nothing && error("model_kind capture failed in $filepath")
+    model_kind = String(mkc::SubString{String})
 
-    kind = raw["model_kind"]
+    # --- models array: extract each {...} block by balanced-brace scan ---
+    models_start = findfirst("\"models\"", content)
+    models_start === nothing && error("missing models array in $filepath")
+    arr_start = findnext('[', content, last(models_start))
+    arr_start === nothing && error("missing models [ in $filepath")
+
     names = String[]
-    growth_fns = PolyGrowthFunction[]
-    surv_fns = PolySurvivalFunction[]
+    growth_fns   = PolyGrowthFunction[]
+    survival_fns = PolySurvivalFunction[]
 
-    for (i, entry) in enumerate(raw["models"])
-        validate_spec(entry, ["type", "name"], "$filepath models[$i]")
-        push!(names, String(entry["name"]))
-        tag = String(entry["type"])
-        if tag == "PolyGrowthFunction"
-            push!(growth_fns, _deserialize_poly_growth(entry))
-        elseif tag == "PolySurvivalFunction"
-            push!(surv_fns, _deserialize_poly_survival(entry))
-        else
-            error(
-                "Unknown model type tag \"$tag\" in \"$filepath\". " *
-                "Expected \"PolyGrowthFunction\" or \"PolySurvivalFunction\"."
-            )
+    pos = arr_start + 1
+    while pos <= length(content)
+        obj_start = findnext('{', content, pos)
+        obj_start === nothing && break
+        depth = 0
+        obj_end = obj_start
+        for i in obj_start:length(content)
+            c = content[i]
+            if c == '{'
+                depth += 1
+            elseif c == '}'
+                depth -= 1
+                if depth == 0
+                    obj_end = i
+                    break
+                end
+            end
         end
+        block = content[obj_start:obj_end]
+
+        # Extract dtype
+        dt_m = match(r"\"dtype\"\s*:\s*\"([^\"]+)\"", block)
+        dt_m === nothing && error("missing dtype in model block")
+        dtc = dt_m.captures[1]
+        dtc === nothing && error("dtype capture failed")
+        dtype_str = String(dtc::SubString{String})
+
+        # Extract scalar fields
+        function extract_str(pat, blk)
+            mm = match(pat, blk)
+            mm === nothing && error("pattern $pat not found in block")
+            cc = mm.captures[1]
+            cc === nothing && error("capture failed for $pat")
+            return String(cc::SubString{String})
+        end
+
+        entry_name  = extract_str(r"\"name\"\s*:\s*\"([^\"]+)\"",  block)
+        entry_type  = extract_str(r"\"type\"\s*:\s*\"([^\"]+)\"",  block)
+
+        # Extract numeric scalars as strings for parsing
+        mn_x_m = match(r"\"min_x\"\s*:\s*([-\d.eE+]+)", block)
+        mn_y_m = match(r"\"min_y\"\s*:\s*([-\d.eE+]+)", block)
+        mx_x_m = match(r"\"max_x\"\s*:\s*([-\d.eE+]+)", block)
+        mx_y_m = match(r"\"max_y\"\s*:\s*([-\d.eE+]+)", block)
+        (mn_x_m === nothing || mn_y_m === nothing || mx_x_m === nothing || mx_y_m === nothing) &&
+            error("missing min/max fields in block")
+        mnxc = mn_x_m.captures[1]; mnxc === nothing && error("min_x capture")
+        mnyc = mn_y_m.captures[1]; mnyc === nothing && error("min_y capture")
+        mxxc = mx_x_m.captures[1]; mxxc === nothing && error("max_x capture")
+        mxyc = mx_y_m.captures[1]; mxyc === nothing && error("max_y capture")
+        min_x_str = mnxc::SubString{String}
+        min_y_str = mnyc::SubString{String}
+        max_x_str = mxxc::SubString{String}
+        max_y_str = mxyc::SubString{String}
+
+        # Extract poly_coeffs array content
+        pc_m = match(r"\"poly_coeffs\"\s*:\s*\[([^\]]*)\]", block)
+        pc_m === nothing && error("missing poly_coeffs in block")
+        pcc = pc_m.captures[1]
+        pcc === nothing && error("poly_coeffs capture failed")
+        coeffs_substr = pcc::SubString{String}
+
+        push!(names, entry_name)
+
+        if dtype_str == "float32"
+            min_x = Float32(parse(Float64, min_x_str))
+            min_y = Float32(parse(Float64, min_y_str))
+            max_x = Float32(parse(Float64, max_x_str))
+            max_y = Float32(parse(Float64, max_y_str))
+            coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
+            coeffs = Float32[Float32(parse(Float64, cm.match)) for cm in coeff_matches]
+            if entry_type == "PolyGrowthFunction" || model_kind == "growth"
+                push!(growth_fns, PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+            elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
+                push!(survival_fns, PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+            else
+                error("unknown model type $entry_type")
+            end
+        elseif dtype_str == "float64"
+            min_x = parse(Float64, min_x_str)
+            min_y = parse(Float64, min_y_str)
+            max_x = parse(Float64, max_x_str)
+            max_y = parse(Float64, max_y_str)
+            coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
+            coeffs = Float64[parse(Float64, cm.match) for cm in coeff_matches]
+            if entry_type == "PolyGrowthFunction" || model_kind == "growth"
+                push!(growth_fns, PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+            elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
+                push!(survival_fns, PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+            else
+                error("unknown model type $entry_type")
+            end
+        else
+            error("unknown dtype $dtype_str in $filepath")
+        end
+
+        pos = obj_end + 1
     end
 
-    performance = _dict_to_performance(raw["performance"])
+    # --- performance section ---
+    perf_start = findfirst("\"performance\"", content)
+    perf_start === nothing && error("missing performance section in $filepath")
 
-    if kind == "growth"
+    function extract_metric(metric_name, split_name)
+        # Find the split section (train/test) then the metric array
+        split_pat = Regex("\"$split_name\"\\s*:\\s*\\{")
+        sm_m = match(split_pat, content)
+        sm_m === nothing && error("missing $split_name in performance")
+        # Find metric array within the region after perf_start
+        search_region = content[first(perf_start):end]
+        split_m2 = match(split_pat, search_region)
+        split_m2 === nothing && error("missing $split_name in performance region")
+        split_pos = first(perf_start) + split_m2.offset - 1
+        met_pat = Regex("\"$metric_name\"\\s*:\\s*\\[([^\\]]*?)\\]")
+        # search from split_pos
+        met_m = match(met_pat, content[split_pos:end])
+        met_m === nothing && error("missing $metric_name in $split_name")
+        arr_c = met_m.captures[1]
+        arr_c === nothing && error("$metric_name capture failed")
+        arr_str = arr_c::SubString{String}
+        vals = Float32[]
+        for vm in eachmatch(r"[-\d.eE+]+|null", arr_str)
+            push!(vals, vm.match == "null" ? NaN32 : Float32(parse(Float64, vm.match)))
+        end
+        return vals
+    end
+
+    train_rmse    = extract_metric("RMSE",     "train")
+    train_r2      = extract_metric("R2",       "train")
+    train_pearson = extract_metric("pearson",  "train")
+    train_spearman= extract_metric("spearman", "train")
+    train_kendall = extract_metric("kendall",  "train")
+
+    test_rmse     = extract_metric("RMSE",     "test")
+    test_r2       = extract_metric("R2",       "test")
+    test_pearson  = extract_metric("pearson",  "test")
+    test_spearman = extract_metric("spearman", "test")
+    test_kendall  = extract_metric("kendall",  "test")
+
+    train_perf = (RMSE=train_rmse, R2=train_r2, pearson=train_pearson,
+                  spearman=train_spearman, kendall=train_kendall)
+    test_perf  = (RMSE=test_rmse,  R2=test_r2,  pearson=test_pearson,
+                  spearman=test_spearman,  kendall=test_kendall)
+    performance = (train=train_perf, test=test_perf)
+
+    if model_kind == "growth"
+        isempty(growth_fns) && error("no growth functions parsed from $filepath")
         return PolyGrowthModel(names, growth_fns, performance)
-    elseif kind == "survival"
-        return PolySurvivalModel(names, surv_fns, performance)
+    elseif model_kind == "survival"
+        isempty(survival_fns) && error("no survival functions parsed from $filepath")
+        return PolySurvivalModel(names, survival_fns, performance)
     else
-        error(
-            "Unknown model_kind=\"$kind\" in \"$filepath\". " *
-            "Expected \"growth\" or \"survival\"."
-        )
+        error("unknown model_kind $model_kind in $filepath")
     end
 end
 

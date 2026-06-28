@@ -154,30 +154,13 @@ global survival_models::Union{Nothing,PolySurvivalModel} = nothing
 end
 
 function __init__()
-    _growth_path = joinpath(
-        _kora_assets_dir(), "models", "offshore_north_growth_models.json"
-    )
-    _survival_path = joinpath(
-        _kora_assets_dir(), "models", "offshore_north_survival_models.json"
-    )
+    return nothing
+end
 
-    global growth_models = try
-        load_models(_growth_path)
-    catch e
-        @warn "Pre-defined growth models could not be loaded." exception = e
-        nothing
-    end
-
-    global survival_models = try
-        load_models(_survival_path)
-    catch e
-        @warn "Pre-defined survival models could not be loaded." exception = e
-        nothing
-    end
-
-    if !isnothing(growth_models) && !isnothing(survival_models)
-        check_model_pair_skew(_growth_path, _survival_path)
-    end
+function _set_models!(gm::PolyGrowthModel, sm::PolySurvivalModel)::Nothing
+    global growth_models = gm
+    global survival_models = sm
+    return nothing
 end
 
 end  # module Kora
