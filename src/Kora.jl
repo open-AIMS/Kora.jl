@@ -8,14 +8,15 @@ using Statistics, Bootstrap
 using CurveFit
 using Distributions, StatsBase, StatsFuns
 
-using CSV, DataFrames, YAXArrays
+using CSV, DataFrames, DimensionalData
 
 using PrecompileSignatures: @precompile_signatures
 using PrecompileTools: @compile_workload
 
 function _kora_assets_dir()
     baked = pkgdir(Kora, "assets")
-    return isdir(baked) ? baked : joinpath(Sys.BINDIR, "..", "assets")
+    baked !== nothing && isdir(baked) && return baked
+    return joinpath(Sys.BINDIR, "..", "assets")
 end
 
 include("stats.jl")
@@ -100,6 +101,9 @@ export
     get_survival_models,
     check_model_pair_skew
 
+global growth_models::Union{Nothing,PolyGrowthModel} = nothing
+global survival_models::Union{Nothing,PolySurvivalModel} = nothing
+
 # Auto-generate precompilation signatures
 @precompile_signatures(Kora)
 
@@ -130,16 +134,23 @@ export
     juvenile_cover(_reef, 1)
     group_cover_timeseries(_reef)
 
-    # YAXArray reconstruction path (Base.copy)
+    # DimArray reconstruction path (Base.copy)
     _reef2 = Base.copy(_reef)
 
     # User-facing environment wrapper
     _dhw = zeros(Float32, 50, 20)
     generate_environment(_dhw)
 
-    # Ensemble path
+    # Ensemble path — 16-param (base)
     _params = zeros(Float64, 16, 1)
+    _params[2:6, 1] .= 0.2  # group proportions must sum to 1.0
     run_ensemble!(_reef2, _env, _params; rng=Xoshiro(1))
+
+    # Ensemble path — extended (scalers + recruitment), 16 + n_groups + 2 = 23 rows
+    _params_ext = zeros(Float64, 23, 1)
+    _params_ext[2:6, 1] .= 0.2  # group proportions
+    _params_ext[17:21, 1] .= 1.0  # neutral growth scalers
+    run_ensemble!(_reef2, _env, _params_ext, Val(:extended); rng=Xoshiro(1))
 end
 
 function __init__()
@@ -150,14 +161,14 @@ function __init__()
         _kora_assets_dir(), "models", "offshore_north_survival_models.json"
     )
 
-    global growth_models::Union{Nothing,PolyGrowthModel} = try
+    global growth_models = try
         load_models(_growth_path)
     catch e
         @warn "Pre-defined growth models could not be loaded." exception = e
         nothing
     end
 
-    global survival_models::Union{Nothing,PolySurvivalModel} = try
+    global survival_models = try
         load_models(_survival_path)
     catch e
         @warn "Pre-defined survival models could not be loaded." exception = e

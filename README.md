@@ -26,7 +26,7 @@ Key processes:
 
 ## Requirements
 
-- Julia ~1.11.7
+- Julia ~1.11.7 or 1.12+ (1.12 required for AOT compilation)
 
 ## Development Setup
 
@@ -58,6 +58,53 @@ For plotting support, install one or both optional backends:
 # Or for plots in terminal
 ] add UnicodePlots Term
 ```
+
+## AOT Compilation (kora_ui)
+
+`bridge_aot.jl` and `build_julia.jl` support compiling Kora into a native shared library for use by [kora_ui](https://github.com/ConnectedSystems/kora_ui), the Rust/egui frontend. The output (`libkora_bridge.dll/.so/.dylib`) exposes a C ABI callable without the Julia runtime startup cost.
+
+**Requires Julia 1.12+** (`juliac` must be on `PATH` or discoverable via `Sys.BINDIR`).
+
+```powershell
+# Windows (PowerShell) — from the Kora.jl root:
+.\build\build.ps1
+
+# Override output directory:
+.\build\build.ps1 -OutputDir C:\path\to\kora_ui\julia_lib
+
+# Or via environment variable:
+$env:KORA_LIB_DIR = "C:\path\to\kora_ui\julia_lib"; .\build\build.ps1
+```
+
+```bash
+# Linux / macOS — from the Kora.jl root:
+./build/build.sh
+
+# Override output directory:
+./build/build.sh --output-dir /path/to/kora_ui/julia_lib
+
+# Or via environment variable:
+KORA_LIB_DIR=/path/to/kora_ui/julia_lib ./build/build.sh
+```
+
+Output is written to `julia_lib/` by default. The script invokes:
+
+```
+juliac --project=. --output-lib julia_lib/kora_bridge --trim=safe --compile-ccallable --experimental build/bridge_aot.jl
+```
+
+### C API
+
+`bridge_aot.jl` exports two `@ccallable` functions. State is global; `kf_init_reef` must be called before `kf_run_ensemble`.
+
+| Function | Returns | Description |
+|---|---|---|
+| `kf_init_reef(area_m2, init_cover_pct, dhw_out, dhw_cap)` | `Int32` | Initialise reef; write DHW series into caller buffer. Returns `n_timesteps` (75) or `-1`. |
+| `kf_run_ensemble(deploy_*, n_runs, covers_out, covers_cap, lower/median/upper_out, stats_cap, n_ts_out, n_valid_out)` | `Int32` | Run ensemble; fill caller buffers in column-major order. Returns `0`, `-1` (uninitialised/error), or `-2` (buffer too small). |
+
+All output buffers are caller-allocated `Float32` arrays. Column-major layout matches Julia's native array order; the Rust side must account for this when reshaping.
+
+**Phase 1 limitation:** `init_cover_pct` and all `deploy_*` parameters are accepted at the ABI boundary but not yet wired into the simulation.
 
 ## Usage
 
@@ -169,9 +216,13 @@ Kora.jl/
 │   └── UnicodePlotsExt/      # Terminal plotting extension
 ├── bin/
 │   └── main.jl               # Interactive web dashboard
-└── assets/
-    ├── target_groups.csv     # Functional group definitions
-    └── models/               # Serialized fitted models
+├── assets/
+│   ├── target_groups.csv     # Functional group definitions
+│   └── models/               # Serialized fitted models
+└── build/
+    ├── bridge_aot.jl         # @ccallable entry points for AOT compilation
+    ├── build.ps1             # Build driver for Windows (PowerShell)
+    └── build.sh              # Build driver for Linux/macOS
 ```
 
 ## AI Usage Disclosure
