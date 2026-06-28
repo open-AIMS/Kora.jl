@@ -14,6 +14,11 @@ module KoraBridge
 using Kora
 using Statistics: quantile
 
+@noinline function _log_bridge_error(fn::String, e)::Nothing
+    Core.println(stderr, fn, " error: ", e)
+    return
+end
+
 const _N_TIMESTEPS_DEFAULT = Int32(50)
 const _N_GROUPS = Int32(6)
 
@@ -44,7 +49,7 @@ Base.@ccallable function kf_load_models(
         Kora._set_models!(gm, sm)
         return Int32(0)
     catch e
-        Core.println(stderr, "[bridge_aot] kf_load_models error: ", e)
+        _log_bridge_error("[bridge_aot] kf_load_models", e)
         return Int32(-1)
     end
 end
@@ -123,7 +128,7 @@ Base.@ccallable function kf_run_reef(
         unsafe_store!(n_valid_out, Int64(n_valid))
         return _N_TIMESTEPS_DEFAULT
     catch e
-        Core.println(stderr, "[bridge_aot] kf_run_reef error: ", e)
+        _log_bridge_error("[bridge_aot] kf_run_reef", e)
         return Int32(-1)
     end
 end
