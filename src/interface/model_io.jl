@@ -256,10 +256,26 @@ function load_models(filepath::String)::Union{PolyGrowthModel,PolySurvivalModel}
     growth_fns   = PolyGrowthFunction[]
     survival_fns = PolySurvivalFunction[]
 
+    # Find the closing ] of the models array to avoid scanning performance section
+    models_arr_end = arr_start
+    bracket_depth_arr = 0
+    for i in arr_start:length(content)
+        c = content[i]
+        if c == '['
+            bracket_depth_arr += 1
+        elseif c == ']'
+            bracket_depth_arr -= 1
+            if bracket_depth_arr == 0
+                models_arr_end = i
+                break
+            end
+        end
+    end
+
     pos = arr_start + 1
-    while pos <= length(content)
+    while pos < models_arr_end
         obj_start = findnext('{', content, pos)
-        obj_start === nothing && break
+        (obj_start === nothing || obj_start >= models_arr_end) && break
         depth = 0
         obj_end = obj_start
         for i in obj_start:length(content)
