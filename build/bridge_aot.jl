@@ -43,7 +43,8 @@ Base.@ccallable function kf_load_models(
         _survival_ref[] = sm
         Kora._set_models!(gm, sm)
         return Int32(0)
-    catch
+    catch e
+        Core.println(stderr, "[bridge_aot] kf_load_models error: ", e)
         return Int32(-1)
     end
 end
@@ -121,7 +122,8 @@ Base.@ccallable function kf_run_reef(
         unsafe_store!(n_ts_out,    Int64(n_ts))
         unsafe_store!(n_valid_out, Int64(n_valid))
         return _N_TIMESTEPS_DEFAULT
-    catch
+    catch e
+        Core.println(stderr, "[bridge_aot] kf_run_reef error: ", e)
         return Int32(-1)
     end
 end
