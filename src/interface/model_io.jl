@@ -325,8 +325,12 @@ function check_model_pair_skew(
     growth_path::String, surv_path::String; threshold_seconds::Int=86400
 )::Nothing
     function _read_fitted_at(path::String)::Union{String,Nothing}
-        raw = JSON.parse(read(path, String))
-        return haskey(raw, "fitted_at") ? String(raw["fitted_at"]) : nothing
+        content = read(path, String)
+        m = match(r"\"fitted_at\"\s*:\s*\"([^\"]+)\"", content)
+        m === nothing && return nothing
+        cap = m.captures[1]
+        cap === nothing && return nothing
+        return String(cap::SubString{String})
     end
 
     ga = _read_fitted_at(growth_path)
