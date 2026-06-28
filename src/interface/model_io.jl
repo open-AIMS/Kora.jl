@@ -308,6 +308,19 @@ end
 # Timestamp skew check (issue 11)
 # ---------------------------------------------------------------------------
 
+# Parse "yyyy-mm-ddTHH:MM:SS" by splitting into integer components to avoid
+# Dates.parse, which triggers unresolvable dispatch in JuliaC's verifier.
+function _parse_iso_datetime(s::String)::DateTime
+    return DateTime(
+        parse(Int, s[1:4]),   # year
+        parse(Int, s[6:7]),   # month
+        parse(Int, s[9:10]),  # day
+        parse(Int, s[12:13]), # hour
+        parse(Int, s[15:16]), # minute
+        parse(Int, s[18:19]), # second
+    )
+end
+
 function check_model_pair_skew(
     growth_path::String, surv_path::String; threshold_seconds::Int=86400
 )::Nothing
@@ -325,10 +338,9 @@ function check_model_pair_skew(
         return nothing
     end
 
-    fmt = "yyyy-mm-ddTHH:MM:SS"
     try
-        gt = DateTime(ga, fmt)
-        st = DateTime(sa, fmt)
+        gt = _parse_iso_datetime(ga)
+        st = _parse_iso_datetime(sa)
         diff_s = abs(value(gt - st)) / 1_000
         if diff_s > threshold_seconds
             @warn(
