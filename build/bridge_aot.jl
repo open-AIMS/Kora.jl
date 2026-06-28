@@ -17,8 +17,8 @@ using Statistics: quantile
 const _N_TIMESTEPS_DEFAULT = Int32(50)
 const _N_GROUPS = Int32(6)
 
-const _growth_ref   = Ref{Union{Nothing, Kora.PolyGrowthModel}}(nothing)
-const _survival_ref = Ref{Union{Nothing, Kora.PolySurvivalModel}}(nothing)
+const _growth_ref   = Ref{Union{Nothing, Kora.PolyGrowthModel{Float32}}}(nothing)
+const _survival_ref = Ref{Union{Nothing, Kora.PolySurvivalModel{Float32}}}(nothing)
 
 function _build_ensemble_params(n_members::Int)::Matrix{Float64}
     params = randn(6, n_members)
@@ -37,8 +37,8 @@ Base.@ccallable function kf_load_models(
     try
         gp = unsafe_string(growth_path)
         sp = unsafe_string(surv_path)
-        gm = Kora.load_models(gp)::Kora.PolyGrowthModel
-        sm = Kora.load_models(sp)::Kora.PolySurvivalModel
+        gm = Kora.load_models(gp)::Kora.PolyGrowthModel{Float32}
+        sm = Kora.load_models(sp)::Kora.PolySurvivalModel{Float32}
         _growth_ref[]   = gm
         _survival_ref[] = sm
         Kora._set_models!(gm, sm)

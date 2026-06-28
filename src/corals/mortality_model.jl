@@ -219,11 +219,11 @@ end
 
 Functional relationships between coral size and survival.
 """
-struct PolySurvivalModel <: AbstractCoralBehavior
+struct PolySurvivalModel{T<:AbstractFloat} <: AbstractCoralBehavior
     "Functional Group names"
     names::Vector{String}
     "Models for each functional group"
-    models::Vector{PolySurvivalFunction}
+    models::Vector{PolySurvivalFunction{T, Polynomial{T, :x}}}
     "Performance metrics each model"
     performance::NamedTuple
 end

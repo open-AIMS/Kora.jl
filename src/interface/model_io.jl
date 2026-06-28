@@ -228,8 +228,8 @@ Kora.PolyGrowthModel
 [`save_models`](@ref), [`register_model_type!`](@ref),
 [`initialize_reef`](@ref)
 """
-function load_models(filepath::String)::Union{PolyGrowthModel,PolySurvivalModel}
-    content = read(filepath, String)
+function load_models(filepath::String)
+    content = String(read(filepath))
 
     # --- format_version ---
     fv_m = match(r"\"format_version\"\s*:\s*(\d+)", content)
@@ -253,8 +253,10 @@ function load_models(filepath::String)::Union{PolyGrowthModel,PolySurvivalModel}
     arr_start === nothing && error("missing models [ in $filepath")
 
     names = String[]
-    growth_fns   = PolyGrowthFunction[]
-    survival_fns = PolySurvivalFunction[]
+    growth_fns_f32 = PolyGrowthFunction{Float32, Polynomial{Float32, :x}}[]
+    survival_fns_f32 = PolySurvivalFunction{Float32, Polynomial{Float32, :x}}[]
+    growth_fns_f64 = PolyGrowthFunction{Float64, Polynomial{Float64, :x}}[]
+    survival_fns_f64 = PolySurvivalFunction{Float64, Polynomial{Float64, :x}}[]
 
     # Find the closing ] of the models array to avoid scanning performance section
     models_arr_end = arr_start
@@ -344,9 +346,9 @@ function load_models(filepath::String)::Union{PolyGrowthModel,PolySurvivalModel}
             coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
             coeffs = Float32[Float32(parse(Float64, cm.match)) for cm in coeff_matches]
             if entry_type == "PolyGrowthFunction" || model_kind == "growth"
-                push!(growth_fns, PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+                push!(growth_fns_f32, PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
             elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
-                push!(survival_fns, PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+                push!(survival_fns_f32, PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
             else
                 error("unknown model type $entry_type")
             end
@@ -358,9 +360,9 @@ function load_models(filepath::String)::Union{PolyGrowthModel,PolySurvivalModel}
             coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
             coeffs = Float64[parse(Float64, cm.match) for cm in coeff_matches]
             if entry_type == "PolyGrowthFunction" || model_kind == "growth"
-                push!(growth_fns, PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+                push!(growth_fns_f64, PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
             elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
-                push!(survival_fns, PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+                push!(survival_fns_f64, PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
             else
                 error("unknown model type $entry_type")
             end
@@ -418,11 +420,13 @@ function load_models(filepath::String)::Union{PolyGrowthModel,PolySurvivalModel}
     performance = (train=train_perf, test=test_perf)
 
     if model_kind == "growth"
-        isempty(growth_fns) && error("no growth functions parsed from $filepath")
-        return PolyGrowthModel(names, growth_fns, performance)
+        !isempty(growth_fns_f32) && return PolyGrowthModel(names, growth_fns_f32, performance)
+        !isempty(growth_fns_f64) && return PolyGrowthModel(names, growth_fns_f64, performance)
+        error("no growth functions parsed from $filepath")
     elseif model_kind == "survival"
-        isempty(survival_fns) && error("no survival functions parsed from $filepath")
-        return PolySurvivalModel(names, survival_fns, performance)
+        !isempty(survival_fns_f32) && return PolySurvivalModel(names, survival_fns_f32, performance)
+        !isempty(survival_fns_f64) && return PolySurvivalModel(names, survival_fns_f64, performance)
+        error("no survival functions parsed from $filepath")
     else
         error("unknown model_kind $model_kind in $filepath")
     end
@@ -473,7 +477,7 @@ function check_model_pair_skew(
     growth_path::String, surv_path::String; threshold_seconds::Int=86400
 )::Nothing
     function _read_fitted_at(path::String)::Union{String,Nothing}
-        content = read(path, String)
+        content = String(read(path))
         m = match(r"\"fitted_at\"\s*:\s*\"([^\"]+)\"", content)
         m === nothing && return nothing
         cap = m.captures[1]

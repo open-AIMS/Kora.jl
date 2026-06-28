@@ -90,9 +90,9 @@ function (f::PolyGrowthFunction)(x::T)::T where T<:Float32
     return min(f.poly(log(x)), f.max_y)
 end
 
-struct PolyGrowthModel <: AbstractCoralBehavior
+struct PolyGrowthModel{T<:AbstractFloat} <: AbstractCoralBehavior
     names::Vector{String}
-    models::Vector{PolyGrowthFunction}
+    models::Vector{PolyGrowthFunction{T, Polynomial{T, :x}}}
     performance::NamedTuple
 end
 
