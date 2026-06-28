@@ -14,9 +14,9 @@ module KoraBridge
 using Kora
 using Statistics: quantile
 
-@noinline function _log_bridge_error(fn::String, e)::Nothing
-    Core.println(stderr, fn, " error: ", e)
-    return
+macro _write_stderr(msg)
+    n = ncodeunits(msg)
+    :(ccall(:write, Cint, (Cint, Ptr{UInt8}, Csize_t), Int32(2), $msg, Csize_t($n)))
 end
 
 const _N_TIMESTEPS_DEFAULT = Int32(50)
@@ -48,8 +48,8 @@ Base.@ccallable function kf_load_models(
         _survival_ref[] = sm
         Kora._set_models!(gm, sm)
         return Int32(0)
-    catch e
-        _log_bridge_error("[bridge_aot] kf_load_models", e)
+    catch
+        @_write_stderr("[bridge_aot] kf_load_models: Julia exception\n")
         return Int32(-1)
     end
 end
@@ -127,8 +127,8 @@ Base.@ccallable function kf_run_reef(
         unsafe_store!(n_ts_out,    Int64(n_ts))
         unsafe_store!(n_valid_out, Int64(n_valid))
         return _N_TIMESTEPS_DEFAULT
-    catch e
-        _log_bridge_error("[bridge_aot] kf_run_reef", e)
+    catch
+        @_write_stderr("[bridge_aot] kf_run_reef: Julia exception\n")
         return Int32(-1)
     end
 end
