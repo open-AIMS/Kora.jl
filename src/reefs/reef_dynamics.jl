@@ -6,7 +6,8 @@ function apply_growth!(
     model = reef_state.growth_models[grp]
 
     # Use explicit loops to avoid broadcast allocations
-    Threads.@threads for i in eachindex(reef_cover)
+    # Threads.@threads :static
+    for i in eachindex(reef_cover)
         if isempty(diams[i])
             continue
         end
@@ -210,7 +211,8 @@ function update_coral_tolerances!(
     mature_size = susceptibility_size_thresholds()[grp]
     wild_pop_t1 = reef_state.wild_population[ts1, loc, grp]
     deployed_pop_t1 = reef_state.deployed_population[ts1, loc, grp]
-    n_existing_mature = count(wild_pop_t1 .>= mature_size) + count(deployed_pop_t1 .>= mature_size)
+    n_existing_mature =
+        count(wild_pop_t1 .>= mature_size) + count(deployed_pop_t1 .>= mature_size)
 
     # Weighted mean based on recruitment proportion
     prop = n_recruits / (n_recruits + n_existing_mature)
