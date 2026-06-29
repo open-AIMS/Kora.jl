@@ -20,7 +20,8 @@ end
 function bleaching_susceptibility!(
     x::AbstractArray{F}, cache::AbstractArray{F}; k::F=0.15f0, x0::F=150.0f0
 )::Nothing where {F<:Float32}
-    Threads.@threads for i in eachindex(x, cache)
+    # Threads.@threads :static
+    for i in eachindex(x, cache)
         @inbounds cache[i] = bleaching_susceptibility(x[i]; k=k, x0=x0)
     end
 
@@ -105,7 +106,8 @@ function bleaching_mortality!(
     # Apply size-dependent mortality to each size class
     # (the reduction in size due to partial mortality or mortality).
     # Using an explicit loop here to avoid temporary allocations
-    Threads.@threads for i in eachindex(diams)
+    # Threads.@threads :static
+    for i in eachindex(diams)
         if diams[i] >= mature_size
             # Calculate size-specific mortality modifier
             # The sqrt() converts the area reduction to the expected diameter reduction
@@ -223,7 +225,7 @@ struct PolySurvivalModel{T<:AbstractFloat} <: AbstractCoralBehavior
     "Functional Group names"
     names::Vector{String}
     "Models for each functional group"
-    models::Vector{PolySurvivalFunction{T, Polynomial{T, :x}}}
+    models::Vector{PolySurvivalFunction{T,Polynomial{T,:x}}}
     "Performance metrics each model"
     performance::NamedTuple
 end
