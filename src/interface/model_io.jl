@@ -355,16 +355,16 @@ function load_models(filepath::String)
                 error("unknown model type $entry_type")
             end
         elseif dtype_str == "float64"
-            min_x = parse(Float64, min_x_str)
-            min_y = parse(Float64, min_y_str)
-            max_x = parse(Float64, max_x_str)
-            max_y = parse(Float64, max_y_str)
+            min_x = Float32(parse(Float64, min_x_str))
+            min_y = Float32(parse(Float64, min_y_str))
+            max_x = Float32(parse(Float64, max_x_str))
+            max_y = Float32(parse(Float64, max_y_str))
             coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
-            coeffs = Float64[parse(Float64, cm.match) for cm in coeff_matches]
+            coeffs = Float32[Float32(parse(Float64, cm.match)) for cm in coeff_matches]
             if entry_type == "PolyGrowthFunction" || model_kind == "growth"
-                push!(growth_fns_f64, PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+                push!(growth_fns_f32, PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
             elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
-                push!(survival_fns_f64, PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+                push!(survival_fns_f32, PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
             else
                 error("unknown model type $entry_type")
             end
