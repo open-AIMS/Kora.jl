@@ -16,11 +16,13 @@ $EntryFile   = Join-Path $ScriptDir "bridge_aot.jl"
 
 if ($OutputDir -eq "") {
     $OutputDir = if ($env:KORA_LIB_DIR) { $env:KORA_LIB_DIR } `
-                 else { Join-Path $ProjectRoot "julia_lib" }
+                 else { Join-Path $ProjectRoot "build/dist"}
 }
 
 New-Item -ItemType Directory -Force $OutputDir | Out-Null
 
 $LibStem = Join-Path $OutputDir "kora_bridge"
 
-juliac --project=$ProjectRoot --output-lib $LibStem --trim=safe --compile-ccallable --experimental $EntryFile
+Measure-Command {
+    juliac --project=$ProjectRoot --output-lib $LibStem --trim=safe --compile-ccallable --experimental $EntryFile
+}
