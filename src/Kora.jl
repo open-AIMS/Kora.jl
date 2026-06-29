@@ -89,6 +89,7 @@ export
 # Methods for calibration
 export
     assign_scalers!,
+    mean_colony_cover_m2,
     set_population!,
     run_model,
     run_model!,
@@ -150,7 +151,17 @@ global survival_models::Union{Nothing,PolySurvivalModel} = nothing
     _params_ext = zeros(Float64, 23, 1)
     _params_ext[2:6, 1] .= 0.2  # group proportions
     _params_ext[17:21, 1] .= 1.0  # neutral growth scalers
-    run_ensemble!(_reef2, _env, _params_ext, Val(:extended); rng=Xoshiro(1))
+    run_ensemble!(_reef2, _env, _params_ext; rng=Xoshiro(1))
+
+    # AOT bridge path: Matrix{Float32} env + default rng (TaskLocalRNG).
+    # The bridge calls run_ensemble! without an explicit rng, so Random.GLOBAL_RNG
+    # (TaskLocalRNG) is used.  Without this entry the rand(TaskLocalRNG, ...) methods
+    # inside run_model! are never compiled and get trimmed by juliac --trim=safe.
+    _dhw_mat = generate_example_dhw(50, 20)
+    _params_aot = zeros(Float64, 6, 1)
+    _params_aot[1, 1] = 1.0
+    _params_aot[2:6, 1] .= 0.2
+    run_ensemble!(_reef2, _dhw_mat, _params_aot)
 end
 
 function __init__()
