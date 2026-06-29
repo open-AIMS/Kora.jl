@@ -3,7 +3,7 @@ using Kora
 using Random
 using Statistics
 
-const RNG = Xoshiro(42)
+const RNG = Xoshiro(31173)
 const MODELS_AVAILABLE = !isnothing(Kora.growth_models) && !isnothing(Kora.survival_models)
 
 @testset "Statistical Functions" begin
@@ -494,6 +494,188 @@ end
          "max_x": 100.0, "max_y": 10.0, "poly_coeffs": [1.0, 0.5]}
       ],
       "performance": {"train": {}, "test": {}}
+    }
+    """
+            )
+            @test_throws Exception Kora.load_models(path)
+        finally
+            isfile(path) && rm(path)
+        end
+    end
+
+    @testset "load_models: valid float32 growth spec parses correctly" begin
+        path = tempname() * ".json"
+        try
+            write(
+                path,
+                """
+    {
+      "format_version": 1,
+      "model_kind": "growth",
+      "fitted_at": "2024-06-01T12:00:00",
+      "models": [
+        {
+          "type": "PolyGrowthFunction",
+          "name": "species_a",
+          "dtype": "float32",
+          "min_x": 5.0,
+          "min_y": 2.0,
+          "max_x": 200.0,
+          "max_y": 50.0,
+          "poly_coeffs": [1.0, 0.5, -0.01]
+        }
+      ],
+      "performance": {
+        "train": {"RMSE": [0.1], "R2": [0.9], "pearson": [0.95], "spearman": [0.94], "kendall": [0.8]},
+        "test":  {"RMSE": [0.15], "R2": [0.85], "pearson": [0.92], "spearman": [0.91], "kendall": [0.75]}
+      }
+    }
+    """
+            )
+            gm = Kora.load_models(path)
+            @test gm isa Kora.PolyGrowthModel
+            @test length(gm) == 1
+            fn = gm[1]
+            @test fn.min_x === 5.0f0
+            @test fn.min_y === 2.0f0
+            @test fn.max_x === 200.0f0
+            @test fn.max_y === 50.0f0
+            @test fn.min_x isa Float32
+        finally
+            isfile(path) && rm(path)
+        end
+    end
+
+    @testset "load_models: valid float64 survival spec parses correctly" begin
+        path = tempname() * ".json"
+        try
+            write(
+                path,
+                """
+    {
+      "format_version": 1,
+      "model_kind": "survival",
+      "fitted_at": "2024-06-01T12:00:00",
+      "models": [
+        {
+          "type": "PolySurvivalFunction",
+          "name": "species_b",
+          "dtype": "float64",
+          "min_x": 10.0,
+          "min_y": 0.1,
+          "max_x": 500.0,
+          "max_y": 0.9,
+          "poly_coeffs": [0.5, 0.1]
+        }
+      ],
+      "performance": {
+        "train": {"RMSE": [0.05], "R2": [0.95], "pearson": [0.97], "spearman": [0.96], "kendall": [0.85]},
+        "test":  {"RMSE": [0.08], "R2": [0.91], "pearson": [0.93], "spearman": [0.92], "kendall": [0.80]}
+      }
+    }
+    """
+            )
+            sm = Kora.load_models(path)
+            @test sm isa Kora.PolySurvivalModel
+            @test length(sm) == 1
+            fn = sm[1]
+            @test fn.min_x === 10.0
+            @test fn.min_y === 0.1
+            @test fn.max_x === 500.0
+            @test fn.max_y === 0.9
+            @test fn.min_x isa Float64
+        finally
+            isfile(path) && rm(path)
+        end
+    end
+
+    @testset "load_models: scientific notation in numeric fields" begin
+        path = tempname() * ".json"
+        try
+            write(
+                path,
+                """
+    {
+      "format_version": 1,
+      "model_kind": "growth",
+      "fitted_at": "2024-06-01T12:00:00",
+      "models": [
+        {
+          "type": "PolyGrowthFunction",
+          "name": "species_c",
+          "dtype": "float32",
+          "min_x": 1.0e+01,
+          "min_y": 5.0e-01,
+          "max_x": 3.0e+02,
+          "max_y": 2.5e+01,
+          "poly_coeffs": [1.5e+00, -2.0e-02]
+        }
+      ],
+      "performance": {
+        "train": {"RMSE": [0.1], "R2": [0.9], "pearson": [0.95], "spearman": [0.94], "kendall": [0.8]},
+        "test":  {"RMSE": [0.15], "R2": [0.85], "pearson": [0.92], "spearman": [0.91], "kendall": [0.75]}
+      }
+    }
+    """
+            )
+            gm = Kora.load_models(path)
+            fn = gm[1]
+            @test fn.min_x === 10.0f0
+            @test fn.min_y === 0.5f0
+            @test fn.max_x === 300.0f0
+            @test fn.max_y === 25.0f0
+        finally
+            isfile(path) && rm(path)
+        end
+    end
+
+    @testset "load_models: missing poly_coeffs in model block" begin
+        path = tempname() * ".json"
+        try
+            write(
+                path,
+                """
+    {
+      "format_version": 1,
+      "model_kind": "growth",
+      "fitted_at": "2024-01-01T00:00:00",
+      "models": [
+        {"type": "PolyGrowthFunction", "name": "test",
+         "dtype": "float32", "min_x": 1.0, "min_y": 0.5,
+         "max_x": 100.0, "max_y": 10.0}
+      ],
+      "performance": {
+        "train": {"RMSE": [0.1], "R2": [0.9], "pearson": [0.95], "spearman": [0.94], "kendall": [0.8]},
+        "test":  {"RMSE": [0.15], "R2": [0.85], "pearson": [0.92], "spearman": [0.91], "kendall": [0.75]}
+      }
+    }
+    """
+            )
+            @test_throws Exception Kora.load_models(path)
+        finally
+            isfile(path) && rm(path)
+        end
+    end
+
+    @testset "load_models: unsupported dtype in model block" begin
+        path = tempname() * ".json"
+        try
+            write(
+                path,
+                """
+    {
+      "format_version": 1,
+      "model_kind": "growth",
+      "fitted_at": "2024-01-01T00:00:00",
+      "models": [
+        {"type": "PolyGrowthFunction", "name": "test",
+         "dtype": "float16", "min_x": 1.0, "min_y": 0.5,
+         "max_x": 100.0, "max_y": 10.0, "poly_coeffs": [1.0, 0.5]}
+      ],
+      "performance": {
+        "train": {"RMSE": [0.1], "R2": [0.9], "pearson": [0.95], "spearman": [0.94], "kendall": [0.8]},
+        "test":  {"RMSE": [0.15], "R2": [0.85], "pearson": [0.92], "spearman": [0.91], "kendall": [0.75]}
+      }
     }
     """
             )
