@@ -22,7 +22,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-OUTPUT_DIR="${OUTPUT_DIR:-$PROJECT_ROOT/julia_lib}"
+OUTPUT_DIR="${OUTPUT_DIR:-$PROJECT_ROOT/build/dist}"
 
 mkdir -p "$OUTPUT_DIR"
 

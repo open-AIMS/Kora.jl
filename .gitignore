@@ -10,3 +10,5 @@ sandbox/
 docs/node_modules/
 
 docs/build/
+
+build/dist/
