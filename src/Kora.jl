@@ -6,7 +6,7 @@ using OrderedCollections
 using Random
 using Statistics, Bootstrap
 using CurveFit
-using Distributions, StatsBase, StatsFuns
+using StatsBase
 
 using CSV, DataFrames, DimensionalData
 
@@ -162,6 +162,20 @@ global survival_models::Union{Nothing,PolySurvivalModel} = nothing
     _params_aot[1, 1] = 1.0
     _params_aot[2:6, 1] .= 0.2
     run_ensemble!(_reef2, _dhw_mat, _params_aot)
+
+    # AOT deployment path: ensure deploy_corals! (and _sample_lognormal_bounded with
+    # unpacked μ/σ) is compiled so it is not trimmed by juliac --trim=safe.
+    _reef_deploy = initialize_reef(;
+        n_timesteps=10, n_locs=1, density=20, area=90.0,
+        growth_models=_gm, survival_models=_sm
+    )
+    initialize_coral_population!(_reef_deploy; rng=Xoshiro(1))
+    _reef_deploy.deployment_times[3, 1, 1] = 10.0f0
+    _dhw_small = generate_example_dhw(10, 1)
+    _params_deploy = zeros(Float64, 6, 1)
+    _params_deploy[1, 1] = 1.0
+    _params_deploy[2:6, 1] .= 0.2
+    run_ensemble!(_reef_deploy, _dhw_small, _params_deploy)
 end
 
 function __init__()
