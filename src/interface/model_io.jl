@@ -17,13 +17,11 @@ function validate_spec(spec::AbstractDict, required::Vector{String}, path::Strin
 end
 
 _dtype_str(::Type{Float32}) = "float32"
-_dtype_str(::Type{Float64}) = "float64"
-_dtype_str(::Type{T}) where {T} = lowercase(string(T))
+_dtype_str(::Type{T}) where {T} = error("Kora only exports Float32 models, got $T")
 
 function _dtype_type(s::AbstractString)
     s == "float32" && return Float32
-    s == "float64" && return Float64
-    return error("Unknown dtype \"$s\". Expected \"float32\" or \"float64\".")
+    return error("Unknown dtype \"$s\". Kora only supports \"float32\".")
 end
 
 const _METRIC_NAMES = String.(Symbol.(ALL_METRICS))
@@ -254,8 +252,6 @@ function load_models_from_string(content::String)
     names = String[]
     growth_fns_f32 = PolyGrowthFunction{Float32,Polynomial{Float32,:x}}[]
     survival_fns_f32 = PolySurvivalFunction{Float32,Polynomial{Float32,:x}}[]
-    growth_fns_f64 = PolyGrowthFunction{Float64,Polynomial{Float64,:x}}[]
-    survival_fns_f64 = PolySurvivalFunction{Float64,Polynomial{Float64,:x}}[]
 
     # Find the closing ] of the models array to avoid scanning performance section
     models_arr_end = arr_start
@@ -344,48 +340,27 @@ function load_models_from_string(content::String)
 
         push!(names, entry_name)
 
-        if dtype_str == "float32"
-            min_x = Float32(parse(Float64, min_x_str))
-            min_y = Float32(parse(Float64, min_y_str))
-            max_x = Float32(parse(Float64, max_x_str))
-            max_y = Float32(parse(Float64, max_y_str))
-            coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
-            coeffs = Float32[Float32(parse(Float64, cm.match)) for cm in coeff_matches]
-            if entry_type == "PolyGrowthFunction" || model_kind == "growth"
-                push!(
-                    growth_fns_f32,
-                    PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
-                )
-            elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
-                push!(
-                    survival_fns_f32,
-                    PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
-                )
-            else
-                error("unknown model type $entry_type")
-            end
-        elseif dtype_str == "float64"
-            min_x = Float32(parse(Float64, min_x_str))
-            min_y = Float32(parse(Float64, min_y_str))
-            max_x = Float32(parse(Float64, max_x_str))
-            max_y = Float32(parse(Float64, max_y_str))
-            coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
-            coeffs = Float32[Float32(parse(Float64, cm.match)) for cm in coeff_matches]
-            if entry_type == "PolyGrowthFunction" || model_kind == "growth"
-                push!(
-                    growth_fns_f32,
-                    PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
-                )
-            elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
-                push!(
-                    survival_fns_f32,
-                    PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
-                )
-            else
-                error("unknown model type $entry_type")
-            end
+        dtype_str == "float32" ||
+            error("unsupported dtype \"$dtype_str\" in model JSON; Kora only supports \"float32\"")
+
+        min_x = Float32(parse(Float64, min_x_str))
+        min_y = Float32(parse(Float64, min_y_str))
+        max_x = Float32(parse(Float64, max_x_str))
+        max_y = Float32(parse(Float64, max_y_str))
+        coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
+        coeffs = Float32[Float32(parse(Float64, cm.match)) for cm in coeff_matches]
+        if entry_type == "PolyGrowthFunction" || model_kind == "growth"
+            push!(
+                growth_fns_f32,
+                PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
+            )
+        elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
+            push!(
+                survival_fns_f32,
+                PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
+            )
         else
-            error("unknown dtype $dtype_str in model JSON")
+            error("unknown model type $entry_type")
         end
 
         pos = obj_end + 1
@@ -440,14 +415,10 @@ function load_models_from_string(content::String)
     if model_kind == "growth"
         !isempty(growth_fns_f32) &&
             return PolyGrowthModel(names, growth_fns_f32, performance)
-        !isempty(growth_fns_f64) &&
-            return PolyGrowthModel(names, growth_fns_f64, performance)
         error("no growth functions parsed from model JSON")
     elseif model_kind == "survival"
         !isempty(survival_fns_f32) &&
             return PolySurvivalModel(names, survival_fns_f32, performance)
-        !isempty(survival_fns_f64) &&
-            return PolySurvivalModel(names, survival_fns_f64, performance)
         error("no survival functions parsed from model JSON")
     else
         error("unknown model_kind $model_kind in model JSON")
