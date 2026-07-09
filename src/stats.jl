@@ -1,7 +1,4 @@
-"""Custom statistical functions for computational efficiency."""
-
-using SpecialFunctions, StatsFuns
-
+# Custom statistical functions for computational efficiency.
 """
     rational_erf(x::Float64)::Float64
 
@@ -48,18 +45,32 @@ function rational_erf(x::F)::F where {F<:Union{Float32,Float64}}
 end
 
 """
-    rational_erfcx(x::F)::F
+    rational_erf(a::F, b::F)::F where {F<:Union{Float32,Float64}}
+
+Rational approximation of the generalised error function integral erf(b) − erf(a).
+Equivalent to `SpecialFunctions.erf(a, b)` but uses `rational_erf` throughout,
+avoiding any native-library dependency. Maximum error is 2 × 1.5 × 10^{-7}.
+
+# See Also
+[`rational_erf(x)`](@ref)
+"""
+function rational_erf(a::F, b::F)::F where {F<:Union{Float32,Float64}}
+    return rational_erf(b) - rational_erf(a)
+end
+
+"""
+    rational_erfcx(x::F)::F where {F<:Union{Float32,Float64}}
 
 Approximation of erfcx using a rational approximation of the error function.
 
 erfcx(x) = e^{x^2} ⋅ (1 - erf(x))
 """
-function rational_erfcx(x::F)::F where {F<:Real}
-    return exp(x * x) * (1 - erf(x))
+function rational_erfcx(x::F)::F where {F<:Union{Float32,Float64}}
+    return exp(x * x) * (1.0 - rational_erf(x))
 end
 
 """
-    truncated_standard_normal_mean(lb::F, ub::F)::F where {F<:Real}
+    truncated_standard_normal_mean(lb::F, ub::F)::F where {F<:Union{Float32,Float64}}
 
 Compute the mean of the standard normal distribution truncated to the interval
 [`lb`, `ub`].
@@ -89,17 +100,17 @@ julia> truncated_standard_normal_mean(0.0, 0.0)
 1. Distributions.jl truncated normal implementation:
    https://github.com/JuliaStats/Distributions.jl/blob/c1705a3015d438f7e841e82ef5148224813831e8/src/truncated/normal.jl#L24-L46
 """
-function truncated_standard_normal_mean(lb::F, ub::F)::F where {F<:Real}
+function truncated_standard_normal_mean(lb::F, ub::F)::F where {F<:Union{Float32,Float64}}
     if abs(lb) > abs(ub)
         return -truncated_standard_normal_mean(-ub, -lb)
     elseif (lb == ub)
         return lb
     end
 
-    mid = (lb + ub) / 2.0
+    mid = (lb + ub) * 0.5
     Δ = (ub - lb) * mid
-    lb′ = lb * StatsFuns.invsqrt2
-    ub′ = ub * StatsFuns.invsqrt2
+    lb′ = lb * 0.7071067811865476
+    ub′ = ub * 0.7071067811865476
 
     m = ub
     if lb ≤ 0 ≤ ub
@@ -110,7 +121,7 @@ function truncated_standard_normal_mean(lb::F, ub::F)::F where {F<:Real}
         m = expm1(-Δ) / z
     end
 
-    return clamp(m / StatsFuns.sqrthalfπ, lb, ub)
+    return clamp(m / 1.2533141373155003, lb, ub)
 end
 
 """
@@ -119,7 +130,7 @@ end
         normal_stdev::F,
         lower_bound::F,
         upper_bound::F
-    )::F where {F<:AbstractFloat}
+    )::F where {F<:Union{Float32,Float64}}
 
 Compute the mean of the normal distribution with mean `normal_mean` and standard
 deviation `normal_stdev`, truncated to the interval [`lower_bound`, `upper_bound`].
@@ -152,7 +163,7 @@ julia> truncated_normal_mean(5.0, 2.0, 5.0, 5.0)
 """
 function truncated_normal_mean(
     normal_mean::F, normal_stdev::F, lower_bound::F, upper_bound::F
-)::F where {F<:AbstractFloat}
+)::F where {F<:Union{Float32,Float64}}
     alpha::F = (lower_bound - normal_mean) / normal_stdev
     beta::F = (upper_bound - normal_mean) / normal_stdev
 
@@ -166,7 +177,7 @@ end
         normal_stdev::F,
         lower_bound::F,
         upper_bound::F
-    )::F where {F<:Real}
+    )::F where {F<:Union{Float32,Float64}}
 
 Evaluate the CDF of the normal distribution with mean `normal_mean` and standard
 deviation `normal_stdev`, truncated to the interval [`lower_bound`, `upper_bound`],
@@ -210,7 +221,7 @@ function truncated_normal_cdf(
     normal_stdev::F,
     lower_bound::F,
     upper_bound::F
-)::F where {F<:Real}
+)::F where {F<:Union{Float32,Float64}}
     if x <= lower_bound
         return 0.0
     elseif x >= upper_bound
@@ -231,13 +242,39 @@ function truncated_normal_cdf(
             $(alpha) and $(beta) standard deviations from the normal mean respectively. \
             Falling back to more accurate calculation."
 
-        return erf(alpha * StatsFuns.invsqrt2, zeta * StatsFuns.invsqrt2) /
-               erf(alpha * StatsFuns.invsqrt2, beta * StatsFuns.invsqrt2)
+        return rational_erf(alpha * 0.7071067811865476, zeta * 0.7071067811865476) /
+               rational_erf(alpha * 0.7071067811865476, beta * 0.7071067811865476)
     end
 
     # Store error function of alpha to avoid duplicate calculations
-    erf_alpha = rational_erf(alpha * StatsFuns.invsqrt2)
+    erf_alpha = rational_erf(alpha * 0.7071067811865476)
 
-    return (rational_erf(zeta * StatsFuns.invsqrt2) - erf_alpha) /
-           (rational_erf(beta * StatsFuns.invsqrt2) - erf_alpha)
+    return (rational_erf(zeta * 0.7071067811865476) - erf_alpha) /
+           (rational_erf(beta * 0.7071067811865476) - erf_alpha)
+end
+
+"""
+    rand_truncated_normal(rng, μ, σ, lo, hi[, n])
+
+Draw one (or `n`) samples from the normal distribution N(μ, σ²) truncated to
+[`lo`, `hi`] using rejection sampling. No native-library dependencies — safe for
+WASM and AOT compilation.
+"""
+function rand_truncated_normal(
+    rng::AbstractRNG, μ::F, σ::F, lo::F, hi::F
+)::F where {F<:Union{Float32,Float64}}
+    while true
+        x = μ + σ * F(randn(rng))
+        lo <= x <= hi && return x
+    end
+end
+
+function rand_truncated_normal(
+    rng::AbstractRNG, μ::F, σ::F, lo::F, hi::F, n::Integer
+)::Vector{F} where {F<:Union{Float32,Float64}}
+    out = Vector{F}(undef, n)
+    for i in 1:n
+        out[i] = rand_truncated_normal(rng, μ, σ, lo, hi)
+    end
+    return out
 end
