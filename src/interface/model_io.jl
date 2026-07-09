@@ -32,7 +32,8 @@ function _performance_to_dict(perf::NamedTuple)::Dict{String,Any}
     _sanitize(v) = isfinite(v) ? v : nothing
     return Dict{String,Any}(
         "train" => Dict{String,Any}(
-            k => _sanitize.(collect(getfield(perf.train, Symbol(k)))) for k in _METRIC_NAMES
+            k => _sanitize.(collect(getfield(perf.train, Symbol(k)))) for
+            k in _METRIC_NAMES
         ),
         "test" => Dict{String,Any}(
             k => _sanitize.(collect(getfield(perf.test, Symbol(k)))) for k in _METRIC_NAMES
@@ -44,18 +45,18 @@ function _dict_to_performance(obj::AbstractDict)::NamedTuple
     tr = obj["train"]
     te = obj["test"]
     train_nt = (
-        RMSE     = Float32.(tr["RMSE"]),
-        R2       = Float32.(tr["R2"]),
-        pearson  = Float32.(tr["pearson"]),
-        spearman = Float32.(tr["spearman"]),
-        kendall  = Float32.(tr["kendall"])
+        RMSE=Float32.(tr["RMSE"]),
+        R2=Float32.(tr["R2"]),
+        pearson=Float32.(tr["pearson"]),
+        spearman=Float32.(tr["spearman"]),
+        kendall=Float32.(tr["kendall"])
     )
     test_nt = (
-        RMSE     = Float32.(te["RMSE"]),
-        R2       = Float32.(te["R2"]),
-        pearson  = Float32.(te["pearson"]),
-        spearman = Float32.(te["spearman"]),
-        kendall  = Float32.(te["kendall"])
+        RMSE=Float32.(te["RMSE"]),
+        R2=Float32.(te["R2"]),
+        pearson=Float32.(te["pearson"]),
+        spearman=Float32.(te["spearman"]),
+        kendall=Float32.(te["kendall"])
     )
     return (train=train_nt, test=test_nt)
 end
@@ -228,37 +229,33 @@ Kora.PolyGrowthModel
 [`save_models`](@ref), [`register_model_type!`](@ref),
 [`initialize_reef`](@ref)
 """
-function load_models(filepath::String)
-    _io = open(filepath, "r")::IOStream
-    content = String(read(_io, typemax(Int64)))
-    close(_io)
-
+function load_models_from_string(content::String)
     # --- format_version ---
     fv_m = match(r"\"format_version\"\s*:\s*(\d+)", content)
-    fv_m === nothing && error("missing format_version in $filepath")
+    fv_m === nothing && error("missing format_version in model JSON")
     fvc = fv_m.captures[1]
-    fvc === nothing && error("format_version capture failed in $filepath")
+    fvc === nothing && error("format_version capture failed in model JSON")
     fv = parse(Int, fvc::SubString{String})
-    fv == 1 || error("unsupported format_version $fv in $filepath")
+    fv == 1 || error("unsupported format_version $fv in model JSON")
 
     # --- model_kind ---
     mk_m = match(r"\"model_kind\"\s*:\s*\"([^\"]+)\"", content)
-    mk_m === nothing && error("missing model_kind in $filepath")
+    mk_m === nothing && error("missing model_kind in model JSON")
     mkc = mk_m.captures[1]
-    mkc === nothing && error("model_kind capture failed in $filepath")
+    mkc === nothing && error("model_kind capture failed in model JSON")
     model_kind = String(mkc::SubString{String})
 
     # --- models array: extract each {...} block by balanced-brace scan ---
     models_start = findfirst("\"models\"", content)
-    models_start === nothing && error("missing models array in $filepath")
+    models_start === nothing && error("missing models array in model JSON")
     arr_start = findnext('[', content, last(models_start))
-    arr_start === nothing && error("missing models [ in $filepath")
+    arr_start === nothing && error("missing models [ in model JSON")
 
     names = String[]
-    growth_fns_f32 = PolyGrowthFunction{Float32, Polynomial{Float32, :x}}[]
-    survival_fns_f32 = PolySurvivalFunction{Float32, Polynomial{Float32, :x}}[]
-    growth_fns_f64 = PolyGrowthFunction{Float64, Polynomial{Float64, :x}}[]
-    survival_fns_f64 = PolySurvivalFunction{Float64, Polynomial{Float64, :x}}[]
+    growth_fns_f32 = PolyGrowthFunction{Float32,Polynomial{Float32,:x}}[]
+    survival_fns_f32 = PolySurvivalFunction{Float32,Polynomial{Float32,:x}}[]
+    growth_fns_f64 = PolyGrowthFunction{Float64,Polynomial{Float64,:x}}[]
+    survival_fns_f64 = PolySurvivalFunction{Float64,Polynomial{Float64,:x}}[]
 
     # Find the closing ] of the models array to avoid scanning performance section
     models_arr_end = arr_start
@@ -312,20 +309,27 @@ function load_models(filepath::String)
             return String(cc::SubString{String})
         end
 
-        entry_name  = extract_str(r"\"name\"\s*:\s*\"([^\"]+)\"",  block)
-        entry_type  = extract_str(r"\"type\"\s*:\s*\"([^\"]+)\"",  block)
+        entry_name = extract_str(r"\"name\"\s*:\s*\"([^\"]+)\"", block)
+        entry_type = extract_str(r"\"type\"\s*:\s*\"([^\"]+)\"", block)
 
         # Extract numeric scalars as strings for parsing
         mn_x_m = match(r"\"min_x\"\s*:\s*([-\d.eE+]+)", block)
         mn_y_m = match(r"\"min_y\"\s*:\s*([-\d.eE+]+)", block)
         mx_x_m = match(r"\"max_x\"\s*:\s*([-\d.eE+]+)", block)
         mx_y_m = match(r"\"max_y\"\s*:\s*([-\d.eE+]+)", block)
-        (mn_x_m === nothing || mn_y_m === nothing || mx_x_m === nothing || mx_y_m === nothing) &&
+        (
+            mn_x_m === nothing || mn_y_m === nothing || mx_x_m === nothing ||
+            mx_y_m === nothing
+        ) &&
             error("missing min/max fields in block")
-        mnxc = mn_x_m.captures[1]; mnxc === nothing && error("min_x capture")
-        mnyc = mn_y_m.captures[1]; mnyc === nothing && error("min_y capture")
-        mxxc = mx_x_m.captures[1]; mxxc === nothing && error("max_x capture")
-        mxyc = mx_y_m.captures[1]; mxyc === nothing && error("max_y capture")
+        mnxc = mn_x_m.captures[1];
+        mnxc === nothing && error("min_x capture")
+        mnyc = mn_y_m.captures[1];
+        mnyc === nothing && error("min_y capture")
+        mxxc = mx_x_m.captures[1];
+        mxxc === nothing && error("max_x capture")
+        mxyc = mx_y_m.captures[1];
+        mxyc === nothing && error("max_y capture")
         min_x_str = mnxc::SubString{String}
         min_y_str = mnyc::SubString{String}
         max_x_str = mxxc::SubString{String}
@@ -348,9 +352,15 @@ function load_models(filepath::String)
             coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
             coeffs = Float32[Float32(parse(Float64, cm.match)) for cm in coeff_matches]
             if entry_type == "PolyGrowthFunction" || model_kind == "growth"
-                push!(growth_fns_f32, PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+                push!(
+                    growth_fns_f32,
+                    PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
+                )
             elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
-                push!(survival_fns_f32, PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+                push!(
+                    survival_fns_f32,
+                    PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
+                )
             else
                 error("unknown model type $entry_type")
             end
@@ -362,14 +372,20 @@ function load_models(filepath::String)
             coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
             coeffs = Float32[Float32(parse(Float64, cm.match)) for cm in coeff_matches]
             if entry_type == "PolyGrowthFunction" || model_kind == "growth"
-                push!(growth_fns_f32, PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+                push!(
+                    growth_fns_f32,
+                    PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
+                )
             elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
-                push!(survival_fns_f32, PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs)))
+                push!(
+                    survival_fns_f32,
+                    PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
+                )
             else
                 error("unknown model type $entry_type")
             end
         else
-            error("unknown dtype $dtype_str in $filepath")
+            error("unknown dtype $dtype_str in model JSON")
         end
 
         pos = obj_end + 1
@@ -377,7 +393,7 @@ function load_models(filepath::String)
 
     # --- performance section ---
     perf_start = findfirst("\"performance\"", content)
-    perf_start === nothing && error("missing performance section in $filepath")
+    perf_start === nothing && error("missing performance section in model JSON")
 
     function extract_metric(metric_name, split_name)
         # Find the split section (train/test) then the metric array
@@ -403,35 +419,63 @@ function load_models(filepath::String)
         return vals
     end
 
-    train_rmse    = extract_metric("RMSE",     "train")
-    train_r2      = extract_metric("R2",       "train")
-    train_pearson = extract_metric("pearson",  "train")
-    train_spearman= extract_metric("spearman", "train")
-    train_kendall = extract_metric("kendall",  "train")
+    train_rmse = extract_metric("RMSE", "train")
+    train_r2 = extract_metric("R2", "train")
+    train_pearson = extract_metric("pearson", "train")
+    train_spearman = extract_metric("spearman", "train")
+    train_kendall = extract_metric("kendall", "train")
 
-    test_rmse     = extract_metric("RMSE",     "test")
-    test_r2       = extract_metric("R2",       "test")
-    test_pearson  = extract_metric("pearson",  "test")
+    test_rmse = extract_metric("RMSE", "test")
+    test_r2 = extract_metric("R2", "test")
+    test_pearson = extract_metric("pearson", "test")
     test_spearman = extract_metric("spearman", "test")
-    test_kendall  = extract_metric("kendall",  "test")
+    test_kendall = extract_metric("kendall", "test")
 
     train_perf = (RMSE=train_rmse, R2=train_r2, pearson=train_pearson,
-                  spearman=train_spearman, kendall=train_kendall)
-    test_perf  = (RMSE=test_rmse,  R2=test_r2,  pearson=test_pearson,
-                  spearman=test_spearman,  kendall=test_kendall)
+        spearman=train_spearman, kendall=train_kendall)
+    test_perf = (RMSE=test_rmse, R2=test_r2, pearson=test_pearson,
+        spearman=test_spearman, kendall=test_kendall)
     performance = (train=train_perf, test=test_perf)
 
     if model_kind == "growth"
-        !isempty(growth_fns_f32) && return PolyGrowthModel(names, growth_fns_f32, performance)
-        !isempty(growth_fns_f64) && return PolyGrowthModel(names, growth_fns_f64, performance)
-        error("no growth functions parsed from $filepath")
+        !isempty(growth_fns_f32) &&
+            return PolyGrowthModel(names, growth_fns_f32, performance)
+        !isempty(growth_fns_f64) &&
+            return PolyGrowthModel(names, growth_fns_f64, performance)
+        error("no growth functions parsed from model JSON")
     elseif model_kind == "survival"
-        !isempty(survival_fns_f32) && return PolySurvivalModel(names, survival_fns_f32, performance)
-        !isempty(survival_fns_f64) && return PolySurvivalModel(names, survival_fns_f64, performance)
-        error("no survival functions parsed from $filepath")
+        !isempty(survival_fns_f32) &&
+            return PolySurvivalModel(names, survival_fns_f32, performance)
+        !isempty(survival_fns_f64) &&
+            return PolySurvivalModel(names, survival_fns_f64, performance)
+        error("no survival functions parsed from model JSON")
     else
-        error("unknown model_kind $model_kind in $filepath")
+        error("unknown model_kind $model_kind in model JSON")
     end
+end
+
+function _load_file_libc(filepath::String)::String
+    fp = ccall(:fopen, Ptr{Cvoid}, (Cstring, Cstring), filepath, "rb")
+    fp == C_NULL && error("failed to open model file")
+    try
+        # Clong is Int32 on Windows (long is 32-bit in the Windows ABI) and Int64
+        # on POSIX 64-bit — matches each platform's fseek/ftell signature exactly.
+        # Model JSON files are well under 2 GB so the 32-bit Windows limit is fine.
+        ccall(:fseek, Cint, (Ptr{Cvoid}, Clong, Cint), fp, Clong(0), Cint(2))
+        sz = Int(ccall(:ftell, Clong, (Ptr{Cvoid},), fp))
+        ccall(:fseek, Cint, (Ptr{Cvoid}, Clong, Cint), fp, Clong(0), Cint(0))
+        buf = Vector{UInt8}(undef, sz)
+        ccall(:fread, Csize_t, (Ptr{Cvoid}, Csize_t, Csize_t, Ptr{Cvoid}),
+            pointer(buf), Csize_t(1), Csize_t(sz), fp)
+        return String(buf)
+    finally
+        ccall(:fclose, Cint, (Ptr{Cvoid},), fp)
+    end
+end
+
+function load_models(filepath::String)
+    content = _load_file_libc(filepath)
+    return load_models_from_string(content)
 end
 
 # ---------------------------------------------------------------------------
@@ -471,7 +515,7 @@ function _parse_iso_datetime(s::String)::DateTime
         parse(Int, s[9:10]),  # day
         parse(Int, s[12:13]), # hour
         parse(Int, s[15:16]), # minute
-        parse(Int, s[18:19]), # second
+        parse(Int, s[18:19]) # second
     )
 end
 
