@@ -546,7 +546,7 @@ end
         end
     end
 
-    @testset "load_models: valid float64 survival spec parses correctly" begin
+    @testset "load_models: float64-tagged survival spec is rejected" begin
         path = tempname() * ".json"
         try
             write(
@@ -575,15 +575,7 @@ end
     }
     """
             )
-            sm = Kora.load_models(path)
-            @test sm isa Kora.PolySurvivalModel
-            @test length(sm) == 1
-            fn = sm[1]
-            @test fn.min_x === 10.0
-            @test fn.min_y === 0.1
-            @test fn.max_x === 500.0
-            @test fn.max_y === 0.9
-            @test fn.min_x isa Float64
+            @test_throws ErrorException Kora.load_models(path)
         finally
             isfile(path) && rm(path)
         end
