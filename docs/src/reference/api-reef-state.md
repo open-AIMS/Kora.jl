@@ -21,4 +21,5 @@ area_to_diam
 truncated_standard_normal_mean
 truncated_normal_mean
 truncated_normal_cdf
+mean_colony_cover_m2
 ```

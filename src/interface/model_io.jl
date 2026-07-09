@@ -4,49 +4,6 @@ using Dates: now, DateTime, format, value
 
 const SUPPORTED_FORMAT_VERSIONS = (1,)
 
-# ---------------------------------------------------------------------------
-# Registry
-# Deserializer functions are defined at include-time (stable named functions,
-# no closures). register_model_type! is called from __init__ so no function
-# reference is baked into the precompile cache.
-#
-# Thread safety: _MODEL_TYPE_REGISTRY is populated exclusively in __init__ and
-# is read-only after startup. Concurrent registration from user-spawned tasks
-# is not supported and is not thread-safe.
-# ---------------------------------------------------------------------------
-
-const _MODEL_TYPE_REGISTRY = Dict{String,Function}()
-
-"""
-    register_model_type!(tag::String, deserializer::Function)::Nothing
-
-Register a custom model type so that `load_models` can deserialise it from JSON.
-
-The `tag` string must match the `"type"` field written by the custom serialiser into
-each model entry. The `deserializer` receives the raw parsed JSON `Dict` for
-that entry and must return a callable representing the fitted model function.
-
-The built-in types `"PolyGrowthFunction"` and `"PolySurvivalFunction"` are
-registered automatically when the package is loaded via `__init__`. Registration
-is not thread-safe; all calls must occur before concurrent model loading begins.
-
-# Arguments
-- `tag::String` : Unique string identifier stored in the JSON file.
-- `deserializer::Function` : Function with signature
-  `(entry::AbstractDict) -> Function` that reconstructs a model callable from
-  the serialised `Dict`.
-
-# Returns
-`Nothing`
-
-# See Also
-[`load_models`](@ref), [`save_models`](@ref)
-"""
-function register_model_type!(tag::String, deserializer::Function)::Nothing
-    _MODEL_TYPE_REGISTRY[tag] = deserializer
-    return nothing
-end
-
 # Helpers
 
 function validate_spec(spec::AbstractDict, required::Vector{String}, path::String)::Nothing
@@ -59,22 +16,12 @@ function validate_spec(spec::AbstractDict, required::Vector{String}, path::Strin
     return nothing
 end
 
-function _checked_type_lookup(tag::String)::Function
-    if !haskey(_MODEL_TYPE_REGISTRY, tag)
-        valid = join(sort(collect(keys(_MODEL_TYPE_REGISTRY))), ", ")
-        error("Unknown model type tag \"$tag\". Valid tags: $valid")
-    end
-    return _MODEL_TYPE_REGISTRY[tag]
-end
-
 _dtype_str(::Type{Float32}) = "float32"
-_dtype_str(::Type{Float64}) = "float64"
-_dtype_str(::Type{T}) where {T} = lowercase(string(T))
+_dtype_str(::Type{T}) where {T} = error("Kora only exports Float32 models, got $T")
 
 function _dtype_type(s::AbstractString)
     s == "float32" && return Float32
-    s == "float64" && return Float64
-    return error("Unknown dtype \"$s\". Expected \"float32\" or \"float64\".")
+    return error("Unknown dtype \"$s\". Kora only supports \"float32\".")
 end
 
 const _METRIC_NAMES = String.(Symbol.(ALL_METRICS))
@@ -83,7 +30,8 @@ function _performance_to_dict(perf::NamedTuple)::Dict{String,Any}
     _sanitize(v) = isfinite(v) ? v : nothing
     return Dict{String,Any}(
         "train" => Dict{String,Any}(
-            k => _sanitize.(collect(getfield(perf.train, Symbol(k)))) for k in _METRIC_NAMES
+            k => _sanitize.(collect(getfield(perf.train, Symbol(k)))) for
+            k in _METRIC_NAMES
         ),
         "test" => Dict{String,Any}(
             k => _sanitize.(collect(getfield(perf.test, Symbol(k)))) for k in _METRIC_NAMES
@@ -92,11 +40,21 @@ function _performance_to_dict(perf::NamedTuple)::Dict{String,Any}
 end
 
 function _dict_to_performance(obj::AbstractDict)::NamedTuple
-    train_nt = NamedTuple(
-        Symbol(k) => Float32.(obj["train"][k]) for k in _METRIC_NAMES
+    tr = obj["train"]
+    te = obj["test"]
+    train_nt = (
+        RMSE=Float32.(tr["RMSE"]),
+        R2=Float32.(tr["R2"]),
+        pearson=Float32.(tr["pearson"]),
+        spearman=Float32.(tr["spearman"]),
+        kendall=Float32.(tr["kendall"])
     )
-    test_nt = NamedTuple(
-        Symbol(k) => Float32.(obj["test"][k]) for k in _METRIC_NAMES
+    test_nt = (
+        RMSE=Float32.(te["RMSE"]),
+        R2=Float32.(te["R2"]),
+        pearson=Float32.(te["pearson"]),
+        spearman=Float32.(te["spearman"]),
+        kendall=Float32.(te["kendall"])
     )
     return (train=train_nt, test=test_nt)
 end
@@ -190,8 +148,7 @@ performance. It can be reloaded without information loss using `load_models`.
 `Nothing`
 
 # See Also
-[`load_models`](@ref), [`register_model_type!`](@ref),
-[`fit_growth_models`](@ref), [`fit_survival_models`](@ref)
+[`load_models`](@ref), [`fit_growth_models`](@ref), [`fit_survival_models`](@ref)
 """
 function save_models(
     m::PolyGrowthModel, filepath::String; region::String=""
@@ -233,6 +190,223 @@ end
 # load_models
 # ---------------------------------------------------------------------------
 
+function load_models_from_string(content::String)
+    # --- format_version ---
+    fv_m = match(r"\"format_version\"\s*:\s*(\d+)", content)
+    fv_m === nothing && error("missing format_version in model JSON")
+    fvc = fv_m.captures[1]
+    fvc === nothing && error("format_version capture failed in model JSON")
+    fv = parse(Int, fvc::SubString{String})
+    fv == 1 || error("unsupported format_version $fv in model JSON")
+
+    # --- model_kind ---
+    mk_m = match(r"\"model_kind\"\s*:\s*\"([^\"]+)\"", content)
+    mk_m === nothing && error("missing model_kind in model JSON")
+    mkc = mk_m.captures[1]
+    mkc === nothing && error("model_kind capture failed in model JSON")
+    model_kind = String(mkc::SubString{String})
+
+    # --- models array: extract each {...} block by balanced-brace scan ---
+    models_start = findfirst("\"models\"", content)
+    models_start === nothing && error("missing models array in model JSON")
+    arr_start = findnext('[', content, last(models_start))
+    arr_start === nothing && error("missing models [ in model JSON")
+
+    names = String[]
+    growth_fns_f32 = PolyGrowthFunction{Float32,Polynomial{Float32,:x}}[]
+    survival_fns_f32 = PolySurvivalFunction{Float32,Polynomial{Float32,:x}}[]
+
+    # Find the closing ] of the models array to avoid scanning performance section
+    models_arr_end = arr_start
+    bracket_depth_arr = 0
+    for i in arr_start:length(content)
+        c = content[i]
+        if c == '['
+            bracket_depth_arr += 1
+        elseif c == ']'
+            bracket_depth_arr -= 1
+            if bracket_depth_arr == 0
+                models_arr_end = i
+                break
+            end
+        end
+    end
+
+    pos = arr_start + 1
+    while pos < models_arr_end
+        obj_start = findnext('{', content, pos)
+        (obj_start === nothing || obj_start >= models_arr_end) && break
+        depth = 0
+        obj_end = obj_start
+        for i in obj_start:length(content)
+            c = content[i]
+            if c == '{'
+                depth += 1
+            elseif c == '}'
+                depth -= 1
+                if depth == 0
+                    obj_end = i
+                    break
+                end
+            end
+        end
+        block = content[obj_start:obj_end]
+
+        # Extract dtype
+        dt_m = match(r"\"dtype\"\s*:\s*\"([^\"]+)\"", block)
+        dt_m === nothing && error("missing dtype in model block")
+        dtc = dt_m.captures[1]
+        dtc === nothing && error("dtype capture failed")
+        dtype_str = String(dtc::SubString{String})
+
+        # Extract scalar fields
+        function extract_str(pat, blk)
+            mm = match(pat, blk)
+            mm === nothing && error("pattern $pat not found in block")
+            cc = mm.captures[1]
+            cc === nothing && error("capture failed for $pat")
+            return String(cc::SubString{String})
+        end
+
+        entry_name = extract_str(r"\"name\"\s*:\s*\"([^\"]+)\"", block)
+        entry_type = extract_str(r"\"type\"\s*:\s*\"([^\"]+)\"", block)
+
+        # Extract numeric scalars as strings for parsing
+        mn_x_m = match(r"\"min_x\"\s*:\s*([-\d.eE+]+)", block)
+        mn_y_m = match(r"\"min_y\"\s*:\s*([-\d.eE+]+)", block)
+        mx_x_m = match(r"\"max_x\"\s*:\s*([-\d.eE+]+)", block)
+        mx_y_m = match(r"\"max_y\"\s*:\s*([-\d.eE+]+)", block)
+        (
+            mn_x_m === nothing || mn_y_m === nothing || mx_x_m === nothing ||
+            mx_y_m === nothing
+        ) &&
+            error("missing min/max fields in block")
+        mnxc = mn_x_m.captures[1];
+        mnxc === nothing && error("min_x capture")
+        mnyc = mn_y_m.captures[1];
+        mnyc === nothing && error("min_y capture")
+        mxxc = mx_x_m.captures[1];
+        mxxc === nothing && error("max_x capture")
+        mxyc = mx_y_m.captures[1];
+        mxyc === nothing && error("max_y capture")
+        min_x_str = mnxc::SubString{String}
+        min_y_str = mnyc::SubString{String}
+        max_x_str = mxxc::SubString{String}
+        max_y_str = mxyc::SubString{String}
+
+        # Extract poly_coeffs array content
+        pc_m = match(r"\"poly_coeffs\"\s*:\s*\[([^\]]*)\]", block)
+        pc_m === nothing && error("missing poly_coeffs in block")
+        pcc = pc_m.captures[1]
+        pcc === nothing && error("poly_coeffs capture failed")
+        coeffs_substr = pcc::SubString{String}
+
+        push!(names, entry_name)
+
+        dtype_str == "float32" ||
+            error("unsupported dtype \"$dtype_str\" in model JSON; Kora only supports \"float32\"")
+
+        min_x = Float32(parse(Float64, min_x_str))
+        min_y = Float32(parse(Float64, min_y_str))
+        max_x = Float32(parse(Float64, max_x_str))
+        max_y = Float32(parse(Float64, max_y_str))
+        coeff_matches = eachmatch(r"[-\d.eE+]+", coeffs_substr)
+        coeffs = Float32[Float32(parse(Float64, cm.match)) for cm in coeff_matches]
+        if entry_type == "PolyGrowthFunction" || model_kind == "growth"
+            push!(
+                growth_fns_f32,
+                PolyGrowthFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
+            )
+        elseif entry_type == "PolySurvivalFunction" || model_kind == "survival"
+            push!(
+                survival_fns_f32,
+                PolySurvivalFunction(min_x, min_y, max_x, max_y, Polynomial(coeffs))
+            )
+        else
+            error("unknown model type $entry_type")
+        end
+
+        pos = obj_end + 1
+    end
+
+    # --- performance section ---
+    perf_start = findfirst("\"performance\"", content)
+    perf_start === nothing && error("missing performance section in model JSON")
+
+    function extract_metric(metric_name, split_name)
+        # Find the split section (train/test) then the metric array
+        split_pat = Regex("\"$split_name\"\\s*:\\s*\\{")
+        sm_m = match(split_pat, content)
+        sm_m === nothing && error("missing $split_name in performance")
+        # Find metric array within the region after perf_start
+        search_region = content[first(perf_start):end]
+        split_m2 = match(split_pat, search_region)
+        split_m2 === nothing && error("missing $split_name in performance region")
+        split_pos = first(perf_start) + split_m2.offset - 1
+        met_pat = Regex("\"$metric_name\"\\s*:\\s*\\[([^\\]]*?)\\]")
+        # search from split_pos
+        met_m = match(met_pat, content[split_pos:end])
+        met_m === nothing && error("missing $metric_name in $split_name")
+        arr_c = met_m.captures[1]
+        arr_c === nothing && error("$metric_name capture failed")
+        arr_str = arr_c::SubString{String}
+        vals = Float32[]
+        for vm in eachmatch(r"[-\d.eE+]+|null", arr_str)
+            push!(vals, vm.match == "null" ? NaN32 : Float32(parse(Float64, vm.match)))
+        end
+        return vals
+    end
+
+    train_rmse = extract_metric("RMSE", "train")
+    train_r2 = extract_metric("R2", "train")
+    train_pearson = extract_metric("pearson", "train")
+    train_spearman = extract_metric("spearman", "train")
+    train_kendall = extract_metric("kendall", "train")
+
+    test_rmse = extract_metric("RMSE", "test")
+    test_r2 = extract_metric("R2", "test")
+    test_pearson = extract_metric("pearson", "test")
+    test_spearman = extract_metric("spearman", "test")
+    test_kendall = extract_metric("kendall", "test")
+
+    train_perf = (RMSE=train_rmse, R2=train_r2, pearson=train_pearson,
+        spearman=train_spearman, kendall=train_kendall)
+    test_perf = (RMSE=test_rmse, R2=test_r2, pearson=test_pearson,
+        spearman=test_spearman, kendall=test_kendall)
+    performance = (train=train_perf, test=test_perf)
+
+    if model_kind == "growth"
+        !isempty(growth_fns_f32) &&
+            return PolyGrowthModel(names, growth_fns_f32, performance)
+        error("no growth functions parsed from model JSON")
+    elseif model_kind == "survival"
+        !isempty(survival_fns_f32) &&
+            return PolySurvivalModel(names, survival_fns_f32, performance)
+        error("no survival functions parsed from model JSON")
+    else
+        error("unknown model_kind $model_kind in model JSON")
+    end
+end
+
+function _load_file_libc(filepath::String)::String
+    fp = ccall(:fopen, Ptr{Cvoid}, (Cstring, Cstring), filepath, "rb")
+    fp == C_NULL && error("failed to open model file")
+    try
+        # Clong is Int32 on Windows (long is 32-bit in the Windows ABI) and Int64
+        # on POSIX 64-bit — matches each platform's fseek/ftell signature exactly.
+        # Model JSON files are well under 2 GB so the 32-bit Windows limit is fine.
+        ccall(:fseek, Cint, (Ptr{Cvoid}, Clong, Cint), fp, Clong(0), Cint(2))
+        sz = Int(ccall(:ftell, Clong, (Ptr{Cvoid},), fp))
+        ccall(:fseek, Cint, (Ptr{Cvoid}, Clong, Cint), fp, Clong(0), Cint(0))
+        buf = Vector{UInt8}(undef, sz)
+        ccall(:fread, Csize_t, (Ptr{Cvoid}, Csize_t, Csize_t, Ptr{Cvoid}),
+            pointer(buf), Csize_t(1), Csize_t(sz), fp)
+        return String(buf)
+    finally
+        ccall(:fclose, Cint, (Ptr{Cvoid},), fp)
+    end
+end
+
 """
     load_models(filepath::String)::Union{PolyGrowthModel, PolySurvivalModel}
 
@@ -240,9 +414,9 @@ Deserialise a model collection from a versioned JSON file previously written by
 `save_models`.
 
 The file must declare a supported `format_version`, a `model_kind` of either
-`"growth"` or `"survival"`, and a `"type"` tag for each model entry that has
-been registered via `register_model_type!`. An informative error is raised if
-any required field is missing or if an unknown type tag is encountered.
+`"growth"` or `"survival"`, and a `"type"` tag for each model entry of either
+`"PolyGrowthFunction"` or `"PolySurvivalFunction"`. An informative error is
+raised if any required field is missing or if an unknown type tag is encountered.
 
 # Arguments
 - `filepath::String` : Path to the JSON model file.
@@ -262,54 +436,15 @@ julia> path = joinpath(pkgdir(Kora), "assets", "models",
 julia> m = load_models(path);
 
 julia> typeof(m)
-Kora.PolyGrowthModel
+Kora.PolyGrowthModel{Float32}
 ```
 
 # See Also
-[`save_models`](@ref), [`register_model_type!`](@ref),
-[`initialize_reef`](@ref)
+[`save_models`](@ref), [`initialize_reef`](@ref)
 """
-function load_models(filepath::String)::Union{PolyGrowthModel,PolySurvivalModel}
-    raw = JSON.parse(read(filepath, String))
-
-    validate_spec(
-        raw,
-        ["format_version", "model_kind", "fitted_at", "models", "performance"],
-        filepath
-    )
-
-    fv = raw["format_version"]
-    if fv ∉ SUPPORTED_FORMAT_VERSIONS
-        error(
-            "Unsupported format_version=$fv in \"$filepath\". " *
-            "Supported: $(SUPPORTED_FORMAT_VERSIONS)"
-        )
-    end
-
-    kind = raw["model_kind"]
-    names = String[]
-    models = Function[]
-
-    for (i, entry) in enumerate(raw["models"])
-        validate_spec(entry, ["type", "name"], "$filepath models[$i]")
-        type_tag = String(entry["type"])
-        deserializer = _checked_type_lookup(type_tag)
-        push!(names, String(entry["name"]))
-        push!(models, deserializer(entry))
-    end
-
-    performance = _dict_to_performance(raw["performance"])
-
-    if kind == "growth"
-        return PolyGrowthModel(names, models, performance)
-    elseif kind == "survival"
-        return PolySurvivalModel(names, models, performance)
-    else
-        error(
-            "Unknown model_kind=\"$kind\" in \"$filepath\". " *
-            "Expected \"growth\" or \"survival\"."
-        )
-    end
+function load_models(filepath::String)
+    content = _load_file_libc(filepath)
+    return load_models_from_string(content)
 end
 
 # ---------------------------------------------------------------------------
@@ -340,12 +475,31 @@ end
 # Timestamp skew check (issue 11)
 # ---------------------------------------------------------------------------
 
+# Parse "yyyy-mm-ddTHH:MM:SS" by splitting into integer components to avoid
+# Dates.parse, which triggers unresolvable dispatch in JuliaC's verifier.
+function _parse_iso_datetime(s::String)::DateTime
+    return DateTime(
+        parse(Int, s[1:4]),   # year
+        parse(Int, s[6:7]),   # month
+        parse(Int, s[9:10]),  # day
+        parse(Int, s[12:13]), # hour
+        parse(Int, s[15:16]), # minute
+        parse(Int, s[18:19]) # second
+    )
+end
+
 function check_model_pair_skew(
     growth_path::String, surv_path::String; threshold_seconds::Int=86400
 )::Nothing
     function _read_fitted_at(path::String)::Union{String,Nothing}
-        raw = JSON.parse(read(path, String))
-        return haskey(raw, "fitted_at") ? String(raw["fitted_at"]) : nothing
+        _io = open(path, "r")::IOStream
+        content = String(read(_io, typemax(Int64)))
+        close(_io)
+        m = match(r"\"fitted_at\"\s*:\s*\"([^\"]+)\"", content)
+        m === nothing && return nothing
+        cap = m.captures[1]
+        cap === nothing && return nothing
+        return String(cap::SubString{String})
     end
 
     ga = _read_fitted_at(growth_path)
@@ -357,10 +511,9 @@ function check_model_pair_skew(
         return nothing
     end
 
-    fmt = "yyyy-mm-ddTHH:MM:SS"
     try
-        gt = DateTime(ga, fmt)
-        st = DateTime(sa, fmt)
+        gt = _parse_iso_datetime(ga)
+        st = _parse_iso_datetime(sa)
         diff_s = abs(value(gt - st)) / 1_000
         if diff_s > threshold_seconds
             @warn(

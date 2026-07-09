@@ -1,25 +1,19 @@
 function apply_growth!(
     reef_state::ReefState, grp::Int64, inflection_point::F, diams::Vector{Vector{F}},
-    reef_cover::Vector{F};
-    scalers=reef_state.location_scalers[At(:growth), :, grp].data
+    reef_cover::Vector{F}
 )::Nothing where {F<:Float32}
     model = reef_state.growth_models[grp]
-
-    # Use explicit loops to avoid broadcast allocations
-    Threads.@threads for i in eachindex(reef_cover)
+    for i in eachindex(reef_cover)
         if isempty(diams[i])
             continue
         end
-
-        constraint = space_constraint(reef_cover[i], 20.0f0; x0=inflection_point)
-        scaler = constraint * scalers[i]
-
+        constraint = space_constraint(reef_cover[i], 20.0f0, inflection_point)
+        scaler = constraint * reef_state.location_scalers[1, i, grp]
         @inbounds for j in eachindex(diams[i])
             old_diam = diams[i][j]
             diams[i][j] = old_diam + (model(old_diam) * scaler)
         end
     end
-
     return nothing
 end
 
@@ -48,28 +42,28 @@ function apply_bleaching!(
 )::Tuple{Float32,Float32}
     # Handle wild population
     wild_diams = wild_population(reef_state, ts - 1, loc, grp)
-    wild_tols = @view(reef_state.wild_dhw_tolerances.data[ts - 1, loc, grp, :])
+    wild_tols = @view(reef_state.wild_dhw_tolerances[ts - 1, loc, grp, :])
     wild_μ, wild_σ, wild_area_lost = bleaching_mortality!(
         wild_diams, dhw, depth_coeff, wild_tols, grp
     )
 
     # Update wild tolerances if there was mortality
     if wild_area_lost > 0.0f0
-        reef_state.wild_dhw_tolerances.data[ts, loc, grp, 1] = wild_μ
-        reef_state.wild_dhw_tolerances.data[ts, loc, grp, 2] = wild_σ
+        reef_state.wild_dhw_tolerances[ts, loc, grp, 1] = wild_μ
+        reef_state.wild_dhw_tolerances[ts, loc, grp, 2] = wild_σ
     end
 
     # Handle deployed population
     deployed_diams = deployed_population(reef_state, ts - 1, loc, grp)
-    deployed_tols = @view(reef_state.deployed_dhw_tolerances.data[ts - 1, loc, grp, :])
+    deployed_tols = @view(reef_state.deployed_dhw_tolerances[ts - 1, loc, grp, :])
     deployed_μ, deployed_σ, deployed_area_lost = bleaching_mortality!(
         deployed_diams, dhw, depth_coeff, deployed_tols, grp
     )
 
     # Update deployed tolerances if there was mortality
     if deployed_area_lost > 0.0f0
-        reef_state.deployed_dhw_tolerances.data[ts, loc, grp, 1] = deployed_μ
-        reef_state.deployed_dhw_tolerances.data[ts, loc, grp, 2] = deployed_σ
+        reef_state.deployed_dhw_tolerances[ts, loc, grp, 1] = deployed_μ
+        reef_state.deployed_dhw_tolerances[ts, loc, grp, 2] = deployed_σ
     end
 
     return wild_area_lost, deployed_area_lost
@@ -184,8 +178,8 @@ function update_coral_tolerances!(
     end
 
     # Get t-2 tolerance means
-    wild_mean_t2 = reef_state.wild_dhw_tolerances[ts2, loc, grp, At(:mean)]
-    deployed_mean_t2 = reef_state.deployed_dhw_tolerances[ts2, loc, grp, At(:mean)]
+    wild_mean_t2 = reef_state.wild_dhw_tolerances[ts2, loc, grp, 1]
+    deployed_mean_t2 = reef_state.deployed_dhw_tolerances[ts2, loc, grp, 1]
 
     # Calculate mixing proportions at t-2
     wild_prop_t2, deployed_prop_t2 = calculate_inheritance_proportions(
@@ -194,8 +188,8 @@ function update_coral_tolerances!(
     prev_mean_mixed = (wild_mean_t2 * wild_prop_t2) + (deployed_mean_t2 * deployed_prop_t2)
 
     # Get t-1 tolerance means
-    wild_mean_t1 = reef_state.wild_dhw_tolerances[ts1, loc, grp, At(:mean)]
-    deployed_mean_t1 = reef_state.deployed_dhw_tolerances[ts1, loc, grp, At(:mean)]
+    wild_mean_t1 = reef_state.wild_dhw_tolerances[ts1, loc, grp, 1]
+    deployed_mean_t1 = reef_state.deployed_dhw_tolerances[ts1, loc, grp, 1]
 
     # Calculate mixing proportions at t-1
     wild_prop_t1, deployed_prop_t1 = calculate_inheritance_proportions(
@@ -210,7 +204,8 @@ function update_coral_tolerances!(
     mature_size = susceptibility_size_thresholds()[grp]
     wild_pop_t1 = reef_state.wild_population[ts1, loc, grp]
     deployed_pop_t1 = reef_state.deployed_population[ts1, loc, grp]
-    n_existing_mature = count(wild_pop_t1 .>= mature_size) + count(deployed_pop_t1 .>= mature_size)
+    n_existing_mature =
+        count(wild_pop_t1 .>= mature_size) + count(deployed_pop_t1 .>= mature_size)
 
     # Weighted mean based on recruitment proportion
     prop = n_recruits / (n_recruits + n_existing_mature)
@@ -238,8 +233,8 @@ function _update_coral_tolerances_wild_only!(
     end
 
     # Get wild tolerance means only
-    wild_mean_t2 = reef_state.wild_dhw_tolerances[ts2, loc, grp, At(:mean)]
-    wild_mean_t1 = reef_state.wild_dhw_tolerances[ts1, loc, grp, At(:mean)]
+    wild_mean_t2 = reef_state.wild_dhw_tolerances[ts2, loc, grp, 1]
+    wild_mean_t1 = reef_state.wild_dhw_tolerances[ts1, loc, grp, 1]
 
     # Apply breeder's equation with wild population only
     recruit_mean = breeders(wild_mean_t2, wild_mean_t1, h²)

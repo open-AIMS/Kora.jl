@@ -20,7 +20,8 @@ end
 function bleaching_susceptibility!(
     x::AbstractArray{F}, cache::AbstractArray{F}; k::F=0.15f0, x0::F=150.0f0
 )::Nothing where {F<:Float32}
-    Threads.@threads for i in eachindex(x, cache)
+    # Threads.@threads :static
+    for i in eachindex(x, cache)
         @inbounds cache[i] = bleaching_susceptibility(x[i]; k=k, x0=x0)
     end
 
@@ -57,7 +58,7 @@ end
         diams::Vector{F},
         dhw::F,
         depth_coeff::F,
-        tols::YAXArray{F, 1},
+        tols::AbstractVector{F},
         grp::Int64
     )::Tuple where {F<:Float32}
 
@@ -67,7 +68,7 @@ Diameter size reduction due to bleaching mortality and partial mortality.
 - `diams` : population diameter(s)
 - `dhw` : Degree heating week experienced
 - `depth_coeff` : Depth coefficient that ameliorates heat stress
-- `tols` : population heat tolerances (mean and stdev)
+- `tols` : population heat tolerances (mean and stdev) as `AbstractVector{F}`
 - `grp` : Group ID
 
 # Returns
@@ -80,7 +81,7 @@ function bleaching_mortality!(
     tols::AbstractVector{F},
     grp::Int64
 )::Tuple where {F<:Float32}
-    if all(dhw .< 4.0)
+    if dhw < 4.0f0
         return tols[1], tols[2], 0.0f0
     end
 
@@ -105,7 +106,8 @@ function bleaching_mortality!(
     # Apply size-dependent mortality to each size class
     # (the reduction in size due to partial mortality or mortality).
     # Using an explicit loop here to avoid temporary allocations
-    Threads.@threads for i in eachindex(diams)
+    # Threads.@threads :static
+    for i in eachindex(diams)
         if diams[i] >= mature_size
             # Calculate size-specific mortality modifier
             # The sqrt() converts the area reduction to the expected diameter reduction
@@ -116,10 +118,12 @@ function bleaching_mortality!(
     end
 
     current_cover = cover_cm_to_m2(diams)
-    cover_cm_to_m2!(max.(diam_cache .- diams, 0.0f0), diam_cache)
+    @inbounds for i in eachindex(diams, diam_cache)
+        diam_cache[i] = cover_cm_to_m2(max(diam_cache[i] - diams[i], 0.0f0))
+    end
     area_lost = min(current_cover, sum(diam_cache))
 
-    if any(area_lost > 0.0f0) && ((current_cover - area_lost) > 0.0f0)
+    if area_lost > 0.0f0 && ((current_cover - area_lost) > 0.0f0)
         μ = truncated_normal_mean(μ, stdev, 4.0f0, μ + 10.0f0)
     end
 
@@ -175,60 +179,6 @@ function brier_score(y_true, y_pred)
 end
 
 """
-    LogisticSurvivalModel <: AbstractCoralBehavior
-
-Functional relationships between coral size and survival.
-"""
-struct LogisticSurvivalModel <: AbstractCoralBehavior
-    models::Vector{Function}
-    rmse_scores::Vector{Float32}
-    log_likelihood_scores::Vector{Float32}
-    mcfadden_r2_scores::Vector{Float32}
-    brier_scores::Vector{Float32}
-
-    function LogisticSurvivalModel()
-        return new(
-            survival_models,
-            Float32.(mort_rmse_scores),
-            Float32.(mort_ll_scores),
-            Float32.(mort_mcfadden_scores),
-            Float32.(mort_brier_scores)
-        )
-    end
-end
-
-function Base.show(io::IO, ::MIME"text/plain", x::LogisticSurvivalModel)
-    println(io, "\nSurvival Model Performance Metrics:")
-    println(io, "─"^40)
-
-    group_names = ["Tabular Acropora", "Corymbose Acropora",
-        "branching non-Acropora", "Small massives", "Large massives"]
-
-    explainer = """
-        McFadden's R²: -∞ - 1.0; Higher is better.
-        Log Likelihood: -∞ - 0.0; Higher is better.
-        Brier Score: 0.0 - 1.0; Lower is better; 0.25 = random guess.
-        """
-
-    println(io, explainer)
-
-    for i in eachindex(x.models)
-        println(io, "\nGroup: $(group_names[i])")
-        println(io, "RMSE:     $(Printf.@sprintf("%.3f", x.rmse_scores[i]))")
-        println(
-            io, "McFadden's R²:     $(Printf.@sprintf("%.3f", x.mcfadden_r2_scores[i]))"
-        )
-        println(
-            io, "Log Likelihood:     $(Printf.@sprintf("%.3f", x.log_likelihood_scores[i]))"
-        )
-        println(io, "Brier Score:       $(Printf.@sprintf("%.3f", x.brier_scores[i]))")
-
-        # println(io, "\nConfusion Matrix (threshold = $(x.thresholds[i])):")
-        # println(io, format_confusion_matrix(x.confusion_matrices[i]))
-    end
-end
-
-"""
     PolySurvivalFunction{T<:AbstractFloat,P<:Polynomial} <: Function
 
 A callable struct that represents a coral survival model using a regression.
@@ -273,11 +223,11 @@ end
 
 Functional relationships between coral size and survival.
 """
-struct PolySurvivalModel <: AbstractCoralBehavior
+struct PolySurvivalModel{T<:AbstractFloat} <: AbstractCoralBehavior
     "Functional Group names"
     names::Vector{String}
     "Models for each functional group"
-    models::Vector{Function}
+    models::Vector{PolySurvivalFunction{T,Polynomial{T,:x}}}
     "Performance metrics each model"
     performance::NamedTuple
 end
@@ -324,4 +274,4 @@ function Base.show(io::IO, ::MIME"text/plain", x::PolySurvivalModel)
     )
 end
 
-survival_models = nothing
+survival_models::Union{Nothing,PolySurvivalModel} = nothing

@@ -1,26 +1,73 @@
-using TerminalLoggers, ProgressLogging
+function _alloc_ensemble_results(
+    n_ts::Int, n_locs::Int, n_grps::Int, n_ensemble::Int
+)
+    return (
+        zeros(Float32, n_ts, n_locs, n_ensemble),
+        zeros(Float32, n_ts, n_locs, n_grps, n_ensemble),
+        zeros(Float32, n_ts, n_locs, n_grps, n_ensemble),
+        zeros(Float32, n_ts, n_locs, n_grps, 2, n_ensemble)
+    )
+end
+
+function _collect_member!(
+    ensemble_cover::Array{Float32,3},
+    ensemble_group_cover::Array{Float32,4},
+    ensemble_juvenile_cover::Array{Float32,4},
+    ensemble_wild_dhw_tolerances::Array{Float32,5},
+    reef_state::ReefState,
+    i::Int,
+    n_ts::Int,
+    n_locs::Int,
+    n_grps::Int
+)
+    mature_sizes = mature_size_thresholds()
+    @inbounds for ts in 1:n_ts
+        @inbounds for loc in 1:n_locs
+            loc_cover = 0.0f0
+            for grp in 1:n_grps
+                pop = coral_population(reef_state, ts, loc, grp)
+                grp_cover = sum(cover_cm_to_m2.(pop))
+                ensemble_group_cover[ts, loc, grp, i] = grp_cover
+                ensemble_juvenile_cover[ts, loc, grp, i] = sum(
+                    cover_cm_to_m2.(pop[pop .< mature_sizes[grp]])
+                )
+                ensemble_wild_dhw_tolerances[ts, loc, grp, 1, i] = reef_state.wild_dhw_tolerances[
+                    ts, loc, grp, 1
+                ]
+                ensemble_wild_dhw_tolerances[ts, loc, grp, 2, i] = reef_state.wild_dhw_tolerances[
+                    ts, loc, grp, 2
+                ]
+                loc_cover += grp_cover
+            end
+            ensemble_cover[ts, loc, i] = loc_cover
+        end
+    end
+end
 
 """
     run_ensemble!(
         reef_state::ReefState,
-        env_conditions::YAXArray,
+        env_conditions::DimArray,
         ensemble_params::Matrix{Float64};
         rng::AbstractRNG=Random.GLOBAL_RNG
     )
 
 Run an ensemble of simulations, one per column of `ensemble_params`, reusing
 `reef_state` across members (reset between each run via `set_population!`).
-Progress is reported to the terminal via `ProgressLogging`.
 
 When `ensemble_params` has more than 16 rows, rows 17 through
 `16 + n_groups(reef_state)` are interpreted as per-group location scalers passed
 to `assign_scalers!`, and the final two rows as `recruits` and `self_seed`
 parameters forwarded to `run_model!`.
 
+`env_conditions` must be a 3D `DimArray` with axes
+`(Dim{:timestep}, Dim{:location}, Dim{:variable})` containing at minimum a
+`:dhw` variable slice.
+
 # Arguments
 - `reef_state` : `ReefState` used as the simulation template. Mutated during
   each member run; contents after the call reflect only the last ensemble member.
-- `env_conditions` : Environmental forcing data shared across all members.
+- `env_conditions` : Environmental forcing data (DimArray) shared across all members.
 - `ensemble_params` : Parameter matrix of shape `(n_params, n_members)`. Each
   column defines one ensemble member. Rows 1-16 are population parameters
   consumed by `set_population!`.
@@ -45,7 +92,21 @@ parameters forwarded to `run_model!`.
 """
 function run_ensemble!(
     reef_state::ReefState,
-    env_conditions::YAXArray,
+    env_conditions::DimArray,
+    ensemble_params::Matrix{Float64};
+    rng::AbstractRNG=Random.GLOBAL_RNG
+)
+    return run_ensemble!(
+        reef_state,
+        Matrix{Float32}(env_conditions[:, :, At(:dhw)].data),
+        ensemble_params;
+        rng=rng
+    )
+end
+
+function run_ensemble!(
+    reef_state::ReefState,
+    dhw::Matrix{Float32},
     ensemble_params::Matrix{Float64};
     rng::AbstractRNG=Random.GLOBAL_RNG
 )
@@ -54,86 +115,36 @@ function run_ensemble!(
     n_locs = n_locations(reef_state)
     n_grps = n_groups(reef_state)
 
-    # Pre-allocate storage for ensemble results
-    ensemble_cover = zeros(Float32, n_ts, n_locs, n_ensemble)
-    ensemble_group_cover = zeros(Float32, n_ts, n_locs, n_grps, n_ensemble)
-    ensemble_juvenile_cover = zeros(Float32, n_ts, n_locs, n_grps, n_ensemble)
-    ensemble_wild_dhw_tolerances = zeros(Float32, n_ts, n_locs, n_grps, 2, n_ensemble)
+    ec, egc, ejc, ewdt = _alloc_ensemble_results(n_ts, n_locs, n_grps, n_ensemble)
 
-    time_taken = @elapsed @progress for i in 1:n_ensemble
+    for i in 1:n_ensemble
         params = ensemble_params[:, i]
-
-        # Set up population with this parameter set
         set_population!(reef_state, params)
-
-        # Apply scalers if present
         if length(params) > 16
-            scaler_end = 17 + n_grps - 1
-            loc_scalers = params[17:scaler_end]
-            assign_scalers!(reef_state, loc_scalers)
-
-            # Extract recruitment parameters
-            recruitment_proportion = Float32(params[end - 1])
-            self_seeding_proportion = Float32(params[end])
-
-            # Run simulation
-            run_model!(
-                reef_state,
-                env_conditions;
-                recruits=recruitment_proportion,
-                self_seed=self_seeding_proportion,
+            expected = 16 + n_grps + 2
+            length(params) == expected || throw(
+                ArgumentError(
+                    "ensemble_params has $(length(params)) rows; expected $expected " *
+                    "(16 population + $n_grps scalers + 2 recruitment)"
+                )
+            )
+            assign_scalers!(reef_state, params[17:(16 + n_grps)])
+            run_model!(reef_state, dhw;
+                recruits=Float32(params[end - 1]),
+                self_seed=Float32(params[end]),
                 rng=rng
             )
         else
-            # Run with default recruitment parameters
-            run_model!(reef_state, env_conditions; rng=rng)
+            run_model!(reef_state, dhw; rng=rng)
         end
-
-        mature_sizes = mature_size_thresholds()
-
-        # Store results - optimized to avoid repeated function calls
-        # and temporary allocations
-        for ts in 1:n_ts
-            for loc in 1:n_locs
-                # Total cover at this timestep/location
-                loc_cover = 0.0f0
-
-                for grp in 1:n_grps
-                    pop = coral_population(reef_state, ts, loc, grp)
-                    grp_cover = sum(cover_cm_to_m2.(pop))
-
-                    # Store group-level cover
-                    ensemble_group_cover[ts, loc, grp, i] = grp_cover
-
-                    ensemble_juvenile_cover[ts, loc, grp, i] = sum(
-                        cover_cm_to_m2.(pop[pop .< mature_sizes[grp]])
-                    )
-
-                    # Store DHW tolerances (mean and stdev)
-                    ensemble_wild_dhw_tolerances[ts, loc, grp, 1, i] = reef_state.wild_dhw_tolerances[
-                        ts, loc, grp, At(:mean)
-                    ]
-                    ensemble_wild_dhw_tolerances[ts, loc, grp, 2, i] = reef_state.wild_dhw_tolerances[
-                        ts, loc, grp, At(:stdev)
-                    ]
-
-                    # Accumulate total cover
-                    loc_cover += grp_cover
-                end
-
-                # Store total cover
-                ensemble_cover[ts, loc, i] = loc_cover
-            end
-        end
+        _collect_member!(ec, egc, ejc, ewdt, reef_state, i, n_ts, n_locs, n_grps)
     end
 
-    @info "Ensemble completed in $(time_taken) seconds!"
-
     return (
-        cover=ensemble_cover,
-        group_cover=ensemble_group_cover,
-        juvenile_cover=ensemble_juvenile_cover,
-        wild_dhw_tolerances=ensemble_wild_dhw_tolerances,
+        cover=ec,
+        group_cover=egc,
+        juvenile_cover=ejc,
+        wild_dhw_tolerances=ewdt,
         params=ensemble_params
     )
 end

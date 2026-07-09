@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "b15fbc43e587e9a7c180d2f31daef186fbfbf361"
+project_hash = "61dd5d54cc68904d30d986d12bfd3cb9a55ab214"
 
 [[deps.Accessors]]
 deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "MacroTools"]
@@ -346,7 +346,7 @@ version = "1.12.0"
 
 [[deps.Kora]]
 deps = ["Bootstrap", "CSV", "CurveFit", "DataFrames", "Dates", "DimensionalData", "DiskArrays", "Distributions", "JSON", "Missings", "OrderedCollections", "Polynomials", "PrecompileSignatures", "PrecompileTools", "Printf", "Random", "Statistics", "StatsBase", "StatsFuns"]
-path = "."
+path = ".."
 uuid = "63f594c6-e77c-4cfd-819e-df68f57e9897"
 version = "1.1.0"
 
@@ -768,8 +768,6 @@ version = "1.11.0"
 [[deps.WasmTarget]]
 deps = ["JSON", "PrecompileTools"]
 git-tree-sha1 = "2ada2dcd43e34a9b8db8193957d8cc92432ed39a"
-repo-rev = "main"
-repo-url = "https://github.com/GroupTherapyOrg/WasmTarget.jl"
 uuid = "9f3a1415-1112-405b-ae89-c61daf9872bd"
 version = "0.4.0"
 

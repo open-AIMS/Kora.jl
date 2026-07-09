@@ -4,7 +4,7 @@ using Random
 using Distributions
 using OrderedCollections
 
-using YAXArrays
+using DimensionalData
 using Makie
 using Makie: distinguishable_colors
 using Kora

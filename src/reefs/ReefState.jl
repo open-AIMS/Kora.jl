@@ -1,9 +1,8 @@
-import YAXArrays.DD: dims
 
 const SEL = Union{Int64,Colon}  # Defined selector type
 
 """
-    ReefState{F, P, Y3a, Y4a, Y4b}
+    ReefState{F, PG, PS}
 
 Mutable container holding the full ecological state of a simulated reef system
 across time, space, and functional coral groups.
@@ -16,9 +15,9 @@ across time, space, and functional coral groups.
   corals, with the same `[timestep, location, group]` indexing.
 - `deployment_times::Array{F,3}` : Number of corals deployed at each
   `[timestep, location, group]` combination.
-- `growth_models::Vector{P}` : Per-group growth functions. Each callable maps a
+- `growth_models::Vector{PG}` : Per-group growth functions. Each callable maps a
   colony diameter (cm) to its expected diameter at the next annual timestep.
-- `survival_models::Vector{P}` : Per-group survival functions. Each callable maps
+- `survival_models::Vector{PS}` : Per-group survival functions. Each callable maps
   a colony diameter (cm) to an annual survival probability.
 - `carrying_capacity::Vector{F}` : Maximum coral-bearing area in m^2 for each
   location. Limits total cover and constrains recruitment.
@@ -28,7 +27,7 @@ across time, space, and functional coral groups.
   location. Recruitment is suppressed when the total population approaches this
   ceiling.
 
-All other fields (YAXArray tolerance and mortality stores, and fields prefixed
+All other fields (DimArray tolerance and mortality stores, and fields prefixed
 with `_`) are internal implementation details that may change between minor
 versions.
 
@@ -37,22 +36,20 @@ versions.
 """
 struct ReefState{
     F<:AbstractFloat,
-    P<:Function,
-    Y3a<:YAXArray{F,3},
-    Y4a<:YAXArray{F,4},
-    Y4b<:YAXArray{F,4}
+    PG<:Function,
+    PS<:Function
 }
     wild_population::Array{Vector{F},3}  # [time, location] ⋅ group
     deployed_population::Array{Vector{F},3}  # [time, location] ⋅ group
     deployment_times::Array{F,3}  # [time, location] ⋅ group
-    growth_models::Vector{P}
-    survival_models::Vector{P}
-    location_scalers::Y3a
+    growth_models::Vector{PG}
+    survival_models::Vector{PS}
+    location_scalers::Array{F,3}
     density::Vector{Int64}  # Max population density per location
     depths::Vector{F}       # Depths of each location
-    wild_dhw_tolerances::Y4a
-    deployed_dhw_tolerances::Y4a
-    mortalities::Y4b
+    wild_dhw_tolerances::Array{F,4}
+    deployed_dhw_tolerances::Array{F,4}
+    mortalities::Array{F,4}
     carrying_capacity::Vector{F}  # Area that supports coral in m^2 for each location
     _max_pop_size::Int            # When to sample down population
     _pop_cache::Matrix{F}         # Temporary store of population
@@ -73,13 +70,13 @@ end
 Create a thread-safe independent copy of `rs` for use in parallel model
 evaluation (e.g. sensitivity analysis with `Threads.@threads`).
 
-`deepcopy(rs)` is unsafe because `YAXArray` is an immutable struct — Julia
+`deepcopy(rs)` is unsafe because `DimArray` is an immutable struct — Julia
 returns the same instance rather than creating a new one with copied data.
 Fields like `wild_dhw_tolerances` are therefore shared across copies and
 corrupted by concurrent writes in `run_model!`.
 
 This method avoids that by:
-- Reconstructing each `YAXArray` field explicitly with `copy(field.data)`,
+- Reconstructing each `DimArray` field explicitly with `copy(field.data)`,
   guaranteeing independent underlying arrays.
 - Using `deepcopy` only for `wild_population` / `deployed_population`, whose
   elements are `Vector{F}` objects that must also be independent.
@@ -95,12 +92,12 @@ function Base.copy(rs::ReefState)
         copy(rs.deployment_times),
         rs.growth_models,
         rs.survival_models,
-        YAXArray(dims(rs.location_scalers), copy(rs.location_scalers.data)),
+        copy(rs.location_scalers),
         copy(rs.density),
         copy(rs.depths),
-        YAXArray(dims(rs.wild_dhw_tolerances), copy(rs.wild_dhw_tolerances.data)),
-        YAXArray(dims(rs.deployed_dhw_tolerances), copy(rs.deployed_dhw_tolerances.data)),
-        YAXArray(dims(rs.mortalities), copy(rs.mortalities.data)),
+        copy(rs.wild_dhw_tolerances),
+        copy(rs.deployed_dhw_tolerances),
+        copy(rs.mortalities),
         copy(rs.carrying_capacity),
         rs._max_pop_size,
         copy(rs._pop_cache),
@@ -109,6 +106,56 @@ function Base.copy(rs::ReefState)
         copy(rs._pop_buffer),
         copy(rs._location_buffer),
         copy(rs._recruit_buffer)
+    )
+end
+
+function location_scalers_da(rs::ReefState)
+    return DimArray(
+        rs.location_scalers,
+        (
+            Dim{:scaler}([:growth, :mortality]),
+            Dim{:location}(1:size(rs.location_scalers, 2)),
+            Dim{:group}(1:size(rs.location_scalers, 3))
+        )
+    )
+end
+
+function wild_dhw_tolerances_da(rs::ReefState)
+    n_ts, n_locs, n_groups, _ = size(rs.wild_dhw_tolerances)
+    return DimArray(
+        rs.wild_dhw_tolerances,
+        (
+            Dim{:timestep}(1:n_ts),
+            Dim{:location}(1:n_locs),
+            Dim{:group}(1:n_groups),
+            Dim{:factor}([:mean, :stdev])
+        )
+    )
+end
+
+function deployed_dhw_tolerances_da(rs::ReefState)
+    n_ts, n_locs, n_groups, _ = size(rs.deployed_dhw_tolerances)
+    return DimArray(
+        rs.deployed_dhw_tolerances,
+        (
+            Dim{:timestep}(1:n_ts),
+            Dim{:location}(1:n_locs),
+            Dim{:group}(1:n_groups),
+            Dim{:factor}([:mean, :stdev])
+        )
+    )
+end
+
+function mortalities_da(rs::ReefState)
+    n_ts, n_locs, n_groups, _ = size(rs.mortalities)
+    return DimArray(
+        rs.mortalities,
+        (
+            Dim{:timestep}(1:n_ts),
+            Dim{:location}(1:n_locs),
+            Dim{:group}(1:n_groups),
+            Dim{:mortality}([:dhw, :cyclone])
+        )
     )
 end
 
@@ -138,7 +185,7 @@ Retrieve the total number of wold corals.
     return total
 end
 @inline function total_wild(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::Int64
-    return length(reef_state.wild_population[ts, loc, grp])
+    return @inbounds length(reef_state.wild_population[ts, loc, grp])
 end
 
 """
@@ -155,17 +202,7 @@ Retrieve the total number of deployed corals.
     return total
 end
 @inline function total_deployed(reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL)::Int64
-    t::Int64 = try
-        length(reef_state.deployed_population[ts, loc, grp])
-    catch err
-        if !(err isa UndefRefError)
-            rethrow(err)
-        end
-
-        0
-    end
-
-    return t
+    return @inbounds length(reef_state.deployed_population[ts, loc, grp])
 end
 
 function fill_population_buffer!(
@@ -177,24 +214,26 @@ function fill_population_buffer!(
     pop_buffer::AbstractVector{Float32}
 )::Nothing
     n_wild = total_wild(reef_state, ts, loc, grp)
-    pop_buffer[1:n_wild] .= wild_population(reef_state, ts, loc, grp)
+    wild_pop = wild_population(reef_state, ts, loc, grp)
+    @inbounds for j in 1:n_wild
+        pop_buffer[j] = wild_pop[j]
+    end
 
     n_deployed = total_deployed(reef_state, ts, loc, grp)
     if n_deployed > 0
-        pop_buffer[(n_wild + 1):(n_wild + n_deployed)] .= deployed_population(
-            reef_state, ts, loc, grp
-        )
+        deployed_pop = deployed_population(reef_state, ts, loc, grp)
+        @inbounds for j in 1:n_deployed
+            pop_buffer[n_wild + j] = deployed_pop[j]
+        end
     end
 
     n_recruits = length(recruits)
     if n_recruits > 0
-        total_n = n_wild + n_deployed + n_recruits
-        if total_n > length(pop_buffer)
-            rec_n = length(pop_buffer) - (n_wild + n_deployed)
-            pop_buffer[(n_wild + n_deployed + 1):end] .= recruits[1:rec_n]
-        else
-            pop_buffer[(n_wild + n_deployed + 1):(n_wild + n_deployed + n_recruits)] .=
-                recruits
+        buf_cap = length(pop_buffer)
+        avail = buf_cap - (n_wild + n_deployed)
+        rec_n = min(n_recruits, avail)
+        @inbounds for j in 1:rec_n
+            pop_buffer[n_wild + n_deployed + j] = recruits[j]
         end
     end
 
@@ -223,38 +262,54 @@ end
 
 @inline function wild_population(
     reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL
-)::SubArray
-    return @inbounds @views reef_state.wild_population[ts, loc, grp][:]
+)::Vector{Float32}
+    return @inbounds reef_state.wild_population[ts, loc, grp]
 end
 
 @inline function deployed_population(
     reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL
-)::SubArray
-    return @inbounds @views reef_state.deployed_population[ts, loc, grp][:]
+)::Vector{Float32}
+    return @inbounds reef_state.deployed_population[ts, loc, grp]
 end
 
 @inline function coral_population(
-    reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL;
-    cache=@view(reef_state._pop_cache[loc, :])
-)::SubArray
-    return coral_population!(reef_state, ts, loc, grp, cache)
+    reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL
+)::Vector{Float32}
+    n_wild = total_wild(reef_state, ts, loc, grp)
+    n_deployed = total_deployed(reef_state, ts, loc, grp)
+    result = Vector{Float32}(undef, n_wild + n_deployed)
+    wild_pop = wild_population(reef_state, ts, loc, grp)
+    @inbounds for j in 1:n_wild
+        result[j] = wild_pop[j]
+    end
+    if n_deployed > 0
+        deployed_pop = deployed_population(reef_state, ts, loc, grp)
+        @inbounds for j in 1:n_deployed
+            result[n_wild + j] = deployed_pop[j]
+        end
+    end
+    return result
 end
 function coral_population!(
     reef_state::ReefState, ts::SEL, loc::SEL, grp::SEL, cache::AbstractVector
-)::SubArray
+)::Vector{Float32}
     # TODO: Handle request for sets of groups or locations
     n_wild = total_wild(reef_state, ts, loc, grp)
     n_deployed = total_deployed(reef_state, ts, loc, grp)
 
-    cache[1:n_wild] .= wild_population(reef_state, ts, loc, grp)
-
-    if n_deployed > 0
-        cache[(n_wild + 1):(n_wild + n_deployed)] .= deployed_population(
-            reef_state, ts, loc, grp
-        )
+    wild_pop = wild_population(reef_state, ts, loc, grp)
+    @inbounds for j in 1:n_wild
+        cache[j] = wild_pop[j]
     end
 
-    return @inbounds @view(cache[1:(n_wild + n_deployed)])
+    if n_deployed > 0
+        deployed_pop = deployed_population(reef_state, ts, loc, grp)
+        @inbounds for j in 1:n_deployed
+            cache[n_wild + j] = deployed_pop[j]
+        end
+    end
+
+    return cache[1:(n_wild + n_deployed)]
 end
 
 function update_wild_sample!(
@@ -276,14 +331,14 @@ end
 function update_dhw_tol_mean!(
     reef_state::ReefState, ts::Int64, grp::Int64, vals::AbstractVector{Float32}
 )::Nothing
-    reef_state.wild_dhw_tolerances.data[ts, :, grp, 1] = vals
+    @inbounds reef_state.wild_dhw_tolerances[ts, :, grp, 1] = vals
 
     return nothing
 end
 function update_dhw_tol_mean!(
     reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64, val::Float32
 )::Nothing
-    reef_state.wild_dhw_tolerances.data[ts, loc, grp, 1] = val
+    @inbounds reef_state.wild_dhw_tolerances[ts, loc, grp, 1] = val
 
     return nothing
 end
@@ -291,7 +346,7 @@ end
 function update_dhw_tol_std!(
     reef_state::ReefState, ts::Int64, loc::Int64, grp::Int64, val::Float32
 )::Nothing
-    reef_state.wild_dhw_tolerances.data[ts, loc, grp, 2] = val
+    @inbounds reef_state.wild_dhw_tolerances[ts, loc, grp, 2] = val
 
     return nothing
 end
@@ -329,11 +384,11 @@ to seed the starting population before running a simulation.
   `Vector{Float64}`. Depth controls bleaching mortality coefficients
   (default: `9.0`).
 - `growth_models` : Fitted growth model collection, one function per functional
-  group. Defaults to the package-level offshore-north models loaded from the
-  bundled JSON asset at package load time.
+  group. Not loaded automatically; must be provided explicitly, e.g. via
+  `load_models` on a bundled JSON asset.
 - `survival_models` : Fitted survival model collection, one function per
-  functional group. Defaults to the package-level offshore-north models loaded
-  from the bundled JSON asset at package load time.
+  functional group. Not loaded automatically; must be provided explicitly, e.g.
+  via `load_models` on a bundled JSON asset.
 
 # Returns
 `ReefState` : An empty reef state ready for population initialisation.
@@ -342,7 +397,14 @@ to seed the starting population before running a simulation.
 ```jldoctest
 julia> using Kora
 
-julia> rs = initialize_reef(; n_timesteps=10, n_locs=3);
+julia> gm = load_models(joinpath(pkgdir(Kora), "assets", "models",
+           "offshore_north_growth_models.json"));
+
+julia> sm = load_models(joinpath(pkgdir(Kora), "assets", "models",
+           "offshore_north_survival_models.json"));
+
+julia> rs = initialize_reef(; n_timesteps=10, n_locs=3,
+           growth_models=gm, survival_models=sm);
 
 julia> n_timesteps(rs), n_locations(rs)
 (10, 3)
@@ -361,15 +423,10 @@ function initialize_reef(;
     depths::Union{Float64,Vector{Float64}}=9.0,
     growth_models::AbstractCoralBehavior=Kora.growth_models,
     survival_models::AbstractCoralBehavior=Kora.survival_models
-)
+)::ReefState
     n_groups = length(group_names)
 
-    loc_ax = (
-        Dim{:scaler}([:growth, :mortality]),
-        Dim{:location}(1:n_locs),
-        Dim{:group}(group_names)
-    )
-    location_scalers = YAXArray(loc_ax, fill(1.0f0, 2, n_locs, n_groups))
+    location_scalers = fill(1.0f0, 2, n_locs, n_groups)
 
     # Initialize empty vector arrays
     wild_population = Array{Vector{Float32},3}(undef, n_timesteps, n_locs, n_groups)
@@ -379,25 +436,9 @@ function initialize_reef(;
     deployed_population .= [Float32[]]
     deployment_times = zeros(Float32, n_timesteps, n_locs, n_groups)
 
-    dhw_ax = (
-        Dim{:timestep}(1:n_timesteps),
-        Dim{:location}(1:n_locs),
-        Dim{:group}(group_names),
-        Dim{:factor}([:mean, :stdev])
-    )
-    wild_dhw_tol = YAXArray(dhw_ax, zeros(Float32, n_timesteps, n_locs, n_groups, 2))
-    deployed_dhw_tol = YAXArray(dhw_ax, zeros(Float32, n_timesteps, n_locs, n_groups, 2))
-
-    mort_names = [:dhw, :cyclone]
-    mort_ax = (
-        Dim{:timestep}(1:n_timesteps),
-        Dim{:location}(1:n_locs),
-        Dim{:group}(group_names),
-        Dim{:mortality}(mort_names)
-    )
-    mort = YAXArray(
-        mort_ax, zeros(Float32, n_timesteps, n_locs, n_groups, length(mort_names))
-    )
+    wild_dhw_tol = zeros(Float32, n_timesteps, n_locs, n_groups, 2)
+    deployed_dhw_tol = zeros(Float32, n_timesteps, n_locs, n_groups, 2)
+    mort = zeros(Float32, n_timesteps, n_locs, n_groups, 2)
 
     if !(depths isa Vector)
         depths = fill(depths, n_locs)
@@ -458,21 +499,47 @@ end
 Clear out existing results with empty vector arrays, keeping only the initial state.
 """
 function reset!(reef_state::ReefState)
-    reef_state.wild_population[2:end, :, :] .= [Float32[]]
-    reef_state.deployed_population[2:end, :, :] .= [Float32[]]
+    # Explicit loops: slice .= creates SubArray structs that WasmTarget's compile_new cannot handle
+    n_ts = size(reef_state.wild_population, 1)
+    n_locs = size(reef_state.wild_population, 2)
+    n_grps = size(reef_state.wild_population, 3)
+    @inbounds for ts in 2:n_ts, loc in 1:n_locs, grp in 1:n_grps
+        reef_state.wild_population[ts, loc, grp] = Float32[]
+        reef_state.deployed_population[ts, loc, grp] = Float32[]
+    end
 
-    reef_state.wild_dhw_tolerances[2:end, :, :, 1] .= 0.0f0
-    return reef_state.deployed_dhw_tolerances[2:end, :, :, 1] .= 0.0f0
+    n_ts2 = size(reef_state.wild_dhw_tolerances, 1)
+    n_locs2 = size(reef_state.wild_dhw_tolerances, 2)
+    n_grps2 = size(reef_state.wild_dhw_tolerances, 3)
+    @inbounds for ts in 2:n_ts2, loc in 1:n_locs2, grp in 1:n_grps2
+        reef_state.wild_dhw_tolerances[ts, loc, grp, 1] = 0.0f0
+        reef_state.deployed_dhw_tolerances[ts, loc, grp, 1] = 0.0f0
+    end
+    return reef_state
 end
 
-function size_distribution()::Vector{LogNormal}
-    return [
-        LogNormal{Float32}(2.2382145f0, 0.74870664f0),  # tabular Acropora
-        LogNormal{Float32}(2.1610258f0, 0.64033926f0),  # corymbose Acropora
-        LogNormal{Float32}(1.7919482f0, 0.62202924f0),  # Pocillopora + non-Acropora corymbose
-        LogNormal{Float32}(2.0454452f0, 1.4701339f0),   # Small massives and encrusting
-        LogNormal{Float32}(1.9826132f0, 1.4488107f0)    # Large massives
-    ]
+function size_distribution()::NTuple{5,Tuple{Float32,Float32}}
+    return (
+        (2.2382145f0, 0.74870664f0),
+        (2.1610258f0, 0.64033926f0),
+        (1.7919482f0, 0.62202924f0),
+        (2.0454452f0, 1.4701339f0),
+        (1.9826132f0, 1.4488107f0)
+    )
+end
+
+function _sample_lognormal_bounded(
+    μ::Float32, σ::Float32, lo::Float64, hi::Float64, n::Int64, rng::AbstractRNG
+)::Vector{Float32}
+    out = Vector{Float32}(undef, n)
+    for i in 1:n
+        x = exp(Float64(μ) + Float64(σ) * randn(rng))
+        while x < lo || x > hi
+            x = exp(Float64(μ) + Float64(σ) * randn(rng))
+        end
+        out[i] = Float32(x)
+    end
+    return out
 end
 
 """
@@ -530,33 +597,40 @@ function initialize_coral_population!(
 
     edges = bin_edges()
     for grp in 1:n_groups(reef_state)
-        dist = truncated(size_dist[grp], 0.0, maximum(edges[grp, :]))
-
-        # Scale the number of samples by the desired proportion
         n_samples = round(Int, target_pop_size * group_proportions[grp])
-        initial_population = convert.(Float32, rand(rng, dist, n_samples))
+        μ_g, σ_g = size_dist[grp]
+        initial_population = _sample_lognormal_bounded(
+            μ_g, σ_g, 0.0, Float64(maximum(edges[grp, :])), n_samples, rng
+        )
 
         update_wild_sample!(reef_state, 1, loc, grp, initial_population)
     end
 
-    reef_state.wild_dhw_tolerances[1, :, 1, At(:mean)] .= 3.751612251  # tabular Acropora
-    reef_state.wild_dhw_tolerances[1, :, 2, At(:mean)] .= 4.081622683  # corymbose Acropora
-    reef_state.wild_dhw_tolerances[1, :, 3, At(:mean)] .= 4.487465256  # Pocillopora + non-Acropora corymbose
-    reef_state.wild_dhw_tolerances[1, :, 4, At(:mean)] .= 6.165751937  # Small massives and encrusting
-    reef_state.wild_dhw_tolerances[1, :, 5, At(:mean)] .= 7.153507902  # Large massives
-
-    reef_state.wild_dhw_tolerances[:, :, 1, At(:stdev)] .= 2.904433676  # tabular Acropora
-    reef_state.wild_dhw_tolerances[:, :, 2, At(:stdev)] .= 3.159922076  # corymbose Acropora
-    reef_state.wild_dhw_tolerances[:, :, 3, At(:stdev)] .= 3.474118416  # Pocillopora + non-Acropora corymbose
-    reef_state.wild_dhw_tolerances[:, :, 4, At(:stdev)] .= 4.773419097  # Small massives and encrusting
-    reef_state.wild_dhw_tolerances[:, :, 5, At(:stdev)] .= 5.538122776  # Large massives
+    # Explicit loops: view() constructs SubArray structs that hit the same compile_new
+    # BoundsError in WasmTarget as broadcast .= — scalar indexing avoids all intermediate structs
+    n_locs = size(reef_state.wild_dhw_tolerances, 2)
+    n_ts = size(reef_state.wild_dhw_tolerances, 1)
+    for loc in 1:n_locs
+        reef_state.wild_dhw_tolerances[1, loc, 1, 1] = 3.751612251  # tabular Acropora
+        reef_state.wild_dhw_tolerances[1, loc, 2, 1] = 4.081622683  # corymbose Acropora
+        reef_state.wild_dhw_tolerances[1, loc, 3, 1] = 4.487465256  # Pocillopora + non-Acropora corymbose
+        reef_state.wild_dhw_tolerances[1, loc, 4, 1] = 6.165751937  # Small massives and encrusting
+        reef_state.wild_dhw_tolerances[1, loc, 5, 1] = 7.153507902  # Large massives
+    end
+    for ts in 1:n_ts, loc in 1:n_locs
+        reef_state.wild_dhw_tolerances[ts, loc, 1, 2] = 2.904433676  # tabular Acropora
+        reef_state.wild_dhw_tolerances[ts, loc, 2, 2] = 3.159922076  # corymbose Acropora
+        reef_state.wild_dhw_tolerances[ts, loc, 3, 2] = 3.474118416  # Pocillopora + non-Acropora corymbose
+        reef_state.wild_dhw_tolerances[ts, loc, 4, 2] = 4.773419097  # Small massives and encrusting
+        reef_state.wild_dhw_tolerances[ts, loc, 5, 2] = 5.538122776  # Large massives
+    end
 
     return nothing
 end
 function initialize_coral_population!(
     reef_state::ReefState;
     rng::AbstractRNG=Random.GLOBAL_RNG
-)
+)::Nothing
     n_locs = n_locations(reef_state)
     sample_size = ceil(Int64, maximum(reef_state.carrying_capacity) * 5)
     for loc in 1:n_locs
@@ -595,25 +669,26 @@ within a simulation run.
 # See Also
 [`initialize_coral_population!`](@ref), [`run_model!`](@ref)
 """
-function deploy_corals!(reef_state, ts, loc, n, grp; rng=Random.GLOBAL_RNG)
-    size_dist = size_distribution()[grp]
+function deploy_corals!(reef_state, ts, loc, n, grp; rng=Random.GLOBAL_RNG)::Nothing
+    μ_g, σ_g = size_distribution()[grp]
     edges = bin_edges()[grp, :]
 
-    # edges is already the selected group's bin-edge vector.
-    dist = truncated(size_dist, 0.0, maximum(edges))
-    deploy_sample = convert.(Float32, rand(rng, dist, n))
+    deploy_sample = _sample_lognormal_bounded(
+        μ_g, σ_g, 0.0, Float64(maximum(edges)), n, rng
+    )
 
     return update_deployed_sample!(reef_state, ts, loc, grp, deploy_sample)
 end
 
 function update_pop_cache!(reef_state, current_diams, loc)::Nothing
-    next_pop = @view(reef_state._pop_cache[loc, :])
-
-    reef_state._pop_cache[loc, 1:length(current_diams)] .= current_diams
-    if length(current_diams) < length(next_pop)
-        next_pop[(length(current_diams) + 1):end] .= 0.0f0
+    n_diams = length(current_diams)
+    @inbounds for j in 1:n_diams
+        reef_state._pop_cache[loc, j] = current_diams[j]
     end
-
+    n = size(reef_state._pop_cache, 2)
+    @inbounds for j in (n_diams + 1):n
+        reef_state._pop_cache[loc, j] = 0.0f0
+    end
     return nothing
 end
 
@@ -717,7 +792,7 @@ function coral_cover(reef_state::ReefState, ts::Int64)::Vector{Float32}
 end
 function coral_cover(reef_state::ReefState, ts::Int64, loc::Int64)::Float32
     total = 0.0f0
-    for grp in 1:n_groups(reef_state)
+    @inbounds for grp in 1:n_groups(reef_state)
         total += sum(cover_cm_to_m2(reef_state.wild_population[ts, loc, grp]))
         total += sum(cover_cm_to_m2(reef_state.deployed_population[ts, loc, grp]))
     end
@@ -1060,7 +1135,7 @@ The parameters are tuned based on coral bleaching research:
 - `dhw_threshold`: Temperature threshold above which DHW accumulates (default: 4.0°C)
 - `noise_amplitude`: Magnitude of random weather variations (default: 0.9°C)
 """
-function generate_example_environment(
+function generate_example_dhw(
     n_years::Int64,
     n_locations::Int64;
     rng::AbstractRNG=Random.GLOBAL_RNG,
@@ -1070,11 +1145,8 @@ function generate_example_environment(
     seasonal_amplitude::Float32=1.2f0,
     dhw_threshold::Float32=4.0f0,
     noise_amplitude::Float32=0.9f0
-)::YAXArray
-    # Calculate baseline parameters
+)::Matrix{Float32}
     years = range(start_year; length=n_years) .- start_year
-
-    # Initialize vectors
     dhw_data = zeros(Float32, n_years, n_locations)
 
     if with_dhw
@@ -1200,22 +1272,82 @@ function generate_example_environment(
         end
     end
 
-    # Variable axes
+    return dhw_data
+end
+
+"""
+    generate_example_environment(
+        n_years::Int64,
+        n_locations::Int64;
+        rng::AbstractRNG=Random.GLOBAL_RNG,
+        start_year::Int64=2020,
+        with_dhw=true,
+        warming_rate::Float32=0.15f0,
+        seasonal_amplitude::Float32=1.2f0,
+        dhw_threshold::Float32=4.0f0,
+        noise_amplitude::Float32=0.9f0
+    )::DimArray
+
+Generate a synthetic degree heating week (DHW) environment for `n_years` timesteps
+across `n_locations` locations, suitable for use as the `env_layer` argument to
+`run_model!`.
+
+The generated series combines a long-term warming trend, a seasonal cycle, random
+weather noise, and occasional acute thermal spikes and extreme marine heatwave
+events, producing DHW trajectories with plausible variability for testing and
+demonstration purposes. Set `with_dhw=false` to return an all-zero DHW layer.
+
+# Arguments
+- `n_years::Int64` : Number of annual timesteps to generate.
+- `n_locations::Int64` : Number of locations to generate.
+- `rng::AbstractRNG` : Random number generator (default: `Random.GLOBAL_RNG`).
+- `start_year::Int64` : Calendar year of the first timestep (default: `2020`).
+- `with_dhw` : If `false`, returns a zeroed DHW layer instead of generating one
+  (default: `true`).
+- `warming_rate::Float32` : Strength of the long-term warming trend (default: `0.15f0`).
+- `seasonal_amplitude::Float32` : Amplitude of the seasonal temperature cycle
+  (default: `1.2f0`).
+- `dhw_threshold::Float32` : Temperature anomaly above which DHW begins accumulating
+  (default: `4.0f0`).
+- `noise_amplitude::Float32` : Amplitude of random weather noise (default: `0.9f0`).
+
+# Returns
+`DimArray` : A `(timestep, location, variable)` array with a single `:dhw` variable.
+
+# See Also
+[`generate_environment`](@ref)
+"""
+function generate_example_environment(
+    n_years::Int64,
+    n_locations::Int64;
+    rng::AbstractRNG=Random.GLOBAL_RNG,
+    start_year::Int64=2020,
+    with_dhw=true,
+    warming_rate::Float32=0.15f0,
+    seasonal_amplitude::Float32=1.2f0,
+    dhw_threshold::Float32=4.0f0,
+    noise_amplitude::Float32=0.9f0
+)::DimArray
+    dhw_data::Matrix{Float32} = generate_example_dhw(
+        n_years, n_locations;
+        rng=rng, start_year=start_year, with_dhw=with_dhw,
+        warming_rate=warming_rate, seasonal_amplitude=seasonal_amplitude,
+        dhw_threshold=dhw_threshold, noise_amplitude=noise_amplitude
+    )
     v_axes = (
         Dim{:timestep}(1:n_years),
         Dim{:location}(1:n_locations),
         Dim{:variable}([:dhw])
     )
-
-    return YAXArray(v_axes, reshape(dhw_data, n_years, n_locations, 1))
+    return DimArray(reshape(dhw_data, n_years, n_locations, 1), v_axes)
 end
 
 """
-    generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::YAXArray
-    generate_environment(dhw::YAXArray; start_year::Int64=2020)::YAXArray
+    generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::DimArray
+    generate_environment(dhw::DimArray; start_year::Int64=2020)::DimArray
 
 Wrap user-supplied Degree Heating Weeks data in a correctly structured environment
-YAXArray, suitable for direct use with Kora.jl model runs.
+DimArray, suitable for direct use with Kora.jl model runs.
 
 `n_years` and `n_locations` are inferred from the input dimensions. Structure
 creation is delegated to `generate_example_environment` so dimension names and
@@ -1225,14 +1357,14 @@ function are then replaced with the caller's real data.
 # Arguments
 - `dhw` : DHW data with shape `(n_timesteps, n_locations)`. Each row is one
   year (or timestep) and each column is one reef location. Accepts either a
-  `Matrix{Float32}` or a 2D `YAXArray` whose first dimension is timestep and
+  `Matrix{Float32}` or a 2D `DimArray` whose first dimension is timestep and
   second dimension is location.
 - `start_year` : First year label for the timestep axis (default: 2020). Passed
   through to `generate_example_environment` for axis labelling only; it does not
   alter the data.
 
 # Returns
-A 3D `YAXArray` with axes `(Dim{:timestep}, Dim{:location}, Dim{:variable})`
+A 3D `DimArray` with axes `(Dim{:timestep}, Dim{:location}, Dim{:variable})`
 identical in structure to the output of `generate_example_environment`, with the
 `:dhw` variable populated from `dhw`.
 
@@ -1260,7 +1392,7 @@ julia> size(env)
 # See Also
 [`generate_example_environment`](@ref)
 """
-function generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::YAXArray
+function generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::DimArray
     n_years, n_locs = size(dhw)
 
     if n_years == 0 || n_locs == 0
@@ -1306,11 +1438,11 @@ function generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::YAX
     return env
 end
 
-function generate_environment(dhw::YAXArray; start_year::Int64=2020)::YAXArray
+function generate_environment(dhw::DimArray; start_year::Int64=2020)::DimArray
     if ndims(dhw) != 2
         throw(
             ArgumentError(
-                "DHW YAXArray must be 2D with dimensions (timestep, location), " *
+                "DHW DimArray must be 2D with dimensions (timestep, location), " *
                 "got $(ndims(dhw))D"
             )
         )
@@ -1319,7 +1451,7 @@ function generate_environment(dhw::YAXArray; start_year::Int64=2020)::YAXArray
     if size(dhw, 1) == 0 || size(dhw, 2) == 0
         throw(
             ArgumentError(
-                "DHW YAXArray dimensions must be non-zero, got size $(size(dhw))"
+                "DHW DimArray dimensions must be non-zero, got size $(size(dhw))"
             )
         )
     end

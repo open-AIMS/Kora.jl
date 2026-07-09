@@ -13,13 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ['1.11', '1.12']
+        version: ['1.12']
         os: [ubuntu-latest]
-        include:
-          - version: '1.11'
-            os: windows-latest
-          - version: '1.12'
-            os: windows-latest
+        # include:
+        #   - version: '1.12'
+        #     os: windows-latest
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:

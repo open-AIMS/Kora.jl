@@ -5,17 +5,18 @@ using OrderedCollections
 
 using Random
 using Statistics, Bootstrap
-using CurveFit, GLM, MLBase, Interpolations
-using Distributions, KernelDensity, StatsBase, StatsFuns
+using CurveFit
+using StatsBase
 
-using CSV, DataFrames, YAXArrays
+using CSV, DataFrames, DimensionalData
 
 using PrecompileSignatures: @precompile_signatures
 using PrecompileTools: @compile_workload
 
 function _kora_assets_dir()
     baked = pkgdir(Kora, "assets")
-    return isdir(baked) ? baked : joinpath(Sys.BINDIR, "..", "assets")
+    baked !== nothing && isdir(baked) && return baked
+    return joinpath(Sys.BINDIR, "..", "assets")
 end
 
 include("stats.jl")
@@ -88,6 +89,7 @@ export
 # Methods for calibration
 export
     assign_scalers!,
+    mean_colony_cover_m2,
     set_population!,
     run_model,
     run_model!,
@@ -98,15 +100,15 @@ export
     save_models,
     get_growth_models,
     get_survival_models,
-    check_model_pair_skew,
-    register_model_type!
+    check_model_pair_skew
+
+global growth_models::Union{Nothing,PolyGrowthModel} = nothing
+global survival_models::Union{Nothing,PolySurvivalModel} = nothing
 
 # Auto-generate precompilation signatures
 @precompile_signatures(Kora)
 
 @compile_workload begin
-    register_model_type!("PolyGrowthFunction", _deserialize_poly_growth)
-    register_model_type!("PolySurvivalFunction", _deserialize_poly_survival)
     _gm = load_models(
         joinpath(_kora_assets_dir(), "models", "offshore_north_growth_models.json")
     )
@@ -124,38 +126,66 @@ export
     initialize_coral_population!(_reef; rng=Xoshiro(1))
     _env = generate_example_environment(50, 20; rng=Xoshiro(42))
     run_model!(_reef, _env; rng=Xoshiro(1))
+
+    # Cover and metrics extraction entry points
+    coral_cover(_reef)
+    coral_cover(_reef, 1)
+    group_cover(_reef)
+    group_cover(_reef, 1)
+    juvenile_cover(_reef, 1)
+    group_cover_timeseries(_reef)
+
+    # DimArray reconstruction path (Base.copy)
+    _reef2 = Base.copy(_reef)
+
+    # User-facing environment wrapper
+    _dhw = zeros(Float32, 50, 20)
+    generate_environment(_dhw)
+
+    # Ensemble path — 16-param (base)
+    _params = zeros(Float64, 16, 1)
+    _params[2:6, 1] .= 0.2  # group proportions must sum to 1.0
+    run_ensemble!(_reef2, _env, _params; rng=Xoshiro(1))
+
+    # Ensemble path — extended (scalers + recruitment), 16 + n_groups + 2 = 23 rows
+    _params_ext = zeros(Float64, 23, 1)
+    _params_ext[2:6, 1] .= 0.2  # group proportions
+    _params_ext[17:21, 1] .= 1.0  # neutral growth scalers
+    run_ensemble!(_reef2, _env, _params_ext; rng=Xoshiro(1))
+
+    # AOT bridge path: Matrix{Float32} env + default rng (TaskLocalRNG).
+    # The bridge calls run_ensemble! without an explicit rng, so Random.GLOBAL_RNG
+    # (TaskLocalRNG) is used.  Without this entry the rand(TaskLocalRNG, ...) methods
+    # inside run_model! are never compiled and get trimmed by juliac --trim=safe.
+    _dhw_mat = generate_example_dhw(50, 20)
+    _params_aot = zeros(Float64, 6, 1)
+    _params_aot[1, 1] = 1.0
+    _params_aot[2:6, 1] .= 0.2
+    run_ensemble!(_reef2, _dhw_mat, _params_aot)
+
+    # AOT deployment path: ensure deploy_corals! (and _sample_lognormal_bounded with
+    # unpacked μ/σ) is compiled so it is not trimmed by juliac --trim=safe.
+    _reef_deploy = initialize_reef(;
+        n_timesteps=10, n_locs=1, density=20, area=90.0,
+        growth_models=_gm, survival_models=_sm
+    )
+    initialize_coral_population!(_reef_deploy; rng=Xoshiro(1))
+    _reef_deploy.deployment_times[3, 1, 1] = 10.0f0
+    _dhw_small = generate_example_dhw(10, 1)
+    _params_deploy = zeros(Float64, 6, 1)
+    _params_deploy[1, 1] = 1.0
+    _params_deploy[2:6, 1] .= 0.2
+    run_ensemble!(_reef_deploy, _dhw_small, _params_deploy)
 end
 
 function __init__()
-    # Populate registry at load-time, not precompile-time.
-    # Functions are defined at include-time; only the dict insertion happens here.
-    register_model_type!("PolyGrowthFunction", _deserialize_poly_growth)
-    register_model_type!("PolySurvivalFunction", _deserialize_poly_survival)
+    return nothing
+end
 
-    _growth_path = joinpath(
-        _kora_assets_dir(), "models", "offshore_north_growth_models.json"
-    )
-    _survival_path = joinpath(
-        _kora_assets_dir(), "models", "offshore_north_survival_models.json"
-    )
-
-    global growth_models = try
-        load_models(_growth_path)
-    catch e
-        @warn "Pre-defined growth models could not be loaded." exception = e
-        nothing
-    end
-
-    global survival_models = try
-        load_models(_survival_path)
-    catch e
-        @warn "Pre-defined survival models could not be loaded." exception = e
-        nothing
-    end
-
-    if !isnothing(growth_models) && !isnothing(survival_models)
-        check_model_pair_skew(_growth_path, _survival_path)
-    end
+function _set_models!(gm::PolyGrowthModel, sm::PolySurvivalModel)::Nothing
+    global growth_models = gm
+    global survival_models = sm
+    return nothing
 end
 
 end  # module Kora

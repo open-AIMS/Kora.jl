@@ -26,7 +26,7 @@ Key processes:
 
 ## Requirements
 
-- Julia ~1.11.7
+- Julia 1.12+ (required for AOT compilation)
 
 ## Development Setup
 
@@ -59,6 +59,57 @@ For plotting support, install one or both optional backends:
 ] add UnicodePlots Term
 ```
 
+## AOT Compilation (kora_ui)
+
+`bridge_aot.jl` and `build_julia.jl` support compiling Kora into a native shared library for use by [kora_ui](https://github.com/ConnectedSystems/kora_ui), the Rust/egui frontend. The output (`libkora_bridge.dll/.so/.dylib`) exposes a C ABI callable without the Julia runtime startup cost.
+
+**Requires Julia 1.12+** (`juliac` must be on `PATH` or discoverable via `Sys.BINDIR`).
+
+```powershell
+# Windows (PowerShell) — from the Kora.jl root:
+.\build\build.ps1                        # native (default)
+.\build\build.ps1 -Mode bundled          # bundled runtime
+.\build\build.ps1 -Mode sysimage         # sysimage
+
+# Override output directory (e.g. to point directly at a staging area):
+.\build\build.ps1 -OutputDir C:\path\to\output
+
+# Or via environment variable:
+$env:KORA_LIB_DIR = "C:\path\to\output"; .\build\build.ps1
+```
+
+```bash
+# Linux / macOS — from the Kora.jl root:
+./build/build.sh                         # native (default)
+./build/build.sh --mode bundled          # bundled runtime
+./build/build.sh --mode sysimage         # sysimage
+
+# Override output directory:
+./build/build.sh --output-dir /path/to/output
+
+# Or via environment variable:
+KORA_LIB_DIR=/path/to/output ./build/build.sh
+```
+
+Output is written to `build/dist/` inside the Kora.jl root by default. The script invokes (native mode):
+
+```
+juliac --project=. --output-lib build/dist/kora_bridge --trim=safe --compile-ccallable --experimental build/bridge_aot.jl
+```
+
+### C API
+
+`bridge_aot.jl` exports two `@ccallable` functions. State is global; `kf_init_reef` must be called before `kf_run_ensemble`.
+
+| Function | Returns | Description |
+|---|---|---|
+| `kf_init_reef(area_m2, init_cover_pct, dhw_out, dhw_cap)` | `Int32` | Initialise reef; write DHW series into caller buffer. Returns `n_timesteps` (75) or `-1`. |
+| `kf_run_ensemble(deploy_*, n_runs, covers_out, covers_cap, lower/median/upper_out, stats_cap, n_ts_out, n_valid_out)` | `Int32` | Run ensemble; fill caller buffers in column-major order. Returns `0`, `-1` (uninitialised/error), or `-2` (buffer too small). |
+
+All output buffers are caller-allocated `Float32` arrays. Column-major layout matches Julia's native array order; the Rust side must account for this when reshaping.
+
+**Phase 1 limitation:** `init_cover_pct` and all `deploy_*` parameters are accepted at the ABI boundary but not yet wired into the simulation.
+
 ## Usage
 
 Install from the Julia Registry:
@@ -90,16 +141,6 @@ run_model!(reef, env)
 # Extract coral cover results
 cover = coral_cover(reef)
 ```
-
-### Prototype Interactive dashboard
-
-The primary interface is a web dashboard showing coral cover trajectories over a 75-year horizon with sliders for restoration deployment parameters:
-
-```bash
-julia --project=. bin/main.jl
-```
-
-Open `http://localhost:9384` in a browser. The dashboard requires Makie (specifically `WGLMakie`) and `Bonito`.
 
 ### Fitting growth/survival models from EcoRRAP survey data
 
@@ -168,10 +209,14 @@ Kora.jl/
 │   ├── MakieExt/             # Makie visualization extension
 │   └── UnicodePlotsExt/      # Terminal plotting extension
 ├── bin/
-│   └── main.jl               # Interactive web dashboard
-└── assets/
-    ├── target_groups.csv     # Functional group definitions
-    └── models/               # Serialized fitted models
+│   └── main.jl               # Legacy dashboard entry point (see kora_ui repo)
+├── assets/
+│   ├── target_groups.csv     # Functional group definitions
+│   └── models/               # Serialized fitted models
+└── build/
+    ├── bridge_aot.jl         # @ccallable entry points for AOT compilation
+    ├── build.ps1             # Build driver for Windows (PowerShell)
+    └── build.sh              # Build driver for Linux/macOS
 ```
 
 ## AI Usage Disclosure
