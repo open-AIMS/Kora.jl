@@ -220,7 +220,7 @@ julia> path = joinpath(pkgdir(Kora), "assets", "models",
 julia> m = load_models(path);
 
 julia> typeof(m)
-Kora.PolyGrowthModel
+Kora.PolyGrowthModel{Float32}
 ```
 
 # See Also

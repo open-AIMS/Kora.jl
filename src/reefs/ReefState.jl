@@ -384,11 +384,11 @@ to seed the starting population before running a simulation.
   `Vector{Float64}`. Depth controls bleaching mortality coefficients
   (default: `9.0`).
 - `growth_models` : Fitted growth model collection, one function per functional
-  group. Defaults to the package-level offshore-north models loaded from the
-  bundled JSON asset at package load time.
+  group. Not loaded automatically; must be provided explicitly, e.g. via
+  `load_models` on a bundled JSON asset.
 - `survival_models` : Fitted survival model collection, one function per
-  functional group. Defaults to the package-level offshore-north models loaded
-  from the bundled JSON asset at package load time.
+  functional group. Not loaded automatically; must be provided explicitly, e.g.
+  via `load_models` on a bundled JSON asset.
 
 # Returns
 `ReefState` : An empty reef state ready for population initialisation.
@@ -397,7 +397,14 @@ to seed the starting population before running a simulation.
 ```jldoctest
 julia> using Kora
 
-julia> rs = initialize_reef(; n_timesteps=10, n_locs=3);
+julia> gm = load_models(joinpath(pkgdir(Kora), "assets", "models",
+           "offshore_north_growth_models.json"));
+
+julia> sm = load_models(joinpath(pkgdir(Kora), "assets", "models",
+           "offshore_north_survival_models.json"));
+
+julia> rs = initialize_reef(; n_timesteps=10, n_locs=3,
+           growth_models=gm, survival_models=sm);
 
 julia> n_timesteps(rs), n_locations(rs)
 (10, 3)
