@@ -67,30 +67,34 @@ For plotting support, install one or both optional backends:
 
 ```powershell
 # Windows (PowerShell) — from the Kora.jl root:
-.\build\build.ps1
+.\build\build.ps1                        # native (default)
+.\build\build.ps1 -Mode bundled          # bundled runtime
+.\build\build.ps1 -Mode sysimage         # sysimage
 
-# Override output directory:
-.\build\build.ps1 -OutputDir C:\path\to\kora_ui\julia_lib
+# Override output directory (e.g. to point directly at a staging area):
+.\build\build.ps1 -OutputDir C:\path\to\output
 
 # Or via environment variable:
-$env:KORA_LIB_DIR = "C:\path\to\kora_ui\julia_lib"; .\build\build.ps1
+$env:KORA_LIB_DIR = "C:\path\to\output"; .\build\build.ps1
 ```
 
 ```bash
 # Linux / macOS — from the Kora.jl root:
-./build/build.sh
+./build/build.sh                         # native (default)
+./build/build.sh --mode bundled          # bundled runtime
+./build/build.sh --mode sysimage         # sysimage
 
 # Override output directory:
-./build/build.sh --output-dir /path/to/kora_ui/julia_lib
+./build/build.sh --output-dir /path/to/output
 
 # Or via environment variable:
-KORA_LIB_DIR=/path/to/kora_ui/julia_lib ./build/build.sh
+KORA_LIB_DIR=/path/to/output ./build/build.sh
 ```
 
-Output is written to `julia_lib/` by default. The script invokes:
+Output is written to `build/dist/` inside the Kora.jl root by default. The script invokes (native mode):
 
 ```
-juliac --project=. --output-lib julia_lib/kora_bridge --trim=safe --compile-ccallable --experimental build/bridge_aot.jl
+juliac --project=. --output-lib build/dist/kora_bridge --trim=safe --compile-ccallable --experimental build/bridge_aot.jl
 ```
 
 ### C API
@@ -137,16 +141,6 @@ run_model!(reef, env)
 # Extract coral cover results
 cover = coral_cover(reef)
 ```
-
-### Prototype Interactive dashboard
-
-The primary interface is a web dashboard showing coral cover trajectories over a 75-year horizon with sliders for restoration deployment parameters:
-
-```bash
-julia --project=. bin/main.jl
-```
-
-Open `http://localhost:9384` in a browser. The dashboard requires Makie (specifically `WGLMakie`) and `Bonito`.
 
 ### Fitting growth/survival models from EcoRRAP survey data
 
@@ -215,7 +209,7 @@ Kora.jl/
 │   ├── MakieExt/             # Makie visualization extension
 │   └── UnicodePlotsExt/      # Terminal plotting extension
 ├── bin/
-│   └── main.jl               # Interactive web dashboard
+│   └── main.jl               # Legacy dashboard entry point (see kora_ui repo)
 ├── assets/
 │   ├── target_groups.csv     # Functional group definitions
 │   └── models/               # Serialized fitted models
