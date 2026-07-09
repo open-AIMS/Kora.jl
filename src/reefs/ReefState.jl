@@ -1275,6 +1275,48 @@ function generate_example_dhw(
     return dhw_data
 end
 
+"""
+    generate_example_environment(
+        n_years::Int64,
+        n_locations::Int64;
+        rng::AbstractRNG=Random.GLOBAL_RNG,
+        start_year::Int64=2020,
+        with_dhw=true,
+        warming_rate::Float32=0.15f0,
+        seasonal_amplitude::Float32=1.2f0,
+        dhw_threshold::Float32=4.0f0,
+        noise_amplitude::Float32=0.9f0
+    )::DimArray
+
+Generate a synthetic degree heating week (DHW) environment for `n_years` timesteps
+across `n_locations` locations, suitable for use as the `env_layer` argument to
+`run_model!`.
+
+The generated series combines a long-term warming trend, a seasonal cycle, random
+weather noise, and occasional acute thermal spikes and extreme marine heatwave
+events, producing DHW trajectories with plausible variability for testing and
+demonstration purposes. Set `with_dhw=false` to return an all-zero DHW layer.
+
+# Arguments
+- `n_years::Int64` : Number of annual timesteps to generate.
+- `n_locations::Int64` : Number of locations to generate.
+- `rng::AbstractRNG` : Random number generator (default: `Random.GLOBAL_RNG`).
+- `start_year::Int64` : Calendar year of the first timestep (default: `2020`).
+- `with_dhw` : If `false`, returns a zeroed DHW layer instead of generating one
+  (default: `true`).
+- `warming_rate::Float32` : Strength of the long-term warming trend (default: `0.15f0`).
+- `seasonal_amplitude::Float32` : Amplitude of the seasonal temperature cycle
+  (default: `1.2f0`).
+- `dhw_threshold::Float32` : Temperature anomaly above which DHW begins accumulating
+  (default: `4.0f0`).
+- `noise_amplitude::Float32` : Amplitude of random weather noise (default: `0.9f0`).
+
+# Returns
+`DimArray` : A `(timestep, location, variable)` array with a single `:dhw` variable.
+
+# See Also
+[`generate_environment`](@ref)
+"""
 function generate_example_environment(
     n_years::Int64,
     n_locations::Int64;

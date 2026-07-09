@@ -148,8 +148,7 @@ performance. It can be reloaded without information loss using `load_models`.
 `Nothing`
 
 # See Also
-[`load_models`](@ref), [`register_model_type!`](@ref),
-[`fit_growth_models`](@ref), [`fit_survival_models`](@ref)
+[`load_models`](@ref), [`fit_growth_models`](@ref), [`fit_survival_models`](@ref)
 """
 function save_models(
     m::PolyGrowthModel, filepath::String; region::String=""
@@ -191,42 +190,6 @@ end
 # load_models
 # ---------------------------------------------------------------------------
 
-"""
-    load_models(filepath::String)::Union{PolyGrowthModel, PolySurvivalModel}
-
-Deserialise a model collection from a versioned JSON file previously written by
-`save_models`.
-
-The file must declare a supported `format_version`, a `model_kind` of either
-`"growth"` or `"survival"`, and a `"type"` tag for each model entry of either
-`"PolyGrowthFunction"` or `"PolySurvivalFunction"`. An informative error is
-raised if any required field is missing or if an unknown type tag is encountered.
-
-# Arguments
-- `filepath::String` : Path to the JSON model file.
-
-# Returns
-`Union{PolyGrowthModel, PolySurvivalModel}` : The deserialised model collection,
-ready for use as the `growth_models` or `survival_models` argument to
-`initialize_reef`.
-
-# Examples
-```jldoctest
-julia> using Kora
-
-julia> path = joinpath(pkgdir(Kora), "assets", "models",
-           "offshore_north_growth_models.json");
-
-julia> m = load_models(path);
-
-julia> typeof(m)
-Kora.PolyGrowthModel{Float32}
-```
-
-# See Also
-[`save_models`](@ref), [`register_model_type!`](@ref),
-[`initialize_reef`](@ref)
-"""
 function load_models_from_string(content::String)
     # --- format_version ---
     fv_m = match(r"\"format_version\"\s*:\s*(\d+)", content)
@@ -444,6 +407,41 @@ function _load_file_libc(filepath::String)::String
     end
 end
 
+"""
+    load_models(filepath::String)::Union{PolyGrowthModel, PolySurvivalModel}
+
+Deserialise a model collection from a versioned JSON file previously written by
+`save_models`.
+
+The file must declare a supported `format_version`, a `model_kind` of either
+`"growth"` or `"survival"`, and a `"type"` tag for each model entry of either
+`"PolyGrowthFunction"` or `"PolySurvivalFunction"`. An informative error is
+raised if any required field is missing or if an unknown type tag is encountered.
+
+# Arguments
+- `filepath::String` : Path to the JSON model file.
+
+# Returns
+`Union{PolyGrowthModel, PolySurvivalModel}` : The deserialised model collection,
+ready for use as the `growth_models` or `survival_models` argument to
+`initialize_reef`.
+
+# Examples
+```jldoctest
+julia> using Kora
+
+julia> path = joinpath(pkgdir(Kora), "assets", "models",
+           "offshore_north_growth_models.json");
+
+julia> m = load_models(path);
+
+julia> typeof(m)
+Kora.PolyGrowthModel{Float32}
+```
+
+# See Also
+[`save_models`](@ref), [`initialize_reef`](@ref)
+"""
 function load_models(filepath::String)
     content = _load_file_libc(filepath)
     return load_models_from_string(content)
