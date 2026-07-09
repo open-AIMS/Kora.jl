@@ -81,7 +81,7 @@ function bleaching_mortality!(
     tols::AbstractVector{F},
     grp::Int64
 )::Tuple where {F<:Float32}
-    if all(dhw .< 4.0)
+    if dhw < 4.0f0
         return tols[1], tols[2], 0.0f0
     end
 
@@ -118,10 +118,12 @@ function bleaching_mortality!(
     end
 
     current_cover = cover_cm_to_m2(diams)
-    cover_cm_to_m2!(max.(diam_cache .- diams, 0.0f0), diam_cache)
+    @inbounds for i in eachindex(diams, diam_cache)
+        diam_cache[i] = cover_cm_to_m2(max(diam_cache[i] - diams[i], 0.0f0))
+    end
     area_lost = min(current_cover, sum(diam_cache))
 
-    if any(area_lost > 0.0f0) && ((current_cover - area_lost) > 0.0f0)
+    if area_lost > 0.0f0 && ((current_cover - area_lost) > 0.0f0)
         μ = truncated_normal_mean(μ, stdev, 4.0f0, μ + 10.0f0)
     end
 

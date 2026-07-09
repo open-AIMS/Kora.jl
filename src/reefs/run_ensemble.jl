@@ -21,8 +21,8 @@ function _collect_member!(
     n_grps::Int
 )
     mature_sizes = mature_size_thresholds()
-    for ts in 1:n_ts
-        for loc in 1:n_locs
+    @inbounds for ts in 1:n_ts
+        @inbounds for loc in 1:n_locs
             loc_cover = 0.0f0
             for grp in 1:n_grps
                 pop = coral_population(reef_state, ts, loc, grp)
@@ -122,10 +122,12 @@ function run_ensemble!(
         set_population!(reef_state, params)
         if length(params) > 16
             expected = 16 + n_grps + 2
-            length(params) == expected || throw(ArgumentError(
-                "ensemble_params has $(length(params)) rows; expected $expected " *
-                "(16 population + $n_grps scalers + 2 recruitment)"
-            ))
+            length(params) == expected || throw(
+                ArgumentError(
+                    "ensemble_params has $(length(params)) rows; expected $expected " *
+                    "(16 population + $n_grps scalers + 2 recruitment)"
+                )
+            )
             assign_scalers!(reef_state, params[17:(16 + n_grps)])
             run_model!(reef_state, dhw;
                 recruits=Float32(params[end - 1]),
