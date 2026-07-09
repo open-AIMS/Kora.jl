@@ -26,7 +26,7 @@ Key processes:
 
 ## Requirements
 
-- Julia ~1.11.7 or 1.12+ (1.12 required for AOT compilation)
+- Julia 1.12+ (required for AOT compilation)
 
 ## Development Setup
 
