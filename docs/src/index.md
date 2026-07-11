@@ -17,7 +17,7 @@ For Julia newcomers, the steps below provide a minimal local install and first s
 
 ### 1. Install Julia
 
-Install Julia 1.11+ with `juliaup` (recommended Julia installer and version manager):
+Install Julia 1.12+ with `juliaup` (recommended Julia installer and version manager):
 
 - https://julialang.org/install/
 
