@@ -1,7 +1,7 @@
 name = "Kora"
 uuid = "63f594c6-e77c-4cfd-819e-df68f57e9897"
 version = "1.2.0"
-authors = ["Takuya Iwanaga <takuyai@gmail.com>"]
+authors = ["Takuya Iwanaga <t.iwanaga@aims.gov.au>"]
 
 [deps]
 Bootstrap = "e28b5b4c-05e8-5b66-bc03-6f0c0a0a06e0"
