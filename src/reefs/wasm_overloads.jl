@@ -200,9 +200,9 @@ function initialize_reef(
     )
 end
 
-# ── run_model! (5-arg positional) ────────────────────────────────────────────
-# Original: run_model!(reef, dhw; recruits, self_seed, rng)  [2 positional]
-# New:      run_model!(reef, dhw, recruits, self_seed, rng)  [5 positional]
+# ── run_model! (6-arg positional) ────────────────────────────────────────────
+# Original: run_model!(reef, dhw; recruits, self_seed, deploy_dhw_tol, rng)  [2 positional]
+# New:      run_model!(reef, dhw, recruits, self_seed, deploy_dhw_tol, rng)  [6 positional]
 #
 # Differences from the kwarg version:
 #   - deploy_corals! called with 6 positional args (rng explicit)
@@ -214,6 +214,7 @@ function run_model!(
     dhw::Matrix{Float32},
     recruits_rate::Float32,
     self_seed_rate::Float32,
+    deploy_dhw_tol::Float32,
     rng::AbstractRNG
 )::Nothing
     reset!(reef_state)
@@ -242,9 +243,18 @@ function run_model!(
     reset!(reef_state)
 
     @inbounds for loc in 1:n_locs, grp in 1:n_grps
+        if reef_state.deployment_times[1, loc, grp] > 0
+            n_deploy_1 = Int64(reef_state.deployment_times[1, loc, grp])
+            deploy_corals!(reef_state, 1, loc, n_deploy_1, grp, rng)
+            new_mean_1 = deploy_dhw_tol > 0.0f0 ? deploy_dhw_tol : reef_state.wild_dhw_tolerances[1, loc, grp, 1]
+            reef_state.deployed_dhw_tolerances[1, loc, grp, 1] = new_mean_1
+        end
+    end
+
+    @inbounds for loc in 1:n_locs, grp in 1:n_grps
         pop_buffer .= 0.0f0
 
-        fill_population_buffer!(
+        fill_wild_population_buffer!(
             reef_state, 1, loc, grp, recruits[loc, grp], pop_buffer
         )
 
@@ -265,6 +275,23 @@ function run_model!(
         )
         reef_state.wild_dhw_tolerances[1, loc, grp, 1] = new_mean
         reef_state.wild_dhw_tolerances[1, loc, grp, 2] = new_std
+
+        deployed_diams_1 = deployed_population(reef_state, 1, loc, grp)
+        if !isempty(deployed_diams_1)
+            deployed_diams_copy_1 = copy(deployed_diams_1)
+            apply_survival!(reef_state, grp, deployed_diams_copy_1, rng)
+            deployed_tols_1 = Vector{Float32}([
+                reef_state.deployed_dhw_tolerances[1, loc, grp, 1],
+                reef_state.wild_dhw_tolerances[1, loc, grp, 2]
+            ])
+            deployed_new_mean_1, _deployed_new_std_1, _deployed_area_lost_1 = bleaching_mortality!(
+                deployed_diams_copy_1, dhw[1, loc], depth_coeffs[loc], deployed_tols_1, grp
+            )
+            reef_state.deployed_dhw_tolerances[1, loc, grp, 1] = deployed_new_mean_1
+            update_deployed_sample!(
+                reef_state, 1, loc, grp, deployed_diams_copy_1[deployed_diams_copy_1 .> 0.0f0]
+            )
+        end
 
         update_pop_cache!(reef_state, with_recruits, loc)
 
@@ -310,21 +337,27 @@ function run_model!(
                 reef_state.wild_dhw_tolerances[ts, loc, grp, 1] = reef_state.wild_dhw_tolerances[
                     prev_ts, loc, grp, 1
                 ]
-                reef_state.deployed_dhw_tolerances[ts, loc, grp, 1] = reef_state.deployed_dhw_tolerances[
-                    prev_ts, loc, grp, 1
-                ]
             end
+
+            # Deployment and natural recruitment are independent — the
+            # deployed cohort's mean always carries forward, overwritten
+            # below if a new deployment lands at this exact (ts, loc, grp).
+            reef_state.deployed_dhw_tolerances[ts, loc, grp, 1] = reef_state.deployed_dhw_tolerances[
+                prev_ts, loc, grp, 1
+            ]
 
             if reef_state.deployment_times[ts, loc, grp] > 0
                 n_deploy = Int64(reef_state.deployment_times[ts, loc, grp])
                 deploy_corals!(reef_state, ts, loc, n_deploy, grp, rng)
+                new_mean_d = deploy_dhw_tol > 0.0f0 ? deploy_dhw_tol : reef_state.wild_dhw_tolerances[ts, loc, grp, 1]
+                reef_state.deployed_dhw_tolerances[ts, loc, grp, 1] = new_mean_d
             end
         end
 
         @inbounds for loc in 1:n_locs, grp in 1:n_grps
             pop_buffer .= 0.0f0
 
-            fill_population_buffer!(
+            fill_wild_population_buffer!(
                 reef_state, prev_ts, loc, grp, recruits[loc, grp], pop_buffer
             )
 
@@ -345,6 +378,28 @@ function run_model!(
             )
             reef_state.wild_dhw_tolerances[ts, loc, grp, 1] = new_mean
             reef_state.wild_dhw_tolerances[ts, loc, grp, 2] = new_std
+
+            # Merge any cohort deployed at this exact `ts` (written by
+            # deploy_corals! above) with the surviving cohort carried forward
+            # from prev_ts — overwriting here would silently discard one of
+            # the two cohorts.
+            prev_deployed_diams = deployed_population(reef_state, prev_ts, loc, grp)
+            fresh_deployed_diams = deployed_population(reef_state, ts, loc, grp)
+            if !isempty(prev_deployed_diams) || !isempty(fresh_deployed_diams)
+                deployed_diams_copy = vcat(prev_deployed_diams, fresh_deployed_diams)
+                apply_survival!(reef_state, grp, deployed_diams_copy, rng)
+                deployed_tols = Vector{Float32}([
+                    reef_state.deployed_dhw_tolerances[ts, loc, grp, 1],
+                    reef_state.wild_dhw_tolerances[ts, loc, grp, 2]
+                ])
+                deployed_new_mean, _deployed_new_std, _deployed_area_lost = bleaching_mortality!(
+                    deployed_diams_copy, dhw[ts, loc], depth_coeffs[loc], deployed_tols, grp
+                )
+                reef_state.deployed_dhw_tolerances[ts, loc, grp, 1] = deployed_new_mean
+                update_deployed_sample!(
+                    reef_state, ts, loc, grp, deployed_diams_copy[deployed_diams_copy .> 0.0f0]
+                )
+            end
 
             update_pop_cache!(reef_state, with_recruits, loc)
 
@@ -534,7 +589,8 @@ end
 function _wasm_run_ensemble!(
     reef_state::ReefState,
     dhw::Matrix{Float32},
-    ensemble_params::Matrix{Float64}
+    ensemble_params::Matrix{Float64},
+    deploy_dhw_tol::Float32
 )
     n_ensemble = size(ensemble_params, 2)
     n_ts = n_timesteps(reef_state)
@@ -547,7 +603,7 @@ function _wasm_run_ensemble!(
     for i in 1:n_ensemble
         params_i = ensemble_params[:, i]
         set_population!(reef_state, params_i)
-        run_model!(reef_state, dhw, 0.06f0, 0.3f0, rng)
+        run_model!(reef_state, dhw, 0.06f0, 0.3f0, deploy_dhw_tol, rng)
         _collect_member!(ec, egc, ejc, ewdt, reef_state, i, n_ts, n_locs, n_grps)
     end
 

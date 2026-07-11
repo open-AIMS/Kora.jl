@@ -94,12 +94,14 @@ function run_ensemble!(
     reef_state::ReefState,
     env_conditions::DimArray,
     ensemble_params::Matrix{Float64};
+    deploy_dhw_tol::Float32=0.0f0,
     rng::AbstractRNG=Random.GLOBAL_RNG
 )
     return run_ensemble!(
         reef_state,
         Matrix{Float32}(env_conditions[:, :, At(:dhw)].data),
         ensemble_params;
+        deploy_dhw_tol=deploy_dhw_tol,
         rng=rng
     )
 end
@@ -108,6 +110,7 @@ function run_ensemble!(
     reef_state::ReefState,
     dhw::Matrix{Float32},
     ensemble_params::Matrix{Float64};
+    deploy_dhw_tol::Float32=0.0f0,
     rng::AbstractRNG=Random.GLOBAL_RNG
 )
     n_ensemble = size(ensemble_params, 2)
@@ -132,10 +135,11 @@ function run_ensemble!(
             run_model!(reef_state, dhw;
                 recruits=Float32(params[end - 1]),
                 self_seed=Float32(params[end]),
+                deploy_dhw_tol=deploy_dhw_tol,
                 rng=rng
             )
         else
-            run_model!(reef_state, dhw; rng=rng)
+            run_model!(reef_state, dhw; deploy_dhw_tol=deploy_dhw_tol, rng=rng)
         end
         _collect_member!(ec, egc, ejc, ewdt, reef_state, i, n_ts, n_locs, n_grps)
     end
