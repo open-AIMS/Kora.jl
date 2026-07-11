@@ -16,7 +16,8 @@ makedocs(;
         "Getting Started" => "getting-started.md",
         "Model Overview" => "model-overview.md",
         "Concepts" => [
-            "Decision Support Under Uncertainty" => "concepts/decision-support-under-uncertainty.md"
+            "Decision Support Under Uncertainty" => "concepts/decision-support-under-uncertainty.md",
+            "Kora and ADRIA in a Decision Workflow" => "concepts/kora-and-adria.md"
         ],
         "Tutorials" => [
             "Running Simulations" => "tutorials/running-simulations.md",
