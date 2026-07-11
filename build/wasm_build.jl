@@ -50,7 +50,7 @@ const _deploy_dhw_tol_ref = Ref{Float32}(0.0f0)
 # Avoids returning a WasmGC Vector ref to JS (which is opaque and unreadable directly).
 const _last_result_ref = Ref{Union{Nothing,Vector{Float32}}}(nothing)
 
-const _N_TIMESTEPS = Int32(50)
+const _N_TIMESTEPS = Int32(75)
 const _N_GROUPS = Int32(5)
 
 # Stub: kw_load_models is kept as a stub (returns -2) so the caller can
@@ -136,17 +136,6 @@ function kw_run_reef_d(
         end
     end
 
-    if dhw_tol > 0.0f0
-        dhw_tol_sigma = 0.5f0
-        vols_tup = (vol0, vol1, vol2, vol3, vol4)
-        for ts2 in Int(deploy_start):Int(deploy_cadence):n_ts, grp in 1:5
-            if vols_tup[grp] > 0
-                reef.deployed_dhw_tolerances[ts2, 1, grp, 1] = dhw_tol
-                reef.deployed_dhw_tolerances[ts2, 1, grp, 2] = dhw_tol_sigma
-            end
-        end
-    end
-
     mean_cov = Float64(Kora.mean_colony_cover_m2())
     target_cover_m2 = (Float64(init_cover_pct) / 100.0) * Float64(area_m2)
     target_pop = max(5, ceil(Int64, target_cover_m2 / mean_cov))
@@ -159,7 +148,7 @@ function kw_run_reef_d(
         params[i, j] = 0.2
     end
 
-    results = Kora._wasm_run_ensemble!(reef, dhw_mat, params)
+    results = Kora._wasm_run_ensemble!(reef, dhw_mat, params, dhw_tol)
 
     n_valid::Int = 0
     @inbounds for r::Int in 1:n_members
@@ -320,7 +309,7 @@ function kw_run_reef(
         params[i, j] = 0.2
     end
 
-    results = Kora._wasm_run_ensemble!(reef, dhw_mat, params)
+    results = Kora._wasm_run_ensemble!(reef, dhw_mat, params, dhw_tol)
 
     # Pass 1: count valid ensemble members (no NaN in cover) without Vector{Int} —
     # WasmGC boxes Int64 as GC refs in arrays so storing i64 into Vector{Int} triggers
@@ -433,7 +422,7 @@ function probe_update_wild(area::Float32)::Int32
     sm = _survival_ref[]
     sm === nothing && return Int32(-1)
     reef = Kora.initialize_reef(;
-        n_timesteps=50, n_locs=1, area=Float64(area), density=10,
+        n_timesteps=Int(_N_TIMESTEPS), n_locs=1, area=Float64(area), density=10,
         growth_models=gm, survival_models=sm
     )
     pop = Vector{Float32}([5.0f0, 10.0f0])
@@ -448,7 +437,7 @@ function probe_tolerances(area::Float32)::Int32
     sm = _survival_ref[]
     sm === nothing && return Int32(-1)
     reef = Kora.initialize_reef(;
-        n_timesteps=50, n_locs=1, area=Float64(area), density=10,
+        n_timesteps=Int(_N_TIMESTEPS), n_locs=1, area=Float64(area), density=10,
         growth_models=gm, survival_models=sm
     )
     # Explicit loops: view()/broadcast creates SubArray structs that WasmTarget's compile_new cannot handle
@@ -483,7 +472,7 @@ function probe_init_reef(area::Float32)::Int32
     sm = _survival_ref[]
     sm === nothing && return Int32(-1)
     _ = Kora.initialize_reef(;
-        n_timesteps=50, n_locs=1, area=Float64(area), density=10,
+        n_timesteps=Int(_N_TIMESTEPS), n_locs=1, area=Float64(area), density=10,
         growth_models=gm, survival_models=sm
     )
     return Int32(0)
@@ -496,7 +485,7 @@ function probe_init(area::Float32)::Int32
     sm = _survival_ref[]
     sm === nothing && return Int32(-1)
     reef = Kora.initialize_reef(;
-        n_timesteps=50, n_locs=1, area=Float64(area), density=10,
+        n_timesteps=Int(_N_TIMESTEPS), n_locs=1, area=Float64(area), density=10,
         growth_models=gm, survival_models=sm
     )
     Kora.initialize_coral_population!(reef)
@@ -509,9 +498,9 @@ function probe_run(area::Float32, n::UInt32)::Int32
     gm === nothing && return Int32(-1)
     sm = _survival_ref[]
     sm === nothing && return Int32(-1)
-    dhw = Kora._wasm_generate_dhw(Int64(50), Int64(1))
+    dhw = Kora._wasm_generate_dhw(Int64(_N_TIMESTEPS), Int64(1))
     reef = Kora.initialize_reef(;
-        n_timesteps=50, n_locs=1, area=Float64(area), density=10,
+        n_timesteps=Int(_N_TIMESTEPS), n_locs=1, area=Float64(area), density=10,
         growth_models=gm, survival_models=sm
     )
     Kora.initialize_coral_population!(reef)
@@ -523,7 +512,7 @@ function probe_run(area::Float32, n::UInt32)::Int32
     for i::Int in 2:6, j::Int in 1:n_members
         params[i, j] = 0.2
     end
-    _ = Kora._wasm_run_ensemble!(reef, dhw, params)
+    _ = Kora._wasm_run_ensemble!(reef, dhw, params, 0.0f0)
     return Int32(0)
 end
 

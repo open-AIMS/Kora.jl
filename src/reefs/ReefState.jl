@@ -241,6 +241,40 @@ function fill_population_buffer!(
 end
 
 """
+    fill_wild_population_buffer!(reef_state, ts, loc, grp, recruits, pop_buffer)
+
+Like [`fill_population_buffer!`](@ref) but excludes the deployed population —
+used where wild and deployed mortality are computed separately (each against
+its own DHW tolerance stats) rather than as one merged pool.
+"""
+function fill_wild_population_buffer!(
+    reef_state::ReefState,
+    ts::Int64,
+    loc::Int64,
+    grp::Int64,
+    recruits::Vector{Float32},
+    pop_buffer::AbstractVector{Float32}
+)::Nothing
+    n_wild = total_wild(reef_state, ts, loc, grp)
+    wild_pop = wild_population(reef_state, ts, loc, grp)
+    @inbounds for j in 1:n_wild
+        pop_buffer[j] = wild_pop[j]
+    end
+
+    n_recruits = length(recruits)
+    if n_recruits > 0
+        buf_cap = length(pop_buffer)
+        avail = buf_cap - n_wild
+        rec_n = min(n_recruits, avail)
+        @inbounds for j in 1:rec_n
+            pop_buffer[n_wild + j] = recruits[j]
+        end
+    end
+
+    return nothing
+end
+
+"""
     total_population(reef_state::ReefState, ts::Int64, loc::Int64)::Int64
 
 Retrieve the total population count.

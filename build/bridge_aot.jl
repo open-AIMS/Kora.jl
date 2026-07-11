@@ -98,16 +98,16 @@ function _kf_write_inner_exc()::Nothing
     return nothing
 end
 
-const _N_TIMESTEPS_DEFAULT = Int32(50)
 const _N_GROUPS = Int32(5)
 
 const _growth_ref = Ref{Union{Nothing,Kora.PolyGrowthModel{Float32}}}(nothing)
 const _survival_ref = Ref{Union{Nothing,Kora.PolySurvivalModel{Float32}}}(nothing)
 
 # Cache DHW so every run batch uses the same climate forcing.
-# Regenerated when reef area changes or models are reloaded.
+# Regenerated when reef area, timestep count, or models change.
 const _dhw_ref = Ref{Union{Nothing,Matrix{Float32}}}(nothing)
 const _init_area_ref = Ref{Float32}(0.0f0)
+const _init_n_ts_ref = Ref{Int}(0)
 
 # Deployment schedule — set via kf_set_deployment before kf_run_reef.
 # NTuple{5,UInt32}: corals/year for each of the 5 functional groups.
@@ -165,6 +165,7 @@ Base.@ccallable function kf_load_models(
         Kora._set_models!(gm, sm)
         _dhw_ref[] = nothing
         _init_area_ref[] = 0.0f0
+        _init_n_ts_ref[] = 0
         return Int32(0)
     catch e
         @_write_stderr("[bridge_aot] kf_load_models: ")
@@ -205,19 +206,21 @@ Base.@ccallable function kf_run_reef(
     n_valid_out::Ptr{Int64}
 )::Int32
     try
-        n_ts = Int(_N_TIMESTEPS_DEFAULT)
-        dhw_cap < _N_TIMESTEPS_DEFAULT && return Int32(-1)
+        dhw_cap <= Int32(0) && return Int32(-1)
+        n_ts = Int(dhw_cap)
 
         gm = _growth_ref[]
         gm === nothing && return Int32(-1)
         sm = _survival_ref[]
         sm === nothing && return Int32(-1)
 
-        # Generate DHW once per area; reuse across run batches so all runs see the same
-        # climate forcing.  Cleared by kf_load_models when models are reloaded.
-        if _dhw_ref[] === nothing || _init_area_ref[] != area_m2
+        # Generate DHW once per (area, n_ts); reuse across run batches so all
+        # runs see the same climate forcing.  Cleared by kf_load_models when
+        # models are reloaded.
+        if _dhw_ref[] === nothing || _init_area_ref[] != area_m2 || _init_n_ts_ref[] != n_ts
             @_write_stderr("[kf_run_reef] generate_example_dhw\n")
             _init_area_ref[] = area_m2
+            _init_n_ts_ref[] = n_ts
             _dhw_ref[] = Kora.generate_example_dhw(n_ts, 1)
         end
         dhw_mat = _dhw_ref[]::Matrix{Float32}
@@ -237,25 +240,13 @@ Base.@ccallable function kf_run_reef(
         _apply_deployment!(reef, n_ts)
 
         dhw_tol = _deploy_dhw_tol_ref[]
-        if dhw_tol > 0.0f0
-            dhw_tol_sigma = 0.5f0   # fixed narrow spread; adjust if calibration data is available
-            vols = _deploy_vols_ref[]
-            start = Int(_deploy_start_ref[])
-            cadence = Int(_deploy_cadence_ref[])
-            for ts in start:cadence:n_ts, grp in 1:5
-                if vols[grp] > 0
-                    reef.deployed_dhw_tolerances[ts, 1, grp, 1] = dhw_tol
-                    reef.deployed_dhw_tolerances[ts, 1, grp, 2] = dhw_tol_sigma
-                end
-            end
-        end
 
         n_members = Int(n_runs)
         n_groups = Int(_N_GROUPS)
         ensemble_params = _build_ensemble_params(area_m2, init_cover_pct, n_members)
 
         @_write_stderr("[kf_run_reef] run_ensemble!\n")
-        results = Kora.run_ensemble!(reef, dhw_mat, ensemble_params)
+        results = Kora.run_ensemble!(reef, dhw_mat, ensemble_params; deploy_dhw_tol=dhw_tol)
         @_write_stderr("[kf_run_reef] post-processing\n")
 
         valid_mask = [!any(isnan, results.cover[:, 1, r]) for r in 1:n_members]
@@ -291,7 +282,7 @@ Base.@ccallable function kf_run_reef(
 
         unsafe_store!(n_ts_out, Int64(n_ts))
         unsafe_store!(n_valid_out, Int64(n_valid))
-        return _N_TIMESTEPS_DEFAULT
+        return Int32(n_ts)
     catch e
         @_write_stderr("[bridge_aot] kf_run_reef: ")
         @_write_exception(e)
