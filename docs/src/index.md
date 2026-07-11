@@ -87,4 +87,4 @@ For a more complete walk-through, see [Running Simulations](tutorials/running-si
 
 ## Kora in a Broader Workflow
 
-Kora is often used alongside [ADRIA.jl](https://github.com/open-AIMS/ADRIA.jl) as part of a larger decision-support pipeline. See [Kora and ADRIA in a Decision Workflow](concepts/kora-and-adria.md) for how the two packages relate.
+Kora could be used alongside [ADRIA.jl](https://github.com/open-AIMS/ADRIA.jl) as part of a larger decision-support pipeline. See [Kora and ADRIA in a Decision Workflow](concepts/kora-and-adria.md) for how the two packages relate.
