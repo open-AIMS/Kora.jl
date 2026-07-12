@@ -198,11 +198,12 @@ function update_coral_tolerances!(
     # Apply breeder's equation
     recruit_mean = breeders(prev_mean_mixed, mean_mixed, h²)
 
-    # Weighted mean based on recruitment proportion
-    pop = reef_state.wild_population[ts1, loc, grp]
-    n_existing = count(pop .> 0.0)
+    # Weighted mean based on recruitment proportion (count both wild and deployed)
+    wild_pop = reef_state.wild_population[ts1, loc, grp]
+    deployed_pop = reef_state.deployed_population[ts1, loc, grp]
+    n_existing = count(wild_pop .> 0.0) + count(deployed_pop .> 0.0)
     prop = n_recruits / (n_recruits + n_existing)
-    new_grp_mean = Float32((recruit_mean * prop) + (mean_mixed * (1.0 - prop)))  # Changed from prev_mean_mixed
+    new_grp_mean = Float32((recruit_mean * prop) + (mean_mixed * (1.0 - prop)))
 
     return update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
 end

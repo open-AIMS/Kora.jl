@@ -148,32 +148,16 @@ function run_model!(
             if n_loc_recruits > 0
                 # Only selection changes tolerance
                 recruits[loc, grp] = Float32.(rand(rng, recruit_dist, n_loc_recruits))
+                update_coral_tolerances!(reef_state, ts, loc, grp, n_loc_recruits)
+            else
+                # Copy previous tolerance when no recruits (no Breeder's equation applied)
+                reef_state.wild_dhw_tolerances.data[ts, loc, grp, 1] = reef_state.wild_dhw_tolerances.data[
+                    prev_ts, loc, grp, 1
+                ]
+                reef_state.deployed_dhw_tolerances.data[ts, loc, grp, 1] = reef_state.deployed_dhw_tolerances.data[
+                    prev_ts, loc, grp, 1
+                ]
             end
-
-            # Always copy previous tolerance (whether or not there were recruits)
-            reef_state.wild_dhw_tolerances.data[ts, loc, grp, 1] = reef_state.wild_dhw_tolerances.data[
-                prev_ts, loc, grp, 1
-            ]
-            reef_state.deployed_dhw_tolerances.data[ts, loc, grp, 1] = reef_state.deployed_dhw_tolerances.data[
-                prev_ts, loc, grp, 1
-            ]
-
-            # if n_loc_recruits > 0
-            #     recruits[loc, grp] = Float32.(rand(rng, recruit_dist, n_loc_recruits))
-            #     # update_coral_tolerances!(reef_state, ts, loc, grp, n_loc_recruits)
-            # else
-            #     # Have to update the previous time step's entry as later calculations
-            #     # update tolerances influenced by the new recruits
-
-            #     # Get "current" tolerance means
-            #     wild_mean = reef_state.wild_dhw_tolerances[prev_ts, loc, grp, At(:mean)]
-            #     deployed_mean = reef_state.deployed_dhw_tolerances[
-            #         prev_ts, loc, grp, At(:mean)
-            #     ]
-
-            #     reef_state.wild_dhw_tolerances[ts, loc, grp, At(:mean)] = wild_mean
-            #     reef_state.deployed_dhw_tolerances[ts, loc, grp, At(:mean)] = deployed_mean
-            # end
 
             # # TODO: Distribution should only be affected once juveniles reach maturity
             # if reef_state.deployment_times[ts, loc, grp] > 0
