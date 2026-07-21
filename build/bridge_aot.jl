@@ -6,6 +6,8 @@
 #                             uint32_t vol3, uint32_t vol4,
 #                             uint32_t start_year, uint32_t cadence_years,
 #                             float depth_m, float deploy_dhw_tolerance);
+#   int32_t kf_new_dhw_trajectory();  // invalidate cached DHW; next kf_run_reef
+#                                     // call regenerates a fresh climate sequence
 #   int32_t kf_run_reef(float area_m2, float init_cover_pct, uint32_t n_runs,
 #                       float* dhw_out, int32_t dhw_cap,
 #                       float* covers_out, int32_t covers_cap,
@@ -103,10 +105,12 @@ const _N_GROUPS = Int32(5)
 const _growth_ref = Ref{Union{Nothing,Kora.PolyGrowthModel{Float32}}}(nothing)
 const _survival_ref = Ref{Union{Nothing,Kora.PolySurvivalModel{Float32}}}(nothing)
 
-# Cache DHW so every run batch uses the same climate forcing.
-# Regenerated when reef area, timestep count, or models change.
+# Cache DHW so every run batch uses the same climate forcing. Area does NOT
+# invalidate this cache — DHW generation doesn't depend on area, and reef
+# area changes must not silently change the climate trajectory. Regenerated
+# only when timestep count changes, models are (re)loaded, or a new
+# trajectory is explicitly requested via kf_new_dhw_trajectory.
 const _dhw_ref = Ref{Union{Nothing,Matrix{Float32}}}(nothing)
-const _init_area_ref = Ref{Float32}(0.0f0)
 const _init_n_ts_ref = Ref{Int}(0)
 
 # Deployment schedule — set via kf_set_deployment before kf_run_reef.
@@ -164,7 +168,6 @@ Base.@ccallable function kf_load_models(
         _survival_ref[] = sm
         Kora._set_models!(gm, sm)
         _dhw_ref[] = nothing
-        _init_area_ref[] = 0.0f0
         _init_n_ts_ref[] = 0
         return Int32(0)
     catch e
@@ -187,6 +190,11 @@ Base.@ccallable function kf_set_deployment(
     _deploy_cadence_ref[] = cadence_years
     _depth_ref[] = depth_m
     _deploy_dhw_tol_ref[] = dhw_tol
+    return Int32(0)
+end
+
+Base.@ccallable function kf_new_dhw_trajectory()::Int32
+    _dhw_ref[] = nothing
     return Int32(0)
 end
 
@@ -214,12 +222,11 @@ Base.@ccallable function kf_run_reef(
         sm = _survival_ref[]
         sm === nothing && return Int32(-1)
 
-        # Generate DHW once per (area, n_ts); reuse across run batches so all
-        # runs see the same climate forcing.  Cleared by kf_load_models when
-        # models are reloaded.
-        if _dhw_ref[] === nothing || _init_area_ref[] != area_m2 || _init_n_ts_ref[] != n_ts
+        # Generate DHW once per n_ts; reuse across run batches (and across
+        # reef-area changes) so all runs see the same climate forcing unless
+        # a new trajectory is explicitly requested via kf_new_dhw_trajectory.
+        if _dhw_ref[] === nothing || _init_n_ts_ref[] != n_ts
             @_write_stderr("[kf_run_reef] generate_example_dhw\n")
-            _init_area_ref[] = area_m2
             _init_n_ts_ref[] = n_ts
             _dhw_ref[] = Kora.generate_example_dhw(n_ts, 1)
         end
