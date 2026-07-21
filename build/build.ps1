@@ -29,6 +29,13 @@ if ($OutputDir -eq "") {
                  else { Join-Path $ProjectRoot "build/dist/$Mode" }
 }
 
+# Clean any stale output from a previous run -- juliac's exact output
+# layout (e.g. whether kora_bridge.dll lands flat or under bin\) has
+# changed across versions, and leftover artifacts from an older layout
+# or an older source revision can silently shadow the fresh build
+# (see: kf_new_dhw_trajectory missing from a stale bin\kora_bridge.dll
+# while the flat copy at $OutputDir root was current).
+if (Test-Path $OutputDir) { Remove-Item -Recurse -Force $OutputDir }
 New-Item -ItemType Directory -Force $OutputDir | Out-Null
 
 $LibStem = Join-Path $OutputDir "kora_bridge"
