@@ -1,6 +1,6 @@
 name = "Kora"
 uuid = "63f594c6-e77c-4cfd-819e-df68f57e9897"
-version = "1.1.0"
+version = "1.1.1"
 authors = ["Takuya Iwanaga <t.iwanaga@aims.gov.au>"]
 
 [deps]
