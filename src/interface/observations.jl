@@ -216,6 +216,15 @@ function standardize_ecorrap_data!(df::DataFrame)::DataFrame
     df[df.cluster .== "offshore_central", :cluster] .= "offshore_central"
     df[df.cluster .== "offshore_southern", :cluster] .= "offshore_south"
 
+    # Normalise use-flag columns: parquet may emit Bool (true/false) or String ("yes"/"no").
+    for col in (:growth_use, :survival_use)
+        col in propertynames(df) || continue
+        raw = df[!, col]
+        if nonmissingtype(eltype(raw)) <: Bool
+            df[!, col] = [ismissing(x) ? missing : (x ? "yes" : "no") for x in raw]
+        end
+    end
+
     return df
 end
 
