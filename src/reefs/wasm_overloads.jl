@@ -340,17 +340,28 @@ function run_model!(
             end
 
             # Deployment and natural recruitment are independent — the
-            # deployed cohort's mean always carries forward, overwritten
-            # below if a new deployment lands at this exact (ts, loc, grp).
+            # deployed cohort's mean always carries forward, blended below
+            # if a new deployment lands at this exact (ts, loc, grp).
             reef_state.deployed_dhw_tolerances[ts, loc, grp, 1] = reef_state.deployed_dhw_tolerances[
                 prev_ts, loc, grp, 1
             ]
 
             if reef_state.deployment_times[ts, loc, grp] > 0
                 n_deploy = Int64(reef_state.deployment_times[ts, loc, grp])
+                n_existing = length(deployed_population(reef_state, prev_ts, loc, grp))
+                new_deploy_mean = deploy_dhw_tol > 0.0f0 ? deploy_dhw_tol : reef_state.wild_dhw_tolerances[ts, loc, grp, 1]
                 deploy_corals!(reef_state, ts, loc, n_deploy, grp, rng)
-                new_mean_d = deploy_dhw_tol > 0.0f0 ? deploy_dhw_tol : reef_state.wild_dhw_tolerances[ts, loc, grp, 1]
-                reef_state.deployed_dhw_tolerances[ts, loc, grp, 1] = new_mean_d
+                # Population-size-weighted blend with the surviving deployed
+                # cohort — mirrors update_coral_tolerances!'s recruit-mixing
+                # pattern instead of discarding the existing cohort's mean.
+                existing_mean = reef_state.deployed_dhw_tolerances[prev_ts, loc, grp, 1]
+                total_n = n_deploy + n_existing
+                blended_mean = if total_n > 0
+                    Float32((new_deploy_mean * n_deploy + existing_mean * n_existing) / total_n)
+                else
+                    new_deploy_mean
+                end
+                reef_state.deployed_dhw_tolerances[ts, loc, grp, 1] = blended_mean
             end
         end
 
