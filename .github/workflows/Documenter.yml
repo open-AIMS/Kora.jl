@@ -28,5 +28,4 @@ jobs:
       - run: julia --project=docs -e 'using Pkg; Pkg.instantiate()'
       - run: julia --project=docs docs/make.jl
         env:
-          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
