@@ -643,7 +643,11 @@ function initialize_coral_population!(
     # Explicit loops: view() constructs SubArray structs that hit the same compile_new
     # BoundsError in WasmTarget as broadcast .= — scalar indexing avoids all intermediate structs
     n_locs = size(reef_state.wild_dhw_tolerances, 2)
-    n_ts = size(reef_state.wild_dhw_tolerances, 1)
+
+    # Only ts=1 is seeded here — like the mean, the standard deviation is a
+    # per-timestep quantity that the simulation loop carries forward (and
+    # narrows/widens) itself; pre-filling every ts would just be stale data
+    # masquerading as state.
     for loc in 1:n_locs
         reef_state.wild_dhw_tolerances[1, loc, 1, 1] = 3.751612251  # tabular Acropora
         reef_state.wild_dhw_tolerances[1, loc, 2, 1] = 4.081622683  # corymbose Acropora
@@ -651,12 +655,10 @@ function initialize_coral_population!(
         reef_state.wild_dhw_tolerances[1, loc, 4, 1] = 6.165751937  # Small massives and encrusting
         reef_state.wild_dhw_tolerances[1, loc, 5, 1] = 7.153507902  # Large massives
     end
-    for ts in 1:n_ts, loc in 1:n_locs
-        reef_state.wild_dhw_tolerances[ts, loc, 1, 2] = 2.904433676  # tabular Acropora
-        reef_state.wild_dhw_tolerances[ts, loc, 2, 2] = 3.159922076  # corymbose Acropora
-        reef_state.wild_dhw_tolerances[ts, loc, 3, 2] = 3.474118416  # Pocillopora + non-Acropora corymbose
-        reef_state.wild_dhw_tolerances[ts, loc, 4, 2] = 4.773419097  # Small massives and encrusting
-        reef_state.wild_dhw_tolerances[ts, loc, 5, 2] = 5.538122776  # Large massives
+
+    founder_std = founder_dhw_tolerance_std()
+    for loc in 1:n_locs, grp in 1:5
+        reef_state.wild_dhw_tolerances[1, loc, grp, 2] = founder_std[grp]
     end
 
     return nothing

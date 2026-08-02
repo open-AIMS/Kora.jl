@@ -254,6 +254,97 @@ function truncated_normal_cdf(
 end
 
 """
+    truncated_standard_normal_var(lb::F, ub::F)::F where {F<:Union{Float32,Float64}}
+
+Compute the variance of the standard normal distribution truncated to the interval
+[`lb`, `ub`].
+
+# Arguments
+- `lb` : Lower bound of the truncated distribution.
+- `ub` : Upper bound of the truncated distribution.
+
+# Returns
+`F` : Variance of the truncated standard normal distribution, in `[0, 1]`.
+
+# References
+1. Distributions.jl truncated normal implementation:
+   https://github.com/JuliaStats/Distributions.jl/blob/c1705a3015d438f7e841e82ef5148224813831e8/src/truncated/normal.jl
+"""
+function truncated_standard_normal_var(lb::F, ub::F)::F where {F<:Union{Float32,Float64}}
+    if lb == ub
+        return zero(F)
+    end
+
+    inv_sqrt2pi::F = 0.3989422804014327
+    inv_sqrt2::F = 0.7071067811865476
+
+    φ_lb = inv_sqrt2pi * exp(-lb * lb * 0.5)
+    φ_ub = inv_sqrt2pi * exp(-ub * ub * 0.5)
+    Φ_lb = 0.5 * (1.0 + rational_erf(lb * inv_sqrt2))
+    Φ_ub = 0.5 * (1.0 + rational_erf(ub * inv_sqrt2))
+
+    z = Φ_ub - Φ_lb
+    if z <= eps(F)
+        return zero(F)
+    end
+
+    t_mean = truncated_standard_normal_mean(lb, ub)
+    variance = 1.0 + (lb * φ_lb - ub * φ_ub) / z - t_mean * t_mean
+
+    # Truncation can only shrink variance relative to the untruncated (unit)
+    # normal; clamp away any rational_erf approximation noise at the edges.
+    return clamp(F(variance), zero(F), one(F))
+end
+
+"""
+    truncated_normal_var(
+        normal_mean::F,
+        normal_stdev::F,
+        lower_bound::F,
+        upper_bound::F
+    )::F where {F<:Union{Float32,Float64}}
+
+Compute the variance of the normal distribution with mean `normal_mean` and standard
+deviation `normal_stdev`, truncated to the interval [`lower_bound`, `upper_bound`].
+
+Delegates to [`truncated_standard_normal_var`](@ref) after standardising the
+bounds to the unit-normal scale.
+
+# See Also
+[`truncated_standard_normal_var`](@ref), [`truncated_normal_std`](@ref),
+[`truncated_normal_mean`](@ref)
+"""
+function truncated_normal_var(
+    normal_mean::F, normal_stdev::F, lower_bound::F, upper_bound::F
+)::F where {F<:Union{Float32,Float64}}
+    alpha::F = (lower_bound - normal_mean) / normal_stdev
+    beta::F = (upper_bound - normal_mean) / normal_stdev
+
+    return truncated_standard_normal_var(alpha, beta) * normal_stdev * normal_stdev
+end
+
+"""
+    truncated_normal_std(
+        normal_mean::F,
+        normal_stdev::F,
+        lower_bound::F,
+        upper_bound::F
+    )::F where {F<:Union{Float32,Float64}}
+
+Compute the standard deviation of the normal distribution with mean `normal_mean`
+and standard deviation `normal_stdev`, truncated to the interval [`lower_bound`,
+`upper_bound`].
+
+# See Also
+[`truncated_normal_var`](@ref), [`truncated_normal_mean`](@ref)
+"""
+function truncated_normal_std(
+    normal_mean::F, normal_stdev::F, lower_bound::F, upper_bound::F
+)::F where {F<:Union{Float32,Float64}}
+    return sqrt(truncated_normal_var(normal_mean, normal_stdev, lower_bound, upper_bound))
+end
+
+"""
     rand_truncated_normal(rng, μ, σ, lo, hi[, n])
 
 Draw one (or `n`) samples from the normal distribution N(μ, σ²) truncated to
