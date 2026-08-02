@@ -73,7 +73,7 @@ case "$MODE" in
         echo "Mode: worker (standalone exe, no Julia runtime required on target)"
         BUILD_LOG="$OUTPUT_DIR/build.log"
         echo "Build log: $BUILD_LOG"
-        time juliac --verbose --project="$PROJECT_ROOT" --output-exe "$OUTPUT_DIR/kora-worker" \
+        time juliac --verbose --project="$PROJECT_ROOT" --output-exe kora-worker \
             --bundle "$OUTPUT_DIR" --trim=safe --experimental "$WORKER_ENTRY_FILE" \
             2>&1 | tee "$BUILD_LOG"
         ;;
