@@ -2,6 +2,22 @@ const _pi_f32 = Float32(π)
 const _cover_scale = 1.0f0 / 10000.0f0
 
 """
+    susceptibility_size_thresholds()::Vector{Float32}
+
+Returns the minimum diameter (cm) at which corals in each functional group become 
+susceptible to bleaching.
+"""
+function susceptibility_size_thresholds()::Vector{Float32}
+    return Float32[
+        12.5f0,  # Tabular Acropora
+        12.5f0,  # Corymbose Acropora
+        12.5f0,  # branching non-Acropora
+        15.0f0,  # Small massives and encrusting
+        20.0f0   # Large massives
+    ]
+end
+
+"""
     mature_size_thresholds()::Vector{Float32}
 
 Returns the minimum diameter (cm) at which corals in each functional group become 
@@ -14,25 +30,6 @@ function mature_size_thresholds()::Vector{Float32}
         5.0f0,  # branching non-Acropora
         5.0f0,  # Small massives and encrusting
         5.0f0   # Large massives
-    ]
-end
-
-"""
-    founder_dhw_tolerance_std()::Vector{Float32}
-
-Returns the standard deviation of DHW tolerance for each functional group's founding
-(unselected) population, derived from ecoRRAP observations. Used both to seed the
-initial wild population's tolerance spread and as the reference spread that new
-recruits draw from — selection (bleaching mortality) narrows a population's tolerance
-spread; recruitment from a wider gene pool is what restores it.
-"""
-function founder_dhw_tolerance_std()::Vector{Float32}
-    return Float32[
-        2.904433676f0,  # Tabular Acropora
-        3.159922076f0,  # Corymbose Acropora
-        3.474118416f0,  # branching non-Acropora
-        4.773419097f0,  # Small massives and encrusting
-        5.538122776f0   # Large massives
     ]
 end
 

@@ -4,13 +4,6 @@ using Polynomials: Polynomial
 # Private consts - only used in this file
 const _euler_f32 = Float32(ℯ)
 
-# Floor on DHW tolerance standard deviation. Selection (bleaching mortality)
-# narrows a population's tolerance spread each event it triggers; without a
-# floor, repeated narrowing could collapse `stdev` toward zero over many
-# events, which would then blow up as a near-zero divisor in
-# `truncated_normal_cdf`/`truncated_normal_mean` on the next bleaching pass.
-const _min_dhw_tolerance_std = 0.5f0
-
 """
     bleaching_susceptibility(x, k; x0=150.0)
 
@@ -79,9 +72,7 @@ Diameter size reduction due to bleaching mortality and partial mortality.
 - `grp` : Group ID
 
 # Returns
-Tuple: Updated mean and stdev of DHW tolerance, cover lost (in m²). Both tolerance
-moments are narrowed toward the truncated distribution of survivors when mortality
-occurs; otherwise `tols` is passed through unchanged.
+Tuple: Updated mean DHW tolerance, cover lost (in m²)
 """
 function bleaching_mortality!(
     diams::AbstractVector{F},
@@ -110,14 +101,14 @@ function bleaching_mortality!(
     end
 
     diam_cache = copy(diams)
-    exposure_size = mature_size_thresholds()[grp]  # Corals become exposed to bleaching mortality once they reach reproductive maturity size
+    mature_size = susceptibility_size_thresholds()[grp]  # Assumed mature sizes
 
     # Apply size-dependent mortality to each size class
     # (the reduction in size due to partial mortality or mortality).
     # Using an explicit loop here to avoid temporary allocations
     # Threads.@threads :static
     for i in eachindex(diams)
-        if diams[i] >= exposure_size
+        if diams[i] >= mature_size
             # Calculate size-specific mortality modifier
             # The sqrt() converts the area reduction to the expected diameter reduction
             @inbounds diams[i] *= sqrt(
@@ -133,10 +124,7 @@ function bleaching_mortality!(
     area_lost = min(current_cover, sum(diam_cache))
 
     if area_lost > 0.0f0 && ((current_cover - area_lost) > 0.0f0)
-        upper_bound = μ + 10.0f0
-        new_stdev = truncated_normal_std(μ, stdev, 4.0f0, upper_bound)
-        μ = truncated_normal_mean(μ, stdev, 4.0f0, upper_bound)
-        stdev = max(new_stdev, _min_dhw_tolerance_std)
+        μ = truncated_normal_mean(μ, stdev, 4.0f0, μ + 10.0f0)
     end
 
     return μ, stdev, area_lost

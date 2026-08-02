@@ -201,7 +201,7 @@ function update_coral_tolerances!(
     recruit_mean = breeders(prev_mean_mixed, mean_mixed, h²)
 
     # Only mature corals reproduce; filter by maturity size
-    mature_size = mature_size_thresholds()[grp]
+    mature_size = susceptibility_size_thresholds()[grp]
     wild_pop_t1 = reef_state.wild_population[ts1, loc, grp]
     deployed_pop_t1 = reef_state.deployed_population[ts1, loc, grp]
     n_existing_mature =
@@ -210,18 +210,8 @@ function update_coral_tolerances!(
     # Weighted mean based on recruitment proportion
     prop = n_recruits / (n_recruits + n_existing_mature)
     new_grp_mean = Float32((recruit_mean * prop) + (mean_mixed * (1.0 - prop)))
-    update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
 
-    # Recruits draw from the founder tolerance spread (representing the wider
-    # gene pool of sexual reproduction), counteracting the narrowing that
-    # bleaching-driven selection applies in `bleaching_mortality!`. Deployed
-    # corals share the wild stdev (see `apply_bleaching!`), so `ts1`'s wild
-    # stdev is the correct "existing population" spread to blend from here.
-    std_prev = reef_state.wild_dhw_tolerances[ts1, loc, grp, 2]
-    founder_std = founder_dhw_tolerance_std()[grp]
-    new_grp_std = Float32((founder_std * prop) + (std_prev * (1.0 - prop)))
-
-    return update_dhw_tol_std!(reef_state, ts, loc, grp, new_grp_std)
+    return update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
 end
 
 function _update_coral_tolerances_wild_only!(
@@ -250,21 +240,13 @@ function _update_coral_tolerances_wild_only!(
     recruit_mean = breeders(wild_mean_t2, wild_mean_t1, h²)
 
     # Only mature corals reproduce; filter by maturity size
-    mature_size = mature_size_thresholds()[grp]
+    mature_size = susceptibility_size_thresholds()[grp]
     wild_pop_t1 = reef_state.wild_population[ts1, loc, grp]
     n_existing_mature = count(wild_pop_t1 .>= mature_size)
 
     # Weighted mean based on recruitment proportion
     prop = n_recruits / (n_recruits + n_existing_mature)
     new_grp_mean = Float32((recruit_mean * prop) + (wild_mean_t1 * (1.0 - prop)))
-    update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
 
-    # See `update_coral_tolerances!` above for why recruits are blended
-    # toward the founder stdev rather than carrying the (possibly narrowed)
-    # existing stdev forward unchanged.
-    std_prev = reef_state.wild_dhw_tolerances[ts1, loc, grp, 2]
-    founder_std = founder_dhw_tolerance_std()[grp]
-    new_grp_std = Float32((founder_std * prop) + (std_prev * (1.0 - prop)))
-
-    return update_dhw_tol_std!(reef_state, ts, loc, grp, new_grp_std)
+    return update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
 end

@@ -86,8 +86,11 @@ end
     end
 
     @testset "thresholds" begin
+        sus = Kora.susceptibility_size_thresholds()
         mat = Kora.mature_size_thresholds()
+        @test length(sus) == length(Kora.TARGET_GROUPS)
         @test length(mat) == length(Kora.TARGET_GROUPS)
+        @test all(sus .> 0)
         @test all(mat .> 0)
     end
 end

@@ -217,9 +217,6 @@ function run_model!(
                 reef_state.wild_dhw_tolerances[ts, loc, grp, 1] = reef_state.wild_dhw_tolerances[
                     prev_ts, loc, grp, 1
                 ]
-                reef_state.wild_dhw_tolerances[ts, loc, grp, 2] = reef_state.wild_dhw_tolerances[
-                    prev_ts, loc, grp, 2
-                ]
             end
 
             # Deployment and natural recruitment are independent processes —
