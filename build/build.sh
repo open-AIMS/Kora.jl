@@ -11,6 +11,10 @@
 #                       artifacts bundled automatically; no Julia on target required
 #   sysimage            juliac --output-sysimage -> sysimage loaded by Julia at startup,
 #                       requires Julia on target, portable to any machine with Julia
+#   worker              juliac --output-exe --bundle -> standalone kora-worker executable
+#                       for the web server backend; reads WireSimParams from stdin,
+#                       writes WireEnsembleResult to stdout, loops until stdin closes.
+#                       Build and test on Linux (WSL or CI) — not Windows native.
 #
 # Overridable env vars:
 #   KORA_LIB_DIR   output directory (default: build/dist/<mode> inside Kora.jl root)
@@ -20,6 +24,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 ENTRY_FILE="$SCRIPT_DIR/bridge_aot.jl"
+WORKER_ENTRY_FILE="$SCRIPT_DIR/worker_main.jl"
 
 MODE="native"
 OUTPUT_DIR="${KORA_LIB_DIR:-}"
@@ -64,8 +69,17 @@ case "$MODE" in
             --compile-ccallable --experimental "$ENTRY_FILE"
         ;;
 
+    worker)
+        echo "Mode: worker (standalone exe, no Julia runtime required on target)"
+        BUILD_LOG="$OUTPUT_DIR/build.log"
+        echo "Build log: $BUILD_LOG"
+        time juliac --verbose --project="$PROJECT_ROOT" --output-exe "$OUTPUT_DIR/kora-worker" \
+            --bundle "$OUTPUT_DIR" --trim=safe --experimental "$WORKER_ENTRY_FILE" \
+            2>&1 | tee "$BUILD_LOG"
+        ;;
+
     *)
-        echo "ERROR: Unknown mode '$MODE'. Valid modes: native, bundled, sysimage" >&2
+        echo "ERROR: Unknown mode '$MODE'. Valid modes: native, bundled, sysimage, worker" >&2
         exit 1
         ;;
 esac
