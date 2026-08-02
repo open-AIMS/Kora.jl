@@ -300,6 +300,6 @@ end  # module KoraWorker
 # ---------------------------------------------------------------------------
 # juliac --output-exe entry point (top-level, not inside a module)
 # ---------------------------------------------------------------------------
-function julia_main()::Cint
+Base.@main function main(ARGS::Vector{String})::Cint
     return KoraWorker.run(ARGS)
 end
