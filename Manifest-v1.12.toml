@@ -413,7 +413,7 @@ uuid = "5ab0869b-81aa-558d-bb23-cbf5423bbe9b"
 version = "0.6.12"
 
 [[deps.Kora]]
-deps = ["Bootstrap", "CSV", "CurveFit", "DataFrames", "Dates", "DimensionalData", "DiskArrays", "Distributions", "Interpolations", "JSON", "Missings", "OrderedCollections", "Polynomials", "PrecompileSignatures", "PrecompileTools", "Printf", "Random", "Statistics", "StatsBase", "StatsFuns", "WasmTarget"]
+deps = ["Bootstrap", "CSV", "CurveFit", "DataFrames", "Dates", "DimensionalData", "DiskArrays", "Distributions", "Interpolations", "JSON", "KernelDensity", "Missings", "OrderedCollections", "Polynomials", "PrecompileSignatures", "PrecompileTools", "Printf", "Random", "Statistics", "StatsBase", "StatsFuns", "WasmTarget"]
 path = "."
 uuid = "63f594c6-e77c-4cfd-819e-df68f57e9897"
 version = "1.2.0"
