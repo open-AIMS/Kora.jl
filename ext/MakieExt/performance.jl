@@ -1,4 +1,4 @@
-using Kora.Interpolations
+using Interpolations
 
 """
 Helper function to generate validation plots for survival models using Makie.
