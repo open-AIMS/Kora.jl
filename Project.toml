@@ -27,6 +27,8 @@ WasmTarget = "9f3a1415-1112-405b-ae89-c61daf9872bd"
 
 [weakdeps]
 Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+KernelDensity = "5ab0869b-81aa-558d-bb23-cbf5423bbe9b"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Parquet2 = "98572fba-bba0-415d-956f-fa77e587d26d"
 Term = "22787eb5-b846-44ae-b979-8e399b8463ab"
@@ -34,7 +36,7 @@ UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 
 [extensions]
 ArrowExt = "Arrow"
-MakieExt = "Makie"
+MakieExt = ["Makie", "Interpolations", "KernelDensity"]
 Parquet2Ext = "Parquet2"
 UnicodePlotsExt = ["UnicodePlots", "Term"]
 
