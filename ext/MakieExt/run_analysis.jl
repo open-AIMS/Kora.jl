@@ -20,7 +20,7 @@ function Kora.viz.animate_population(
 
     hist!(ax, obs_points; bins=nbins, normalization=:pdf, color=(:blue, 0.3))
 
-    grp_ids = lookup(reef_state.location_scalers, Dim{:group})
+    grp_ids = lookup(Kora.location_scalers_da(reef_state), Dim{:group})
     grp_name = grp_ids[grp]
     record(f, filename, 2:total_time; framerate=framerate) do t
         try
@@ -73,7 +73,7 @@ function Kora.viz.animate_population(
     current_time = Observable(2)  # Start at timestep 2
     vlines!(ax2, current_time; color=:red, linewidth=2)
 
-    grp_ids = lookup(reef_state.location_scalers, Dim{:group})
+    grp_ids = lookup(Kora.location_scalers_da(reef_state), Dim{:group})
     grp_name = grp_ids[grp]
     record(f, filename, 2:total_time; framerate=framerate) do t
         try
@@ -99,7 +99,7 @@ function Kora.viz.dhws!(ax, env_conditions)
 end
 
 function Kora.viz.thermal_tolerance!(ax, reef_state::ReefState)
-    tols = dropdims(mean(reef_state.wild_dhw_tolerances.data[:, :, :, 1]; dims=2); dims=2)
+    tols = dropdims(mean(reef_state.wild_dhw_tolerances[:, :, :, 1]; dims=2); dims=2)
     colors = FGROUP_COLOR
     labels = FLABELS
 
