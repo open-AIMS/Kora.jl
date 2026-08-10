@@ -101,8 +101,9 @@ end
 Extract and prepare rows suitable for growth model fitting from a standardized
 EcoRRAP demographic dataset.
 
-Rows are kept when `growth_use == true`, `survival_use == true`, and `size` is
-present (not `missing`). Rows with no recorded date between observations
+Rows are kept when `growth_use == true`, `survival_use == true`, and both
+`size` and `sizenext` are present (not `missing`). A `missing` use-flag is
+treated as `false`. Rows with no recorded date between observations
 (`days_t1.t2` missing) are excluded by forcing their `growth_use` to `false`.
 Only rows with positive linear extension (i.e., net growth) are retained.
 
@@ -136,13 +137,18 @@ function get_growth_entries(standardized_data::DataFrame)::DataFrame
     growth_use_check = ismissing.(standardized_data[!, Symbol("days_t1.t2")])
     standardized_data[growth_use_check, :growth_use] .= false
 
-    growth_mask = standardized_data.growth_use .== true
-    survived_mask = standardized_data.survival_use .== true
-    non_missing_size_mask = .!ismissing.(standardized_data.size)
+    # Every component must resolve to `true`/`false`, never `missing`: a
+    # `missing` anywhere in the row mask throws when used to index. A missing
+    # use-flag means "not marked for use", and a row missing either area has no
+    # computable growth increment.
+    growth_mask = coalesce.(standardized_data.growth_use, false)
+    survived_mask = coalesce.(standardized_data.survival_use, false)
+    complete_area_mask =
+        .!ismissing.(standardized_data.size) .&& .!ismissing.(standardized_data.sizenext)
 
     # Remove missing and unused data
     growth_data::DataFrame = standardized_data[
-        growth_mask .&& survived_mask .&& non_missing_size_mask, :
+        growth_mask .&& survived_mask .&& complete_area_mask, :
     ]
 
     # Add diameter column and diameter Next column

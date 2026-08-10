@@ -1511,6 +1511,37 @@ end
         @test all(.!ismissing.(growth.size))
     end
 
+    @testset "rows with missing sizenext are dropped, not fatal" begin
+        # Same failure mode as missing `size`: without a second area there is
+        # no growth increment, and letting the row through puts `missing` into
+        # the `lin_ext .> 0.0` mask, which throws on indexing.
+        df = raw_frame(
+            Union{Missing,Bool}[true, true, true],
+            Union{Missing,Bool}[true, true, true]
+        )
+        df[!, "area_t2_sqcm"] = Vector{Union{Missing,Float64}}([200.0, missing, 310.0])
+        Kora.standardize_ecorrap_data!(df)
+
+        growth = Kora.get_growth_entries(df)
+        @test nrow(growth) == 2
+        @test all(.!ismissing.(growth.sizenext))
+    end
+
+    @testset "missing use-flags are treated as false, not fatal" begin
+        # A `missing` flag left `missing` in the row mask and threw on
+        # indexing. The collator emits Union{Bool,Missing}, so this is
+        # reachable from valid input.
+        df = raw_frame(
+            Union{Missing,Bool}[true, missing, true],
+            Union{Missing,Bool}[true, true, missing]
+        )
+        Kora.standardize_ecorrap_data!(df)
+
+        growth = Kora.get_growth_entries(df)
+        @test nrow(growth) == 1
+        @test growth.size == [100.0]
+    end
+
     @testset "rows with no observation interval are excluded" begin
         df = raw_frame(fill(true, 3), fill(true, 3))
         df[!, "days_t1.t2"] = Vector{Union{Missing,Float64}}([365.0, missing, 365.0])
