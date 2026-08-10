@@ -10,7 +10,6 @@ const TEST_CLASS_STD_ID = :class_test_std
 
 """
     area_to_diam(area::AbstractFloat)::AbstractFloat
-    area_to_diam(area::AbstractString)::Union{AbstractFloat, Missing}
     area_to_diam(_::Missing)::Missing
 
 Convert a coral planar area (cm^2) to an equivalent circle diameter (cm).
@@ -18,16 +17,13 @@ Convert a coral planar area (cm^2) to an equivalent circle diameter (cm).
 Assumes the coral footprint is circular. The conversion solves for `d` in
 `area = pi * (d/2)^2`, giving `d = sqrt(4 * area / pi)`.
 
-String inputs are parsed to `Float64`; strings that cannot be parsed are
-returned as `missing`.
-
 # Arguments
-- `area`: Planar area of the coral colony in cm^2. Accepts `AbstractFloat`,
-  `AbstractString`, or `Missing`.
+- `area`: Planar area of the coral colony in cm^2. Accepts `AbstractFloat`
+  or `Missing`.
 
 # Returns
 - `AbstractFloat`: Equivalent circle diameter in cm when input is numeric.
-- `Missing`: Returned when `area` is `missing` or is a non-numeric string.
+- `Missing`: Returned when `area` is `missing`.
 
 # Examples
 ```jldoctest
@@ -42,16 +38,6 @@ missing
 """
 function area_to_diam(area::AbstractFloat)::AbstractFloat
     return sqrt(4.0 * area / π)
-end
-function area_to_diam(area::AbstractString)::Union{AbstractFloat,Missing}
-    try
-        return area_to_diam(parse(Float64, area))
-    catch e
-        if e isa ArgumentError || e isa MethodError
-            return missing
-        end
-        rethrow(e)
-    end
 end
 function area_to_diam(_::Missing)::Missing
     return missing
