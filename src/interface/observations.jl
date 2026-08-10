@@ -115,9 +115,9 @@ end
 Extract and prepare rows suitable for growth model fitting from a standardized
 EcoRRAP demographic dataset.
 
-Rows are kept when `growth_use == "yes"`, `survival_use == "yes"`, and
-`size != "NA"`. Rows with no recorded date between observations
-(`days_t1.t2` missing) are excluded by forcing their `growth_use` to "no".
+Rows are kept when `growth_use == true`, `survival_use == true`, and `size` is
+present (not `missing`). Rows with no recorded date between observations
+(`days_t1.t2` missing) are excluded by forcing their `growth_use` to `false`.
 Only rows with positive linear extension (i.e., net growth) are retained.
 
 The returned DataFrame adds the following derived columns:
@@ -145,14 +145,14 @@ function get_growth_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
 
     # Do not use growth data marked for use with no dates between observations!
-    # Materialise the column first — Parquet2-backed StringRefVectors are read-only.
-    standardized_data[!, :growth_use] = Vector{Union{Missing,String}}(standardized_data[!, :growth_use])
+    # Materialise the column first — Parquet2-backed columns are read-only.
+    standardized_data[!, :growth_use] = Vector{Union{Missing,Bool}}(standardized_data[!, :growth_use])
     growth_use_check = ismissing.(standardized_data[!, Symbol("days_t1.t2")])
-    standardized_data[growth_use_check, :growth_use] .= "no"
+    standardized_data[growth_use_check, :growth_use] .= false
 
-    growth_mask = standardized_data.growth_use .== "yes"
-    survived_mask = standardized_data.survival_use .== "yes"
-    non_missing_size_mask = standardized_data.size .!= "NA"
+    growth_mask = standardized_data.growth_use .== true
+    survived_mask = standardized_data.survival_use .== true
+    non_missing_size_mask = .!ismissing.(standardized_data.size)
 
     # Remove missing and unused data
     growth_data::DataFrame = standardized_data[
@@ -192,9 +192,16 @@ end
 Extract and prepare rows suitable for survival model fitting from a standardized
 EcoRRAP demographic dataset.
 
-Rows are kept when `survival_use == "yes"`. For rows where `sizenext` is
+Rows are kept when `survival_use == true`. For rows where `sizenext` is
 missing or zero, the `size` column is used as a fallback so that the
 `diam_mort` column (size at the mortality event) is always populated.
+
+**Assumption:** a `sizenext` of exactly `0.0` is treated as "no second
+measurement was recorded" (a data-entry convention), not as a genuine
+observation that the colony's area shrank to zero. This assumption is not
+verified against the source data dictionary — if the raw data ever encodes a
+true zero-area observation, this fallback would silently overwrite it with
+`size`, understating any real decline in colony area for that row.
 
 The returned DataFrame adds the following derived columns:
 - `diam`: equivalent circle diameter at observation time (cm)
@@ -215,7 +222,7 @@ The returned DataFrame adds the following derived columns:
 """
 function get_survival_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
-    for_survival = standardized_data[:, :survival_use] .== "yes"
+    for_survival = standardized_data[:, :survival_use] .== true
     for_survival[ismissing.(for_survival)] .= 0
 
     # If data is "missing" in the sizenext column, fill with data in `size` column
@@ -226,6 +233,9 @@ function get_survival_entries(standardized_data::DataFrame)::DataFrame
         missing_sizenext, :size
     ]
 
+    # Assumption: sizenext == 0.0 means "not measured" (recording convention),
+    # not a genuine observation of the colony shrinking to zero area — see
+    # docstring. Treated the same as `missing` and backfilled from `size`.
     zero_size = standardized_data.sizenext .== 0.0
     standardized_data[zero_size, :sizenext] .= standardized_data[zero_size, :size]
 
@@ -265,12 +275,13 @@ function standardize_ecorrap_data!(df::DataFrame)::DataFrame
     df[df.cluster .== "offshore_central", :cluster] .= "offshore_central"
     df[df.cluster .== "offshore_southern", :cluster] .= "offshore_south"
 
-    # Normalise use-flag columns: parquet may emit Bool (true/false) or String ("yes"/"no").
+    # Normalise use-flag columns to Bool: parquet may emit native Bool (true/false)
+    # or legacy String ("yes"/"no") depending on the source pipeline/vintage.
     for col in (:growth_use, :survival_use)
         col in propertynames(df) || continue
         raw = df[!, col]
-        if nonmissingtype(eltype(raw)) <: Bool
-            df[!, col] = [ismissing(x) ? missing : (x ? "yes" : "no") for x in raw]
+        if nonmissingtype(eltype(raw)) <: AbstractString
+            df[!, col] = [ismissing(x) ? missing : lowercase(String(x)) == "yes" for x in raw]
         end
     end
 

@@ -77,8 +77,8 @@ Each row records a single colony observed at two points in time.
 | `area_t2_sqcm` | numeric | Colony area at second observation, in $\text{cm}^2$ |
 | `taxon` | string | Species or taxon code |
 | `survival` | integer | 1 if alive at second observation, 0 if dead |
-| `growth_use` | string | "yes" if this row should be used for growth model fitting |
-| `survival_use` | string | "yes" if this row should be used for survival model fitting |
+| `growth_use` | boolean | `true` if this row should be used for growth model fitting |
+| `survival_use` | boolean | `true` if this row should be used for survival model fitting |
 | `days_t1.t2` | numeric | Days between the two observations |
 | `cluster` | string | Regional cluster label, e.g. "Offshore_Northern" |
 | `site_code` | string | Site identifier used for spatial train/test splitting |
