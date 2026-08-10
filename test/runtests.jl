@@ -1,5 +1,6 @@
 using Test
 using Kora
+using DataFrames
 using Random
 using Statistics
 
@@ -1381,5 +1382,142 @@ end
             @test all(deployed_pop .> 0.0f0)
             @test mean(deployed_pop) > 0.0f0
         end
+    end
+end
+
+@testset "EcoRRAP Data Standardization" begin
+    # Minimal frame mirroring the collator's raw output schema, pre-standardization.
+    # `Taxon`/`survival` are mixed-case to exercise the lowercasing step, and the
+    # numeric columns are `Union{Missing,...}` because parquet emits real nulls
+    # where the upstream R pipeline used to write the string "NA".
+    function raw_frame(growth_use, survival_use; area_t1=[100.0, 120.0, 150.0])
+        return DataFrame(
+            "area_t1_sqcm" => Vector{Union{Missing,Float64}}(area_t1),
+            "area_t2_sqcm" => Vector{Union{Missing,Float64}}([200.0, 260.0, 310.0]),
+            "Taxon" => ["Acropora", "Acropora", "Porites"],
+            "survival" => [1, 1, 1],
+            "growth_use" => growth_use,
+            "survival_use" => survival_use,
+            "days_t1.t2" => Vector{Union{Missing,Float64}}([365.0, 365.0, 365.0]),
+            "cluster" => ["Offshore_Northern", "Offshore_Central", "Offshore_Southern"]
+        )
+    end
+
+    @testset "native Bool flags pass through unchanged" begin
+        df = raw_frame(
+            Union{Missing,Bool}[true, false, missing],
+            Union{Missing,Bool}[true, true, false]
+        )
+        Kora.standardize_ecorrap_data!(df)
+
+        @test nonmissingtype(eltype(df.growth_use)) === Bool
+        @test nonmissingtype(eltype(df.survival_use)) === Bool
+        @test isequal(df.growth_use, [true, false, missing])
+        @test isequal(df.survival_use, [true, true, false])
+    end
+
+    @testset "legacy yes/no strings convert to Bool" begin
+        df = raw_frame(
+            Union{Missing,String}["yes", "no", missing],
+            Union{Missing,String}["yes", "yes", "no"]
+        )
+        Kora.standardize_ecorrap_data!(df)
+
+        @test nonmissingtype(eltype(df.growth_use)) === Bool
+        @test nonmissingtype(eltype(df.survival_use)) === Bool
+        @test isequal(df.growth_use, [true, false, missing])
+        @test isequal(df.survival_use, [true, true, false])
+    end
+
+    @testset "string flag conversion is case-insensitive" begin
+        df = raw_frame(
+            Union{Missing,String}["Yes", "NO", "YES"],
+            Union{Missing,String}["yEs", "No", "no"]
+        )
+        Kora.standardize_ecorrap_data!(df)
+
+        @test df.growth_use == [true, false, true]
+        @test df.survival_use == [true, false, false]
+    end
+
+    @testset "columns are renamed and lowercased" begin
+        df = raw_frame(fill(true, 3), fill(true, 3))
+        Kora.standardize_ecorrap_data!(df)
+
+        @test :size in propertynames(df)
+        @test :sizenext in propertynames(df)
+        @test :taxa in propertynames(df)
+        @test :surv in propertynames(df)
+        @test :area_t1_sqcm ∉ propertynames(df)
+        @test :area_t2_sqcm ∉ propertynames(df)
+    end
+
+    @testset "cluster labels are normalised" begin
+        df = raw_frame(fill(true, 3), fill(true, 3))
+        Kora.standardize_ecorrap_data!(df)
+
+        @test df.cluster == ["offshore_north", "offshore_central", "offshore_south"]
+    end
+
+    @testset "standardization is idempotent" begin
+        df = raw_frame(
+            Union{Missing,String}["yes", "no", missing],
+            Union{Missing,String}["yes", "yes", "no"]
+        )
+        Kora.standardize_ecorrap_data!(df)
+        once = copy(df)
+        Kora.standardize_ecorrap_data!(df)
+
+        @test isequal(df.growth_use, once.growth_use)
+        @test isequal(df.survival_use, once.survival_use)
+        @test df.cluster == once.cluster
+        @test propertynames(df) == propertynames(once)
+    end
+
+    @testset "Bool and legacy string inputs yield identical growth entries" begin
+        bool_df = raw_frame(
+            Union{Missing,Bool}[true, true, false],
+            Union{Missing,Bool}[true, true, true]
+        )
+        str_df = raw_frame(
+            Union{Missing,String}["yes", "yes", "no"],
+            Union{Missing,String}["yes", "yes", "yes"]
+        )
+
+        from_bool = Kora.get_growth_entries(Kora.standardize_ecorrap_data!(bool_df))
+        from_str = Kora.get_growth_entries(Kora.standardize_ecorrap_data!(str_df))
+
+        @test nrow(from_bool) == 2
+        @test nrow(from_bool) == nrow(from_str)
+        @test from_bool.size == from_str.size
+        @test from_bool.lin_ext ≈ from_str.lin_ext
+    end
+
+    @testset "rows with missing size are dropped, not fatal" begin
+        # Regression: the old `size .!= \"NA\"` guard dated from R-written CSVs.
+        # Against collator parquet (real nulls) it yields `missing` rather than
+        # `false`, which propagates into the row mask and throws on indexing.
+        # The collator does not couple `growth_use` to size presence, so a
+        # flagged row with a null area is reachable.
+        df = raw_frame(
+            Union{Missing,Bool}[true, true, true],
+            Union{Missing,Bool}[true, true, true];
+            area_t1=[100.0, 120.0, missing]
+        )
+        Kora.standardize_ecorrap_data!(df)
+
+        growth = Kora.get_growth_entries(df)
+        @test nrow(growth) == 2
+        @test all(.!ismissing.(growth.size))
+    end
+
+    @testset "rows with no observation interval are excluded" begin
+        df = raw_frame(fill(true, 3), fill(true, 3))
+        df[!, "days_t1.t2"] = Vector{Union{Missing,Float64}}([365.0, missing, 365.0])
+        Kora.standardize_ecorrap_data!(df)
+
+        growth = Kora.get_growth_entries(df)
+        @test nrow(growth) == 2
+        @test all(.!ismissing.(growth[!, Symbol("days_t1.t2")]))
     end
 end
