@@ -1,3 +1,5 @@
+using Polynomials: Polynomial, coeffs
+
 """
     fit_growth_models(
         groupings::OrderedDict{String, DataFrame}; degree=2
@@ -22,7 +24,7 @@ functional group and train/test performance metrics for all [`ALL_METRICS`](@ref
 function fit_growth_models(
     groupings::OrderedDict{String,DataFrame}; degree::Int=2
 )::PolyGrowthModel
-    models = PolyGrowthFunction[]
+    models = PolyGrowthFunction{Float32,Polynomial{Float32,:x}}[]
 
     g = length(values(groupings))
     m = length(ALL_METRICS)
@@ -41,8 +43,8 @@ function fit_growth_models(
         xi = Float32.(sub_df.diam[x_idx])
         yi = Float32.(sub_df.growth_rate[x_idx])
 
-        # Fit model
-        m = curve_fit(Polynomial, log.(xi), yi, degree)
+        # Fit model (coefficients coerced to Float32 to keep the model concrete)
+        m = Polynomial(Float32.(coeffs(curve_fit(Polynomial, log.(xi), yi, degree))), :x)
 
         # Create growth function, passing in the maximum observed size and growth
         model = PolyGrowthFunction(xi, yi, m, maximum(df.diam), maximum(df.growth_rate))
@@ -91,7 +93,7 @@ Tuple of (models, mcfadden_r2_scores, log_likelihood_scores, brier_scores)
 function fit_survival_models(
     groupings::OrderedDict{String,DataFrame}; degree::Int64=2
 )::PolySurvivalModel
-    models = PolySurvivalFunction[]
+    models = PolySurvivalFunction{Float32,Polynomial{Float32,:x}}[]
     g = length(values(groupings))
     m = length(ALL_METRICS)
 
@@ -107,11 +109,11 @@ function fit_survival_models(
 
         # Fit model based on observed size at time of mortality (`diam_mort`)
         x_idx = sortperm(sub_df.diam_mort)
-        xi = sub_df.diam_mort[x_idx]
-        yi = sub_df[x_idx, TRAIN_CLASS_MEAN_ID]
+        xi = Float32.(sub_df.diam_mort[x_idx])
+        yi = Float32.(sub_df[x_idx, TRAIN_CLASS_MEAN_ID])
 
-        # Fit model
-        m = curve_fit(Polynomial, log.(xi), yi, degree)
+        # Fit model (coefficients coerced to Float32 to keep the model concrete)
+        m = Polynomial(Float32.(coeffs(curve_fit(Polynomial, log.(xi), yi, degree))), :x)
 
         # Create survival function
         model = PolySurvivalFunction(xi, yi, m)
