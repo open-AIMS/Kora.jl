@@ -22,7 +22,8 @@ functional group and train/test performance metrics for all [`ALL_METRICS`](@ref
 function fit_growth_models(
     groupings::OrderedDict{String,DataFrame}; degree::Int=2
 )::PolyGrowthModel
-    models = PolyGrowthFunction[]
+    # Element type must match the concrete field type of `PolyGrowthModel`
+    models = PolyGrowthFunction{Float32,Polynomial{Float32,:x}}[]
 
     g = length(values(groupings))
     m = length(ALL_METRICS)
@@ -42,10 +43,14 @@ function fit_growth_models(
         yi = Float32.(sub_df.growth_rate[x_idx])
 
         # Fit model
-        m = curve_fit(Polynomial, log.(xi), yi, degree)
+        poly = convert(
+            Polynomial{Float32,:x}, curve_fit(Polynomial, log.(xi), yi, degree)
+        )
 
         # Create growth function, passing in the maximum observed size and growth
-        model = PolyGrowthFunction(xi, yi, m, maximum(df.diam), maximum(df.growth_rate))
+        model = PolyGrowthFunction(
+            xi, yi, poly, maximum(df.diam), maximum(df.growth_rate)
+        )
         prediction = model.(xi)
         push!(models, model)
 
@@ -91,7 +96,8 @@ Tuple of (models, mcfadden_r2_scores, log_likelihood_scores, brier_scores)
 function fit_survival_models(
     groupings::OrderedDict{String,DataFrame}; degree::Int64=2
 )::PolySurvivalModel
-    models = PolySurvivalFunction[]
+    # Element type must match the concrete field type of `PolySurvivalModel`
+    models = PolySurvivalFunction{Float32,Polynomial{Float32,:x}}[]
     g = length(values(groupings))
     m = length(ALL_METRICS)
 
@@ -107,14 +113,16 @@ function fit_survival_models(
 
         # Fit model based on observed size at time of mortality (`diam_mort`)
         x_idx = sortperm(sub_df.diam_mort)
-        xi = sub_df.diam_mort[x_idx]
-        yi = sub_df[x_idx, TRAIN_CLASS_MEAN_ID]
+        xi = Float32.(sub_df.diam_mort[x_idx])
+        yi = Float32.(sub_df[x_idx, TRAIN_CLASS_MEAN_ID])
 
         # Fit model
-        m = curve_fit(Polynomial, log.(xi), yi, degree)
+        poly = convert(
+            Polynomial{Float32,:x}, curve_fit(Polynomial, log.(xi), yi, degree)
+        )
 
         # Create survival function
-        model = PolySurvivalFunction(xi, yi, m)
+        model = PolySurvivalFunction(xi, yi, poly)
 
         # Calculate metrics
         prediction = model.(xi)
@@ -128,8 +136,8 @@ function fit_survival_models(
         # Repeat above for test data
         sub_df = df[df.class_test .> 0, :]
         x_idx = sortperm(sub_df.diam_mort)
-        xi = sub_df.diam_mort[x_idx]
-        yi = sub_df.class_test_mean[x_idx]
+        xi = Float32.(sub_df.diam_mort[x_idx])
+        yi = Float32.(sub_df.class_test_mean[x_idx])
         prediction = model.(xi)
 
         # Collate training metrics
