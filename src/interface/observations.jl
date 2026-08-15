@@ -10,6 +10,37 @@ const TEST_CLASS_STD_ID = :class_test_std
 const DAYS_COL = Symbol("days_t1.t2")
 
 """
+    _annualized_survival(surv::AbstractVector, days::AbstractVector)::Float64
+
+Constant-hazard (exponential survival) estimate of one-year survival
+probability from binary survive/die outcomes observed over variable-length
+intervals.
+
+Colonies are pooled by total colony-days at risk rather than by simple
+average of their raw survival flags: `hazard = deaths / colony_days`,
+annualized as `exp(-hazard * 365.25)`. This avoids conflating "observed over
+a short interval" with "high survival" -- pooling raw 0/1 outcomes without
+weighting by exposure time systematically favours whichever colonies
+happened to be surveyed on shorter intervals, since they had less time
+exposed to risk.
+
+# Arguments
+- `surv::AbstractVector`: Binary survival outcomes (`1` = survived, `0` =
+  died) for a set of colonies.
+- `days::AbstractVector`: Corresponding observation interval (days) for each
+  colony in `surv`.
+
+# Returns
+- `Float64`: Estimated probability of surviving a 365.25-day interval.
+"""
+function _annualized_survival(surv::AbstractVector, days::AbstractVector)::Float64
+    colony_days = sum(days)
+    deaths = sum(1 .- surv)
+    hazard = deaths / colony_days
+    return exp(-hazard * 365.25)
+end
+
+"""
     area_to_diam(area::AbstractFloat)::AbstractFloat
     area_to_diam(_::Missing)::Missing
 
@@ -448,11 +479,17 @@ Approximately 60% of sites are assigned to the training set and 40% to the test 
 
 The function then ensures that each size bin (created via `adaptive_min_sample_binning`) contains observations
 in both the training and test sets. If a bin is empty in either set, it is merged with its neighbor
-that has the most observations (Bin Merging). Bootstrapped means and standard deviations of survival
-rates are computed for each resulting bin-set combination.
+that has the most observations (Bin Merging). For each resulting bin-set combination, a one-year
+survival probability is estimated under a constant-hazard (exponential survival) model, pooling
+colonies by total colony-days at risk (`hazard = deaths / colony_days`, annualized as
+`exp(-hazard * 365.25)`) rather than by a plain average of raw survival flags, so that colonies
+observed over different interval lengths (`days_t1.t2`) contribute in proportion to their actual
+exposure to risk. See [`_annualized_survival`](@ref). The reported standard deviation is the
+bootstrap standard error of this estimate (resampling colonies, preserving each colony's
+survival/interval pairing).
 
 # Arguments
-- `df` : Coral demographic data containing at minimum `logdiam`, `surv`, and `site_col` columns
+- `df` : Coral demographic data containing at minimum `logdiam`, `surv`, `days_t1.t2`, and `site_col` columns
 - `n_bins` : Target number of size bins for stratification
 - `site_col` : Column name used for spatial blocking (default: `:site_code`)
 - `rng` : Random number generator for reproducible splitting (default: `Random.default_rng()`)
@@ -462,10 +499,10 @@ The DataFrame is modified in place with the following columns added:
 - `BIN_ID` : Integer identifier for the size bin
 - `TRAIN_CLASS` : Bin ID if observation is in training set, 0 otherwise
 - `TEST_CLASS` : Bin ID if observation is in test set, 0 otherwise
-- `TRAIN_CLASS_MEAN_ID` : Bootstrapped mean survival for training observations in each bin
-- `TRAIN_CLASS_STD_ID` : Bootstrapped standard deviation of survival for training observations
-- `TEST_CLASS_MEAN_ID` : Bootstrapped mean survival for test observations in each bin
-- `TEST_CLASS_STD_ID` : Bootstrapped standard deviation of survival for test observations
+- `TRAIN_CLASS_MEAN_ID` : Annualized survival probability for training observations in each bin
+- `TRAIN_CLASS_STD_ID` : Bootstrap standard error of the annualized estimate for training observations
+- `TEST_CLASS_MEAN_ID` : Annualized survival probability for test observations in each bin
+- `TEST_CLASS_STD_ID` : Bootstrap standard error of the annualized estimate for test observations
 
 # Returns
 The modified DataFrame with spatially blocked train/test assignments and bootstrapped statistics.
@@ -517,20 +554,27 @@ function train_test_split!(
     # Empty bins are merged with the neighbor having more data
     actual_bins = sort(unique(df[!, BIN_ID]))
 
-    # Helper to calculate and assign bootstrap stats for a set of indices
+    # Helper to calculate and assign annualized-survival bootstrap stats for a
+    # set of indices. Resamples (surv, days) row-pairs together so each
+    # colony's survival outcome stays linked to its own observation interval
+    # -- see `_annualized_survival`.
     function assign_stats!(indices, mean_col, std_col)
         if isempty(indices)
             return nothing
         end
 
-        obs = collect(skipmissing(df[indices, :surv]))
+        surv = df[indices, :surv]
+        days = df[indices, DAYS_COL]
+        valid = .!ismissing.(surv) .& .!ismissing.(days) .& (days .> 0)
+        obs = DataFrame(; surv=Float64.(surv[valid]), days=Float64.(days[valid]))
         if isempty(obs)
             return nothing
         end
 
         samp_strat = BalancedSampling(1000)
-        t_mean = bootstrap(mean, obs, samp_strat).t0[1]
-        t_std = bootstrap(std, obs, samp_strat).t0[1]
+        bs = bootstrap(d -> _annualized_survival(d.surv, d.days), obs, samp_strat)
+        t_mean = bs.t0[1]
+        t_std = stderror(bs)[1]
 
         df[indices, mean_col] .= t_mean
         return df[indices, std_col] .= t_std
