@@ -71,11 +71,24 @@ case "$MODE" in
 
     worker)
         echo "Mode: worker (standalone exe, no Julia runtime required on target)"
+        # PackageCompiler's artifact bundler errors if a destination artifact dir
+        # from a previous build already exists (it doesn't pass force=true) —
+        # start from a clean output dir each time.
+        rm -rf "$OUTPUT_DIR"
+        mkdir -p "$OUTPUT_DIR"
         BUILD_LOG="$OUTPUT_DIR/build.log"
         echo "Build log: $BUILD_LOG"
+        # JuliaC only adds -lm on i686; on x86_64 with --trim=safe, floorf becomes
+        # a libcall to libm and the link fails.  Wrap the compiler via JULIA_CC to
+        # inject -lm unconditionally.
+        _GCC_WRAPPER="$(mktemp /tmp/gcc-wrapper-XXXXXX.sh)"
+        printf '#!/bin/sh\nexec gcc "$@" -lm\n' > "$_GCC_WRAPPER"
+        chmod +x "$_GCC_WRAPPER"
+        JULIA_CC="$_GCC_WRAPPER" \
         time juliac --verbose --project="$PROJECT_ROOT" --output-exe kora-worker \
             --bundle "$OUTPUT_DIR" --trim=safe --experimental "$WORKER_ENTRY_FILE" \
             2>&1 | tee "$BUILD_LOG"
+        rm -f "$_GCC_WRAPPER"
         ;;
 
     *)
