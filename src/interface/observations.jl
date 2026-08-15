@@ -109,8 +109,10 @@ treated as `false`. Rows with no recorded date between observations
 same-day duplicate observations or mortality-imputed rows where `t2` is
 backfilled from `t1`'s last known size) are excluded by forcing their
 `growth_use` to `false` -- an annualised rate is undefined over a zero-day
-interval. Only rows with positive linear extension (i.e., net growth) are
-retained.
+interval. Transitions with zero or negative linear extension (partial
+mortality, fragmentation, or measurement noise) are otherwise retained rather
+than dropped, so the fitted growth rate reflects net demographic change
+rather than only the subset of transitions that happened to grow.
 
 The returned DataFrame adds the following derived columns:
 - `diam`: equivalent circle diameter at observation time (cm)
@@ -181,9 +183,6 @@ function get_growth_entries(standardized_data::DataFrame)::DataFrame
 
     # Cast taxa String15 type to string type
     growth_data[!, :taxa] .= String.(growth_data.taxa)
-
-    no_partial_mask = growth_data.lin_ext .> 0.0
-    growth_data = growth_data[no_partial_mask, :]
 
     return growth_data
 end
