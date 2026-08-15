@@ -1513,8 +1513,8 @@ end
 
     @testset "rows with missing sizenext are dropped, not fatal" begin
         # Same failure mode as missing `size`: without a second area there is
-        # no growth increment, and letting the row through puts `missing` into
-        # the `lin_ext .> 0.0` mask, which throws on indexing.
+        # no computable growth increment, and letting the row through would
+        # propagate `missing` into downstream numeric columns.
         df = raw_frame(
             Union{Missing,Bool}[true, true, true],
             Union{Missing,Bool}[true, true, true]
