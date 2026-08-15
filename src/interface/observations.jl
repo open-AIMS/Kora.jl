@@ -7,6 +7,7 @@ const TRAIN_CLASS_STD_ID = :class_train_std
 const TEST_CLASS = :class_test
 const TEST_CLASS_MEAN_ID = :class_test_mean
 const TEST_CLASS_STD_ID = :class_test_std
+const DAYS_COL = Symbol("days_t1.t2")
 
 """
     area_to_diam(area::AbstractFloat)::AbstractFloat
@@ -104,8 +105,12 @@ EcoRRAP demographic dataset.
 Rows are kept when `growth_use == true`, `survival_use == true`, and both
 `size` and `sizenext` are present (not `missing`). A `missing` use-flag is
 treated as `false`. Rows with no recorded date between observations
-(`days_t1.t2` missing) are excluded by forcing their `growth_use` to `false`.
-Only rows with positive linear extension (i.e., net growth) are retained.
+(`days_t1.t2` missing) or a non-positive interval (`days_t1.t2 <= 0`, e.g.
+same-day duplicate observations or mortality-imputed rows where `t2` is
+backfilled from `t1`'s last known size) are excluded by forcing their
+`growth_use` to `false` -- an annualised rate is undefined over a zero-day
+interval. Only rows with positive linear extension (i.e., net growth) are
+retained.
 
 The returned DataFrame adds the following derived columns:
 - `diam`: equivalent circle diameter at observation time (cm)
@@ -131,10 +136,15 @@ The returned DataFrame adds the following derived columns:
 function get_growth_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
 
-    # Do not use growth data marked for use with no dates between observations!
+    # Do not use growth data marked for use with no dates between observations,
+    # or a non-positive interval (same-day duplicate/mortality-imputed
+    # observations, where t2 is backfilled from t1's last known size) -- an
+    # annualised rate is undefined for a zero-day interval and would divide by
+    # zero.
     # Materialise the column first — Parquet2-backed columns are read-only.
     standardized_data[!, :growth_use] = Vector{Union{Missing,Bool}}(standardized_data[!, :growth_use])
-    growth_use_check = ismissing.(standardized_data[!, Symbol("days_t1.t2")])
+    days_col = standardized_data[!, DAYS_COL]
+    growth_use_check = ismissing.(days_col) .| (coalesce.(days_col, 1) .<= 0)
     standardized_data[growth_use_check, :growth_use] .= false
 
     # Every component must resolve to `true`/`false`, never `missing`: a
@@ -162,7 +172,7 @@ function get_growth_entries(standardized_data::DataFrame)::DataFrame
     @. growth_data[!, :growth] = growth_data.sizenext - growth_data.size
     @. growth_data[!, :lin_ext] = growth_data.diamnext - growth_data.diam
 
-    days_between_obs = growth_data[!, Symbol("days_t1.t2")]
+    days_between_obs = growth_data[!, DAYS_COL]
     growth_data[!, :growth_rate] .=
         passmissing(/).(growth_data.lin_ext, (days_between_obs ./ 365.25))
 
@@ -184,9 +194,13 @@ end
 Extract and prepare rows suitable for survival model fitting from a standardized
 EcoRRAP demographic dataset.
 
-Rows are kept when `survival_use == true`. For rows where `sizenext` is
-missing or zero, the `size` column is used as a fallback so that the
-`diam_mort` column (size at the mortality event) is always populated.
+Rows are kept when `survival_use == true` and the observation interval
+(`days_t1.t2`) is present and positive -- a non-positive or missing interval
+(same-day duplicate observations, or a data-entry error placing `t2` before
+`t1`) cannot be annualised and is excluded, mirroring the equivalent guard in
+[`get_growth_entries`](@ref). For rows where `sizenext` is missing or zero,
+the `size` column is used as a fallback so that the `diam_mort` column (size
+at the mortality event) is always populated.
 
 **Assumption:** a `sizenext` of exactly `0.0` is treated as "no second
 measurement was recorded" (a data-entry convention), not as a genuine
@@ -216,6 +230,12 @@ function get_survival_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
     for_survival = standardized_data[:, :survival_use] .== true
     for_survival[ismissing.(for_survival)] .= 0
+
+    # Exclude rows with a missing or non-positive observation interval (see
+    # docstring) -- same guard as `get_growth_entries`.
+    days_col = standardized_data[!, DAYS_COL]
+    invalid_days = ismissing.(days_col) .| (coalesce.(days_col, 1) .<= 0)
+    for_survival[invalid_days] .= false
 
     # If data is "missing" in the sizenext column, fill with data in `size` column
     # survival predictions use `diam_mort` (based on `sizenext`)
