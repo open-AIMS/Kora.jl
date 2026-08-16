@@ -75,7 +75,24 @@ function read_exact(io::IO, n::Int)::Union{Vector{UInt8},Nothing}
         read!(io, buf)
     catch e
         e isa EOFError && return nothing
-        rethrow(e)
+        rethrow()
+    end
+    return buf
+end
+
+# trim-safe variant: Core.stdin resolves to Any at compile-time so Julia IO
+# dispatch on it fails --trim=safe.  Use ccall(:read) on fd 0 directly instead.
+function read_exact_stdin(n::Int)::Union{Vector{UInt8},Nothing}
+    buf = Vector{UInt8}(undef, n)
+    total = 0
+    while total < n
+        ret = GC.@preserve buf ccall(
+            :read, Cssize_t,
+            (Cint, Ptr{UInt8}, Csize_t),
+            Cint(0), pointer(buf, total + 1), Csize_t(n - total)
+        )
+        ret <= Cssize_t(0) && return nothing  # EOF (0) or error (< 0)
+        total += Int(ret)
     end
     return buf
 end
@@ -247,7 +264,7 @@ end
 function run(args::Vector{String})::Cint
     if length(args) < 2
         println(
-            stderr,
+            Core.stderr,
             "[kora-worker] usage: kora-worker <growth_model_path> <survival_model_path>"
         )
         return Cint(1)
@@ -260,38 +277,35 @@ function run(args::Vector{String})::Cint
         _growth_ref[] = gm
         _survival_ref[] = sm
         Kora._set_models!(gm, sm)
-        println(stderr, "[kora-worker] models loaded OK")
-        flush(stderr)
-    catch e
-        println(stderr, "[kora-worker] failed to load models: $e")
+        println(Core.stderr, "[kora-worker] models loaded OK")
+        flush(Core.stderr)
+    catch
+        println(Core.stderr, "[kora-worker] failed to load models")
         return Cint(1)
     end
 
     # Signal readiness to coordinator via stderr (stdout is binary-only)
-    println(stderr, "[kora-worker] READY")
-    flush(stderr)
-
-    stdin_io = stdin
-    stdout_io = stdout
+    println(Core.stderr, "[kora-worker] READY")
+    flush(Core.stderr)
 
     while true
-        bytes = read_exact(stdin_io, WORKER_PARAMS_BYTES)
+        bytes = read_exact_stdin(WORKER_PARAMS_BYTES)
         bytes === nothing && break  # clean EOF — coordinator closed the pipe
 
         result = try
             p = parse_params(bytes)
             run_simulation(p)
-        catch e
-            println(stderr, "[kora-worker] simulation error: $e")
-            flush(stderr)
+        catch
+            println(Core.stderr, "[kora-worker] simulation error")
+            flush(Core.stderr)
             error_result()
         end
 
-        write(stdout_io, result)
-        flush(stdout_io)
+        write(Core.stdout, result)
+        flush(Core.stdout)
     end
 
-    println(stderr, "[kora-worker] stdin closed, exiting")
+    println(Core.stderr, "[kora-worker] stdin closed, exiting")
     return Cint(0)
 end
 
@@ -300,6 +314,7 @@ end  # module KoraWorker
 # ---------------------------------------------------------------------------
 # juliac --output-exe entry point (top-level, not inside a module)
 # ---------------------------------------------------------------------------
-Base.@main function main(ARGS::Vector{String})::Cint
+function main(ARGS::Vector{String})::Cint
     return KoraWorker.run(ARGS)
 end
+Base.@main

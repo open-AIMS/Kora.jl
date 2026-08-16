@@ -7,10 +7,41 @@ const TRAIN_CLASS_STD_ID = :class_train_std
 const TEST_CLASS = :class_test
 const TEST_CLASS_MEAN_ID = :class_test_mean
 const TEST_CLASS_STD_ID = :class_test_std
+const DAYS_COL = Symbol("days_t1.t2")
+
+"""
+    _annualized_survival(surv::AbstractVector, days::AbstractVector)::Float64
+
+Constant-hazard (exponential survival) estimate of one-year survival
+probability from binary survive/die outcomes observed over variable-length
+intervals.
+
+Colonies are pooled by total colony-days at risk rather than by simple
+average of their raw survival flags: `hazard = deaths / colony_days`,
+annualized as `exp(-hazard * 365.25)`. This avoids conflating "observed over
+a short interval" with "high survival" -- pooling raw 0/1 outcomes without
+weighting by exposure time systematically favours whichever colonies
+happened to be surveyed on shorter intervals, since they had less time
+exposed to risk.
+
+# Arguments
+- `surv::AbstractVector`: Binary survival outcomes (`1` = survived, `0` =
+  died) for a set of colonies.
+- `days::AbstractVector`: Corresponding observation interval (days) for each
+  colony in `surv`.
+
+# Returns
+- `Float64`: Estimated probability of surviving a 365.25-day interval.
+"""
+function _annualized_survival(surv::AbstractVector, days::AbstractVector)::Float64
+    colony_days = sum(days)
+    deaths = sum(1 .- surv)
+    hazard = deaths / colony_days
+    return exp(-hazard * 365.25)
+end
 
 """
     area_to_diam(area::AbstractFloat)::AbstractFloat
-    area_to_diam(area::AbstractString)::Union{AbstractFloat, Missing}
     area_to_diam(_::Missing)::Missing
 
 Convert a coral planar area (cm^2) to an equivalent circle diameter (cm).
@@ -18,16 +49,13 @@ Convert a coral planar area (cm^2) to an equivalent circle diameter (cm).
 Assumes the coral footprint is circular. The conversion solves for `d` in
 `area = pi * (d/2)^2`, giving `d = sqrt(4 * area / pi)`.
 
-String inputs are parsed to `Float64`; strings that cannot be parsed are
-returned as `missing`.
-
 # Arguments
-- `area`: Planar area of the coral colony in cm^2. Accepts `AbstractFloat`,
-  `AbstractString`, or `Missing`.
+- `area`: Planar area of the coral colony in cm^2. Accepts `AbstractFloat`
+  or `Missing`.
 
 # Returns
 - `AbstractFloat`: Equivalent circle diameter in cm when input is numeric.
-- `Missing`: Returned when `area` is `missing` or is a non-numeric string.
+- `Missing`: Returned when `area` is `missing`.
 
 # Examples
 ```jldoctest
@@ -42,16 +70,6 @@ missing
 """
 function area_to_diam(area::AbstractFloat)::AbstractFloat
     return sqrt(4.0 * area / π)
-end
-function area_to_diam(area::AbstractString)::Union{AbstractFloat,Missing}
-    try
-        return area_to_diam(parse(Float64, area))
-    catch e
-        if e isa ArgumentError || e isa MethodError
-            return missing
-        end
-        rethrow(e)
-    end
 end
 function area_to_diam(_::Missing)::Missing
     return missing
@@ -115,10 +133,17 @@ end
 Extract and prepare rows suitable for growth model fitting from a standardized
 EcoRRAP demographic dataset.
 
-Rows are kept when `growth_use == "yes"`, `survival_use == "yes"`, and
-`size != "NA"`. Rows with no recorded date between observations
-(`days_t1.t2` missing) are excluded by forcing their `growth_use` to "no".
-Only rows with positive linear extension (i.e., net growth) are retained.
+Rows are kept when `growth_use == true`, `survival_use == true`, and both
+`size` and `sizenext` are present (not `missing`). A `missing` use-flag is
+treated as `false`. Rows with no recorded date between observations
+(`days_t1.t2` missing) or a non-positive interval (`days_t1.t2 <= 0`, e.g.
+same-day duplicate observations or mortality-imputed rows where `t2` is
+backfilled from `t1`'s last known size) are excluded by forcing their
+`growth_use` to `false` -- an annualised rate is undefined over a zero-day
+interval. Transitions with zero or negative linear extension (partial
+mortality, fragmentation, or measurement noise) are otherwise retained rather
+than dropped, so the fitted growth rate reflects net demographic change
+rather than only the subset of transitions that happened to grow.
 
 The returned DataFrame adds the following derived columns:
 - `diam`: equivalent circle diameter at observation time (cm)
@@ -144,19 +169,29 @@ The returned DataFrame adds the following derived columns:
 function get_growth_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
 
-    # Do not use growth data marked for use with no dates between observations!
-    # Materialise the column first — Parquet2-backed StringRefVectors are read-only.
-    standardized_data[!, :growth_use] = Vector{Union{Missing,String}}(standardized_data[!, :growth_use])
-    growth_use_check = ismissing.(standardized_data[!, Symbol("days_t1.t2")])
-    standardized_data[growth_use_check, :growth_use] .= "no"
+    # Do not use growth data marked for use with no dates between observations,
+    # or a non-positive interval (same-day duplicate/mortality-imputed
+    # observations, where t2 is backfilled from t1's last known size) -- an
+    # annualised rate is undefined for a zero-day interval and would divide by
+    # zero.
+    # Materialise the column first — Parquet2-backed columns are read-only.
+    standardized_data[!, :growth_use] = Vector{Union{Missing,Bool}}(standardized_data[!, :growth_use])
+    days_col = standardized_data[!, DAYS_COL]
+    growth_use_check = ismissing.(days_col) .| (coalesce.(days_col, 1) .<= 0)
+    standardized_data[growth_use_check, :growth_use] .= false
 
-    growth_mask = standardized_data.growth_use .== "yes"
-    survived_mask = standardized_data.survival_use .== "yes"
-    non_missing_size_mask = standardized_data.size .!= "NA"
+    # Every component must resolve to `true`/`false`, never `missing`: a
+    # `missing` anywhere in the row mask throws when used to index. A missing
+    # use-flag means "not marked for use", and a row missing either area has no
+    # computable growth increment.
+    growth_mask = coalesce.(standardized_data.growth_use, false)
+    survived_mask = coalesce.(standardized_data.survival_use, false)
+    complete_area_mask =
+        .!ismissing.(standardized_data.size) .&& .!ismissing.(standardized_data.sizenext)
 
     # Remove missing and unused data
     growth_data::DataFrame = standardized_data[
-        growth_mask .&& survived_mask .&& non_missing_size_mask, :
+        growth_mask .&& survived_mask .&& complete_area_mask, :
     ]
 
     # Add diameter column and diameter Next column
@@ -170,7 +205,7 @@ function get_growth_entries(standardized_data::DataFrame)::DataFrame
     @. growth_data[!, :growth] = growth_data.sizenext - growth_data.size
     @. growth_data[!, :lin_ext] = growth_data.diamnext - growth_data.diam
 
-    days_between_obs = growth_data[!, Symbol("days_t1.t2")]
+    days_between_obs = growth_data[!, DAYS_COL]
     growth_data[!, :growth_rate] .=
         passmissing(/).(growth_data.lin_ext, (days_between_obs ./ 365.25))
 
@@ -179,9 +214,6 @@ function get_growth_entries(standardized_data::DataFrame)::DataFrame
 
     # Cast taxa String15 type to string type
     growth_data[!, :taxa] .= String.(growth_data.taxa)
-
-    no_partial_mask = growth_data.lin_ext .> 0.0
-    growth_data = growth_data[no_partial_mask, :]
 
     return growth_data
 end
@@ -192,9 +224,20 @@ end
 Extract and prepare rows suitable for survival model fitting from a standardized
 EcoRRAP demographic dataset.
 
-Rows are kept when `survival_use == "yes"`. For rows where `sizenext` is
-missing or zero, the `size` column is used as a fallback so that the
-`diam_mort` column (size at the mortality event) is always populated.
+Rows are kept when `survival_use == true` and the observation interval
+(`days_t1.t2`) is present and positive -- a non-positive or missing interval
+(same-day duplicate observations, or a data-entry error placing `t2` before
+`t1`) cannot be annualised and is excluded, mirroring the equivalent guard in
+[`get_growth_entries`](@ref). For rows where `sizenext` is missing or zero,
+the `size` column is used as a fallback so that the `diam_mort` column (size
+at the mortality event) is always populated.
+
+**Assumption:** a `sizenext` of exactly `0.0` is treated as "no second
+measurement was recorded" (a data-entry convention), not as a genuine
+observation that the colony's area shrank to zero. This assumption is not
+verified against the source data dictionary — if the raw data ever encodes a
+true zero-area observation, this fallback would silently overwrite it with
+`size`, understating any real decline in colony area for that row.
 
 The returned DataFrame adds the following derived columns:
 - `diam`: equivalent circle diameter at observation time (cm)
@@ -215,8 +258,14 @@ The returned DataFrame adds the following derived columns:
 """
 function get_survival_entries(standardized_data::DataFrame)::DataFrame
     # Construct masks to remove unused and missing data
-    for_survival = standardized_data[:, :survival_use] .== "yes"
+    for_survival = standardized_data[:, :survival_use] .== true
     for_survival[ismissing.(for_survival)] .= 0
+
+    # Exclude rows with a missing or non-positive observation interval (see
+    # docstring) -- same guard as `get_growth_entries`.
+    days_col = standardized_data[!, DAYS_COL]
+    invalid_days = ismissing.(days_col) .| (coalesce.(days_col, 1) .<= 0)
+    for_survival[invalid_days] .= false
 
     # If data is "missing" in the sizenext column, fill with data in `size` column
     # survival predictions use `diam_mort` (based on `sizenext`)
@@ -226,6 +275,9 @@ function get_survival_entries(standardized_data::DataFrame)::DataFrame
         missing_sizenext, :size
     ]
 
+    # Assumption: sizenext == 0.0 means "not measured" (recording convention),
+    # not a genuine observation of the colony shrinking to zero area — see
+    # docstring. Treated the same as `missing` and backfilled from `size`.
     zero_size = standardized_data.sizenext .== 0.0
     standardized_data[zero_size, :sizenext] .= standardized_data[zero_size, :size]
 
@@ -265,12 +317,13 @@ function standardize_ecorrap_data!(df::DataFrame)::DataFrame
     df[df.cluster .== "offshore_central", :cluster] .= "offshore_central"
     df[df.cluster .== "offshore_southern", :cluster] .= "offshore_south"
 
-    # Normalise use-flag columns: parquet may emit Bool (true/false) or String ("yes"/"no").
+    # Normalise use-flag columns to Bool: parquet may emit native Bool (true/false)
+    # or legacy String ("yes"/"no") depending on the source pipeline/vintage.
     for col in (:growth_use, :survival_use)
         col in propertynames(df) || continue
         raw = df[!, col]
-        if nonmissingtype(eltype(raw)) <: Bool
-            df[!, col] = [ismissing(x) ? missing : (x ? "yes" : "no") for x in raw]
+        if nonmissingtype(eltype(raw)) <: AbstractString
+            df[!, col] = [ismissing(x) ? missing : lowercase(String(x)) == "yes" for x in raw]
         end
     end
 
@@ -426,11 +479,17 @@ Approximately 60% of sites are assigned to the training set and 40% to the test 
 
 The function then ensures that each size bin (created via `adaptive_min_sample_binning`) contains observations
 in both the training and test sets. If a bin is empty in either set, it is merged with its neighbor
-that has the most observations (Bin Merging). Bootstrapped means and standard deviations of survival
-rates are computed for each resulting bin-set combination.
+that has the most observations (Bin Merging). For each resulting bin-set combination, a one-year
+survival probability is estimated under a constant-hazard (exponential survival) model, pooling
+colonies by total colony-days at risk (`hazard = deaths / colony_days`, annualized as
+`exp(-hazard * 365.25)`) rather than by a plain average of raw survival flags, so that colonies
+observed over different interval lengths (`days_t1.t2`) contribute in proportion to their actual
+exposure to risk. See [`_annualized_survival`](@ref). The reported standard deviation is the
+bootstrap standard error of this estimate (resampling colonies, preserving each colony's
+survival/interval pairing).
 
 # Arguments
-- `df` : Coral demographic data containing at minimum `logdiam`, `surv`, and `site_col` columns
+- `df` : Coral demographic data containing at minimum `logdiam`, `surv`, `days_t1.t2`, and `site_col` columns
 - `n_bins` : Target number of size bins for stratification
 - `site_col` : Column name used for spatial blocking (default: `:site_code`)
 - `rng` : Random number generator for reproducible splitting (default: `Random.default_rng()`)
@@ -440,10 +499,10 @@ The DataFrame is modified in place with the following columns added:
 - `BIN_ID` : Integer identifier for the size bin
 - `TRAIN_CLASS` : Bin ID if observation is in training set, 0 otherwise
 - `TEST_CLASS` : Bin ID if observation is in test set, 0 otherwise
-- `TRAIN_CLASS_MEAN_ID` : Bootstrapped mean survival for training observations in each bin
-- `TRAIN_CLASS_STD_ID` : Bootstrapped standard deviation of survival for training observations
-- `TEST_CLASS_MEAN_ID` : Bootstrapped mean survival for test observations in each bin
-- `TEST_CLASS_STD_ID` : Bootstrapped standard deviation of survival for test observations
+- `TRAIN_CLASS_MEAN_ID` : Annualized survival probability for training observations in each bin
+- `TRAIN_CLASS_STD_ID` : Bootstrap standard error of the annualized estimate for training observations
+- `TEST_CLASS_MEAN_ID` : Annualized survival probability for test observations in each bin
+- `TEST_CLASS_STD_ID` : Bootstrap standard error of the annualized estimate for test observations
 
 # Returns
 The modified DataFrame with spatially blocked train/test assignments and bootstrapped statistics.
@@ -495,20 +554,27 @@ function train_test_split!(
     # Empty bins are merged with the neighbor having more data
     actual_bins = sort(unique(df[!, BIN_ID]))
 
-    # Helper to calculate and assign bootstrap stats for a set of indices
+    # Helper to calculate and assign annualized-survival bootstrap stats for a
+    # set of indices. Resamples (surv, days) row-pairs together so each
+    # colony's survival outcome stays linked to its own observation interval
+    # -- see `_annualized_survival`.
     function assign_stats!(indices, mean_col, std_col)
         if isempty(indices)
             return nothing
         end
 
-        obs = collect(skipmissing(df[indices, :surv]))
+        surv = df[indices, :surv]
+        days = df[indices, DAYS_COL]
+        valid = .!ismissing.(surv) .& .!ismissing.(days) .& (days .> 0)
+        obs = DataFrame(; surv=Float64.(surv[valid]), days=Float64.(days[valid]))
         if isempty(obs)
             return nothing
         end
 
         samp_strat = BalancedSampling(1000)
-        t_mean = bootstrap(mean, obs, samp_strat).t0[1]
-        t_std = bootstrap(std, obs, samp_strat).t0[1]
+        bs = bootstrap(d -> _annualized_survival(d.surv, d.days), obs, samp_strat)
+        t_mean = bs.t0[1]
+        t_std = stderror(bs)[1]
 
         df[indices, mean_col] .= t_mean
         return df[indices, std_col] .= t_std

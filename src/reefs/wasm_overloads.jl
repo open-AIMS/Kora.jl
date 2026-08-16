@@ -79,14 +79,22 @@ function update_coral_tolerances!(
     )
     mean_mixed = (wild_mean_t1 * wild_prop_t1) + (deployed_mean_t1 * deployed_prop_t1)
     recruit_mean = breeders(prev_mean_mixed, mean_mixed, h_sq)
-    mature_size = susceptibility_size_thresholds()[grp]
+    mature_size = mature_size_thresholds()[grp]
     wild_pop_t1 = @inbounds reef_state.wild_population[ts1, loc, grp]
     deployed_pop_t1 = @inbounds reef_state.deployed_population[ts1, loc, grp]
     n_existing_mature =
         count(wild_pop_t1 .>= mature_size) + count(deployed_pop_t1 .>= mature_size)
     prop = n_recruits / (n_recruits + n_existing_mature)
     new_grp_mean = Float32((recruit_mean * prop) + (mean_mixed * (1.0 - prop)))
-    return update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
+    update_dhw_tol_mean!(reef_state, ts, loc, grp, new_grp_mean)
+
+    # See `update_coral_tolerances!` in reef_dynamics.jl for why recruits are
+    # blended toward the founder stdev rather than carrying the (possibly
+    # narrowed) existing stdev forward unchanged.
+    std_prev = @inbounds reef_state.wild_dhw_tolerances[ts1, loc, grp, 2]
+    founder_std = founder_dhw_tolerance_std()[grp]
+    new_grp_std = Float32((founder_std * prop) + (std_prev * (1.0 - prop)))
+    return update_dhw_tol_std!(reef_state, ts, loc, grp, new_grp_std)
 end
 
 # ── initialize_coral_population! (4-arg) ─────────────────────────────────────
@@ -108,7 +116,6 @@ function initialize_coral_population!(
         update_wild_sample!(reef_state, 1, loc, grp, initial_population)
     end
     n_locs2 = size(reef_state.wild_dhw_tolerances, 2)
-    n_ts2 = size(reef_state.wild_dhw_tolerances, 1)
     for loc2 in 1:n_locs2
         reef_state.wild_dhw_tolerances[1, loc2, 1, 1] = 3.751612251
         reef_state.wild_dhw_tolerances[1, loc2, 2, 1] = 4.081622683
@@ -116,12 +123,9 @@ function initialize_coral_population!(
         reef_state.wild_dhw_tolerances[1, loc2, 4, 1] = 6.165751937
         reef_state.wild_dhw_tolerances[1, loc2, 5, 1] = 7.153507902
     end
-    for ts in 1:n_ts2, loc2 in 1:n_locs2
-        reef_state.wild_dhw_tolerances[ts, loc2, 1, 2] = 2.904433676
-        reef_state.wild_dhw_tolerances[ts, loc2, 2, 2] = 3.159922076
-        reef_state.wild_dhw_tolerances[ts, loc2, 3, 2] = 3.474118416
-        reef_state.wild_dhw_tolerances[ts, loc2, 4, 2] = 4.773419097
-        reef_state.wild_dhw_tolerances[ts, loc2, 5, 2] = 5.538122776
+    founder_std = founder_dhw_tolerance_std()
+    for loc2 in 1:n_locs2, grp in 1:5
+        reef_state.wild_dhw_tolerances[1, loc2, grp, 2] = founder_std[grp]
     end
     return nothing
 end
@@ -336,6 +340,9 @@ function run_model!(
             else
                 reef_state.wild_dhw_tolerances[ts, loc, grp, 1] = reef_state.wild_dhw_tolerances[
                     prev_ts, loc, grp, 1
+                ]
+                reef_state.wild_dhw_tolerances[ts, loc, grp, 2] = reef_state.wild_dhw_tolerances[
+                    prev_ts, loc, grp, 2
                 ]
             end
 

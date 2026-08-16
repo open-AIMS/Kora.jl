@@ -31,8 +31,8 @@ time points. The minimum required columns are listed in the table below.
 | `area_t2_sqcm` | numeric | Colony area at second observation, in $\text{cm}^2$ |
 | `taxon` | string | Species or taxon code |
 | `survival` | integer | 1 if colony was alive at second observation, 0 if dead |
-| `growth_use` | string | "yes" if the row should be used for growth model fitting |
-| `survival_use` | string | "yes" if the row should be used for survival model fitting |
+| `growth_use` | boolean | `true` if the row should be used for growth model fitting |
+| `survival_use` | boolean | `true` if the row should be used for survival model fitting |
 | `days_t1.t2` | numeric | Number of days between the two observations |
 
 A site or location identifier column is also expected. The `cluster` column is used during
