@@ -97,14 +97,15 @@ function bleaching_mortality!(
     # Calculate adaptation-based population effect (from original bleaching_mortality)
     μ::F = tols[1]
     stdev::F = tols[2]
-    affected_prop::F = truncated_normal_cdf(
-        dhw, μ, stdev,
+
+    # Depth amelioration is applied to the experienced DHW before evaluating population
+    # susceptibility, so colonies at depth experience proportionally reduced thermal stress.
+    theta_eff::F = dhw * depth_coeff
+    base_affected::F = truncated_normal_cdf(
+        theta_eff, μ, stdev,
         4.0f0,  # bleaching doesn't really occur until 4 DHW
         μ + 10.0f0
     )
-
-    # Apply depth coefficient to affected proportion
-    base_affected = affected_prop .* depth_coeff
     if base_affected == 0.0f0
         return μ, stdev, 0.0f0
     end
