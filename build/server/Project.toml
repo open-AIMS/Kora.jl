@@ -1,0 +1,13 @@
+[deps]
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+Kora = "63f594c6-e77c-4cfd-819e-df68f57e9897"
+Oxygen = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[sources]
+Kora = {path = "../.."}
+
+[compat]
+HTTP = "1"
+Oxygen = "1"
+julia = "1.12"
