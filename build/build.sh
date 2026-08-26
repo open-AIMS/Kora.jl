@@ -15,6 +15,13 @@
 #                       for the web server backend; reads WireSimParams from stdin,
 #                       writes WireEnsembleResult to stdout, loops until stdin closes.
 #                       Build and test on Linux (WSL or CI) — not Windows native.
+#   server              juliac --output-exe --bundle, untrimmed -> standalone kora-server
+#                       executable (Oxygen.jl HTTP app). Compiled against
+#                       build/server/Project.toml (Kora path dep + real Oxygen/HTTP
+#                       deps) rather than the top-level Project.toml, so Oxygen stays
+#                       out of every other consumer's dependency tree. No --trim:
+#                       Oxygen's macro-based routing needs the dynamic compiler kept
+#                       around (same rationale as ReefGuideWorker.jl's build).
 #
 # Overridable env vars:
 #   KORA_LIB_DIR   output directory (default: build/dist/<mode> inside Kora.jl root)
@@ -25,6 +32,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 ENTRY_FILE="$SCRIPT_DIR/bridge_aot.jl"
 WORKER_ENTRY_FILE="$SCRIPT_DIR/worker_main.jl"
+SERVER_ENTRY_FILE="$SCRIPT_DIR/kora_server_main.jl"
+SERVER_PROJECT_DIR="$SCRIPT_DIR/server"
 
 MODE="native"
 OUTPUT_DIR="${KORA_LIB_DIR:-}"
@@ -43,6 +52,17 @@ mkdir -p "$OUTPUT_DIR"
 # Multi-target CPU dispatch — makes the sysimage (and other build outputs)
 # usable across different x86_64 microarchitectures without recompilation.
 export JULIA_CPU_TARGET="generic;x86_64,sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
+
+# JuliaC only adds -lm on i686; on x86_64, floorf (used by Kora's numeric
+# code) becomes a libcall to libm and the link fails regardless of --trim
+# mode. Point JULIA_CC at the returned wrapper script to inject -lm.
+_make_lm_wrapper() {
+    local wrapper
+    wrapper="$(mktemp /tmp/gcc-wrapper-XXXXXX.sh)"
+    printf '#!/bin/sh\nexec gcc "$@" -lm\n' > "$wrapper"
+    chmod +x "$wrapper"
+    echo "$wrapper"
+}
 
 case "$MODE" in
     native)
@@ -78,12 +98,7 @@ case "$MODE" in
         mkdir -p "$OUTPUT_DIR"
         BUILD_LOG="$OUTPUT_DIR/build.log"
         echo "Build log: $BUILD_LOG"
-        # JuliaC only adds -lm on i686; on x86_64 with --trim=safe, floorf becomes
-        # a libcall to libm and the link fails.  Wrap the compiler via JULIA_CC to
-        # inject -lm unconditionally.
-        _GCC_WRAPPER="$(mktemp /tmp/gcc-wrapper-XXXXXX.sh)"
-        printf '#!/bin/sh\nexec gcc "$@" -lm\n' > "$_GCC_WRAPPER"
-        chmod +x "$_GCC_WRAPPER"
+        _GCC_WRAPPER="$(_make_lm_wrapper)"
         JULIA_CC="$_GCC_WRAPPER" \
         time juliac --verbose --project="$PROJECT_ROOT" --output-exe kora-worker \
             --bundle "$OUTPUT_DIR" --trim=safe --experimental "$WORKER_ENTRY_FILE" \
@@ -91,8 +106,23 @@ case "$MODE" in
         rm -f "$_GCC_WRAPPER"
         ;;
 
+    server)
+        echo "Mode: server (standalone exe, no Julia runtime required on target, untrimmed)"
+        rm -rf "$OUTPUT_DIR"
+        mkdir -p "$OUTPUT_DIR"
+        BUILD_LOG="$OUTPUT_DIR/build.log"
+        echo "Build log: $BUILD_LOG"
+        julia --project="$SERVER_PROJECT_DIR" -e 'using Pkg; Pkg.instantiate()'
+        _GCC_WRAPPER="$(_make_lm_wrapper)"
+        JULIA_CC="$_GCC_WRAPPER" \
+        time juliac --verbose --project="$SERVER_PROJECT_DIR" --output-exe kora-server \
+            --bundle "$OUTPUT_DIR" --experimental "$SERVER_ENTRY_FILE" \
+            2>&1 | tee "$BUILD_LOG"
+        rm -f "$_GCC_WRAPPER"
+        ;;
+
     *)
-        echo "ERROR: Unknown mode '$MODE'. Valid modes: native, bundled, sysimage, worker" >&2
+        echo "ERROR: Unknown mode '$MODE'. Valid modes: native, bundled, sysimage, worker, server" >&2
         exit 1
         ;;
 esac

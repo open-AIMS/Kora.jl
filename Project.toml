@@ -28,14 +28,18 @@ StatsFuns = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
 
 [weakdeps]
 Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+Oxygen = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
 Parquet2 = "98572fba-bba0-415d-956f-fa77e587d26d"
 Term = "22787eb5-b846-44ae-b979-8e399b8463ab"
 UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [extensions]
 ArrowExt = "Arrow"
 MakieExt = "Makie"
+OxygenExt = ["Oxygen", "HTTP", "UUIDs"]
 Parquet2Ext = "Parquet2"
 UnicodePlotsExt = ["UnicodePlots", "Term"]
 
@@ -49,12 +53,14 @@ Dates = "1.11.0"
 DimensionalData = "0.29"
 DiskArrays = "0.4.21"
 Distributions = "0.25.121"
+HTTP = "1"
 Interpolations = "0.16.3"
 JSON = "1.6.1"
 KernelDensity = "0.6.12"
 Makie = "0.21, 0.24"
 Missings = "1.2.0"
 OrderedCollections = "1.8"
+Oxygen = "1"
 Parquet2 = "0.2.33"
 Polynomials = "4"
 PrecompileSignatures = "3"

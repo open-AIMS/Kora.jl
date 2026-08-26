@@ -9,7 +9,7 @@
 #
 # All text diagnostics go to stderr; stdout is purely binary.
 #
-# WorkerSimParams wire layout (little-endian, 44 bytes, no padding):
+# WorkerSimParams wire layout (little-endian, 48 bytes, no padding):
 #   reef_area_m2:         f32  offset  0
 #   init_cover_pct:       f32  offset  4
 #   deploy_volumes[5]:    u32  offset  8  (20 bytes)
@@ -17,19 +17,21 @@
 #   deploy_cadence_years: u32  offset 32
 #   depth_m:              u32  offset 36
 #   deploy_dhw_tolerance: f32  offset 40
-#   Total: 44 bytes
+#   dhw_seed:             u32  offset 44
+#   Total: 48 bytes
 #
 # NOTE: WorkerSimParams is a superset of sim-types/src/wire.rs WireSimParams —
-# it adds depth_m and deploy_dhw_tolerance. wire.rs must be extended to match
-# before Phase 3 (Rust HTTP bridge) is implemented.
+# it adds depth_m and deploy_dhw_tolerance. wire.rs's WireSimParams matches
+# this layout as of kora-app's feat/web-backend branch.
 #
-# WorkerEnsembleResult wire layout (little-endian, 34504 bytes, no padding):
+# WorkerEnsembleResult wire layout (little-endian, 34804 bytes, no padding):
 #   n_valid_runs:                     u32  offset      0  (4 bytes)
 #   covers[MAX_RUNS * N_TIMESTEPS]:   f32  offset      4  (30000 bytes), run-major
 #   summary.lower[N_TIMESTEPS][N_GROUPS]:  f32  offset  30004  (1500 bytes)
 #   summary.median[N_TIMESTEPS][N_GROUPS]: f32  offset  31504  (1500 bytes)
 #   summary.upper[N_TIMESTEPS][N_GROUPS]:  f32  offset  33004  (1500 bytes)
-#   Total: 34504 bytes
+#   dhw[N_TIMESTEPS]:                 f32  offset  34504  (300 bytes)
+#   Total: 34804 bytes
 #
 # summary layout mirrors WireGroupSummary in wire.rs:
 #   [[f32; N_GROUPS]; N_TIMESTEPS] = row-major with timestep as outer index.
@@ -40,6 +42,7 @@
 module KoraWorker
 
 using Kora
+using Random: Xoshiro
 using Statistics: quantile
 
 # ---------------------------------------------------------------------------
@@ -49,11 +52,11 @@ const N_GROUPS = 5
 const N_TIMESTEPS = 75
 const MAX_RUNS = 100
 
-# 4 scalar fields (2x f32 + 5x u32 deploy_volumes + u32 start + u32 cadence) plus depth_m (u32) and dhw_tol (f32)
-const WORKER_PARAMS_BYTES = 4 + 4 + N_GROUPS * 4 + 4 + 4 + 4 + 4       # = 44
+# 4 scalar fields (2x f32 + 5x u32 deploy_volumes + u32 start + u32 cadence) plus depth_m (u32), dhw_tol (f32), dhw_seed (u32)
+const WORKER_PARAMS_BYTES = 4 + 4 + N_GROUPS * 4 + 4 + 4 + 4 + 4 + 4   # = 48
 
-# u32 n_valid + [MAX_RUNS * N_TIMESTEPS] f32 covers + [N_TIMESTEPS * N_GROUPS * 3] f32 summary
-const WORKER_RESULT_BYTES = 4 + MAX_RUNS * N_TIMESTEPS * 4 + N_GROUPS * N_TIMESTEPS * 3 * 4  # = 34504
+# u32 n_valid + [MAX_RUNS * N_TIMESTEPS] f32 covers + [N_TIMESTEPS * N_GROUPS * 3] f32 summary + [N_TIMESTEPS] f32 dhw
+const WORKER_RESULT_BYTES = 4 + MAX_RUNS * N_TIMESTEPS * 4 + N_GROUPS * N_TIMESTEPS * 3 * 4 + N_TIMESTEPS * 4  # = 34804
 
 # ---------------------------------------------------------------------------
 # Global simulation state (same pattern as bridge_aot.jl)
@@ -62,22 +65,30 @@ const _growth_ref = Ref{Union{Nothing,Kora.PolyGrowthModel{Float32}}}(nothing)
 const _survival_ref = Ref{Union{Nothing,Kora.PolySurvivalModel{Float32}}}(nothing)
 const _dhw_ref = Ref{Union{Nothing,Matrix{Float32}}}(nothing)
 const _init_n_ts_ref = Ref{Int}(0)
+const _dhw_seed_ref = Ref{UInt32}(0)
 
 # ---------------------------------------------------------------------------
 # I/O helpers
 # ---------------------------------------------------------------------------
 
-# Read exactly n bytes from io.  Returns the buffer, or nothing on clean EOF.
-# Throws on any other error.
-function read_exact(io::IO, n::Int)::Union{Vector{UInt8},Nothing}
-    buf = Vector{UInt8}(undef, n)
-    try
-        read!(io, buf)
-    catch e
-        e isa EOFError && return nothing
-        rethrow()
+# libuv (which spawns this process when run as a coordinator's child, e.g.
+# from kora-server) sets pipe stdio to O_NONBLOCK. A blocking-style raw
+# ccall(:read) on fd 0 would then intermittently see EAGAIN (errno -11)
+# before the coordinator's next write arrives -- indistinguishable from EOF
+# (ret <= 0) unless we either check errno or just clear O_NONBLOCK once up
+# front. The latter is simpler and keeps read_exact_stdin's "ret <= 0 means
+# EOF" logic correct for both invocation styles (`< file` redirection, where
+# the fd was already blocking, and a live coordinator pipe).
+function _ensure_blocking_stdin()::Nothing
+    F_GETFL = Cint(3)
+    F_SETFL = Cint(4)
+    O_NONBLOCK = Cint(0o4000)
+    flags = ccall(:fcntl, Cint, (Cint, Cint), Cint(0), F_GETFL)
+    flags >= 0 || return nothing
+    if (flags & O_NONBLOCK) != 0
+        ccall(:fcntl, Cint, (Cint, Cint, Cint), Cint(0), F_SETFL, flags & ~O_NONBLOCK)
     end
-    return buf
+    return nothing
 end
 
 # trim-safe variant: Core.stdin resolves to Any at compile-time so Julia IO
@@ -112,6 +123,7 @@ function parse_params(bytes::Vector{UInt8})
     deploy_cadence_years = read(io, UInt32)
     depth_m = read(io, UInt32)
     deploy_dhw_tolerance = read(io, Float32)
+    dhw_seed = read(io, UInt32)
     return (;
         reef_area_m2,
         init_cover_pct,
@@ -119,7 +131,8 @@ function parse_params(bytes::Vector{UInt8})
         deploy_start_year,
         deploy_cadence_years,
         depth_m,
-        deploy_dhw_tolerance
+        deploy_dhw_tolerance,
+        dhw_seed
     )
 end
 
@@ -163,10 +176,15 @@ function run_simulation(p)::Vector{UInt8}
     sm = _survival_ref[]
     (gm === nothing || sm === nothing) && error("models not loaded")
 
-    # Reuse cached DHW unless n_ts changed (same policy as bridge_aot.jl).
-    if _dhw_ref[] === nothing || _init_n_ts_ref[] != n_ts
+    # Reuse cached DHW unless n_ts or the requested seed changed (same policy
+    # as bridge_aot.jl, plus seed-awareness -- kora-server has no separate
+    # regenerate-DHW endpoint, so a client asking for a different seed on an
+    # otherwise ordinary /api/run_reef call is how "New DHW trajectory" is
+    # expressed here).
+    if _dhw_ref[] === nothing || _init_n_ts_ref[] != n_ts || _dhw_seed_ref[] != p.dhw_seed
         _init_n_ts_ref[] = n_ts
-        _dhw_ref[] = Kora.generate_example_dhw(n_ts, 1)
+        _dhw_seed_ref[] = p.dhw_seed
+        _dhw_ref[] = Kora.generate_example_dhw(n_ts, 1; rng=Xoshiro(Int(p.dhw_seed)))
     end
     dhw_mat = _dhw_ref[]::Matrix{Float32}
 
@@ -244,6 +262,11 @@ function run_simulation(p)::Vector{UInt8}
         end
     end
 
+    # dhw[N_TIMESTEPS] f32 -- per-timestep DHW magnitude for the single simulated site
+    for t in 1:n_ts
+        write(buf, dhw_mat[t, 1])
+    end
+
     result = take!(buf)
     length(result) == WORKER_RESULT_BYTES || error(
         "result size mismatch: wrote $(length(result)), expected $WORKER_RESULT_BYTES"
@@ -269,6 +292,8 @@ function run(args::Vector{String})::Cint
         )
         return Cint(1)
     end
+
+    _ensure_blocking_stdin()
 
     # Load models once at startup
     try
