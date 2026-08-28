@@ -131,7 +131,7 @@ function Kora.viz.survival_performance_plots(
         end
 
         # Add shared legend to the right of the figure
-        Legend(fig[1, 3], plot_handles, ["Bin Mean", "Bin Range", "±1 stdev", "Model"])
+        Legend(fig[1, 3], plot_handles, ["Bin Mean", "Bin Range", "±1 SE", "Model"])
 
         _display_or_save(fig, "survival", target_groups[group_id], save_path)
     end
