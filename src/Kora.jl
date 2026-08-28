@@ -102,6 +102,17 @@ export
     get_survival_models,
     check_model_pair_skew
 
+"""
+    start_server(; kwargs...)
+
+Start the `kora-server` HTTP application (session registry, per-worker idle
+timeout, `/api/run_reef` binary wire protocol). Only available when `Oxygen`
+is loaded (`using Oxygen`) -- implemented in `ext/OxygenExt.jl`, following
+the same weakdep pattern as `ArrowExt`/`MakieExt`.
+"""
+function start_server end
+export start_server
+
 global growth_models::Union{Nothing,PolyGrowthModel} = nothing
 global survival_models::Union{Nothing,PolySurvivalModel} = nothing
 

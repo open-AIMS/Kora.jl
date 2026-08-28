@@ -36,7 +36,8 @@ makedocs(;
             "Coral Models" => "reference/api-models.md",
             "Model I/O" => "reference/api-interface.md",
             "Coral Dynamics" => "reference/api-coral-dynamics.md",
-            "Metrics" => "reference/api-metrics.md"
+            "Metrics" => "reference/api-metrics.md",
+            "Web Server" => "reference/api-server.md"
         ],
         "Background" => [
             "Coral Biology" => "concepts/coral-biology.md"
