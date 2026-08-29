@@ -99,7 +99,7 @@ case "$MODE" in
         BUILD_LOG="$OUTPUT_DIR/build.log"
         echo "Build log: $BUILD_LOG"
         _GCC_WRAPPER="$(_make_lm_wrapper)"
-        JULIA_CC="$_GCC_WRAPPER" \
+        export JULIA_CC="$_GCC_WRAPPER"
         time juliac --verbose --project="$PROJECT_ROOT" --output-exe kora-worker \
             --bundle "$OUTPUT_DIR" --trim=safe --experimental "$WORKER_ENTRY_FILE" \
             2>&1 | tee "$BUILD_LOG"
@@ -114,7 +114,7 @@ case "$MODE" in
         echo "Build log: $BUILD_LOG"
         julia --project="$SERVER_PROJECT_DIR" -e 'using Pkg; Pkg.instantiate()'
         _GCC_WRAPPER="$(_make_lm_wrapper)"
-        JULIA_CC="$_GCC_WRAPPER" \
+        export JULIA_CC="$_GCC_WRAPPER"
         time juliac --verbose --project="$SERVER_PROJECT_DIR" --output-exe kora-server \
             --bundle "$OUTPUT_DIR" --experimental "$SERVER_ENTRY_FILE" \
             2>&1 | tee "$BUILD_LOG"
