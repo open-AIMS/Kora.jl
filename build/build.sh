@@ -47,11 +47,24 @@ while [[ $# -gt 0 ]]; do
 done
 
 OUTPUT_DIR="${OUTPUT_DIR:-$PROJECT_ROOT/build/dist/$MODE}"
+
+# Every mode starts from a clean output dir. PackageCompiler's --bundle artifact
+# copier (bundle_artifacts) errors out if a destination artifact dir from a
+# previous build already exists — it copies without force=true — so a stale
+# dist/<mode>/share/julia/artifacts/<hash> from an earlier run breaks the build.
+# Julia artifact trees are copied in read-only, so make them writable before rm.
+chmod -R u+w "$OUTPUT_DIR" 2>/dev/null || true
+rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 
 # Multi-target CPU dispatch — makes the sysimage (and other build outputs)
 # usable across different x86_64 microarchitectures without recompilation.
-export JULIA_CPU_TARGET="generic;x86_64,sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
+# This is the exact string Julia's own official binaries are built with: three
+# groups, each `<cpu-name>[,<feature>...]`. An earlier value prefixed the second
+# group with `x86_64,`, which made `x86_64` the CPU name and `sandybridge` a
+# (nonexistent) feature — LLVM printed "'+sandybridge' is not a recognized
+# feature" and silently dropped the sandybridge-tuned clone.
+export JULIA_CPU_TARGET="generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
 
 # JuliaC only adds -lm on i686; on x86_64, floorf (used by Kora's numeric
 # code) becomes a libcall to libm and the link fails regardless of --trim
@@ -91,11 +104,6 @@ case "$MODE" in
 
     worker)
         echo "Mode: worker (standalone exe, no Julia runtime required on target)"
-        # PackageCompiler's artifact bundler errors if a destination artifact dir
-        # from a previous build already exists (it doesn't pass force=true) —
-        # start from a clean output dir each time.
-        rm -rf "$OUTPUT_DIR"
-        mkdir -p "$OUTPUT_DIR"
         BUILD_LOG="$OUTPUT_DIR/build.log"
         echo "Build log: $BUILD_LOG"
         _GCC_WRAPPER="$(_make_lm_wrapper)"
@@ -108,8 +116,6 @@ case "$MODE" in
 
     server)
         echo "Mode: server (standalone exe, no Julia runtime required on target, untrimmed)"
-        rm -rf "$OUTPUT_DIR"
-        mkdir -p "$OUTPUT_DIR"
         BUILD_LOG="$OUTPUT_DIR/build.log"
         echo "Build log: $BUILD_LOG"
         julia --project="$SERVER_PROJECT_DIR" -e 'using Pkg; Pkg.instantiate()'
