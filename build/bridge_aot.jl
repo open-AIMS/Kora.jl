@@ -8,12 +8,15 @@
 #                             float depth_m, float deploy_dhw_tolerance);
 #   int32_t kf_new_dhw_trajectory();  // invalidate cached DHW; next kf_run_reef
 #                                     // call regenerates a fresh climate sequence
+#   int32_t kf_set_initial_cover(const float* group_fraction, int32_t n /* must be 5 */);
+#   int32_t kf_set_dhw_trajectory(const float* values, int32_t n /* n<=0 clears */);
 #   int32_t kf_run_reef(float area_m2, float init_cover_pct, uint32_t n_runs,
 #                       uint32_t dhw_seed,
 #                       float* dhw_out, int32_t dhw_cap,
 #                       float* covers_out, int32_t covers_cap,
 #                       float* lower_out, float* median_out, float* upper_out,
-#                       int32_t stats_cap,
+#                       float* tol_lower_out, float* tol_median_out, float* tol_upper_out,
+#                       int32_t stats_cap,   // shared by the group-cover and tolerance out buffers
 #                       int64_t* n_ts_out, int64_t* n_valid_out);
 
 module KoraBridge
@@ -116,6 +119,12 @@ const _dhw_ref = Ref{Union{Nothing,Matrix{Float32}}}(nothing)
 const _init_n_ts_ref = Ref{Int}(0)
 const _dhw_seed_ref = Ref{UInt32}(0)
 
+# Custom DHW/climate trajectory override (Part 3). When non-nothing and its
+# length matches n_ts, kf_run_reef uses it verbatim and skips the seed cache /
+# generate_example_dhw entirely. Set via kf_set_dhw_trajectory; cleared by
+# kf_set_dhw_trajectory(n<=0), kf_new_dhw_trajectory, and kf_load_models.
+const _dhw_override_ref = Ref{Union{Nothing,Vector{Float32}}}(nothing)
+
 # Deployment schedule — set via kf_set_deployment before kf_run_reef.
 # NTuple{5,UInt32}: corals/year for each of the 5 functional groups.
 const _deploy_vols_ref = Ref{NTuple{5,UInt32}}((
@@ -125,6 +134,11 @@ const _deploy_start_ref = Ref{UInt32}(UInt32(1))
 const _deploy_cadence_ref = Ref{UInt32}(UInt32(1))
 const _depth_ref = Ref{Float32}(9.0f0)
 const _deploy_dhw_tol_ref = Ref{Float32}(0.0f0)
+
+# Per-group initial-cover composition — set via kf_set_initial_cover before
+# kf_run_reef. NTuple{5,Float32}: composition fraction for each of the 5
+# functional groups (need not sum to 1; normalized in _build_ensemble_params).
+const _group_fraction_ref = Ref{NTuple{5,Float32}}((0.2f0, 0.2f0, 0.2f0, 0.2f0, 0.2f0))
 
 # Build ensemble params where all members share the same initial conditions
 # (equal group proportions, cover-derived density) so CI-band spread at t=0
@@ -138,7 +152,12 @@ function _build_ensemble_params(
     pop_density = Float64(target_pop) / Float64(area_m2)
     params = Matrix{Float64}(undef, 6, n_members)
     params[1, :] .= pop_density
-    params[2:6, :] .= 0.2
+    fr = collect(Float64.(_group_fraction_ref[]))
+    s = sum(fr)
+    fr = (s > 0 && isfinite(s)) ? fr ./ s : fill(0.2, 5)
+    for g in 1:5
+        params[1 + g, :] .= fr[g]
+    end
     return params
 end
 
@@ -173,6 +192,8 @@ Base.@ccallable function kf_load_models(
         _dhw_ref[] = nothing
         _init_n_ts_ref[] = 0
         _dhw_seed_ref[] = 0
+        _dhw_override_ref[] = nothing
+        _group_fraction_ref[] = (0.2f0, 0.2f0, 0.2f0, 0.2f0, 0.2f0)
         return Int32(0)
     catch e
         @_write_stderr("[bridge_aot] kf_load_models: ")
@@ -197,8 +218,32 @@ Base.@ccallable function kf_set_deployment(
     return Int32(0)
 end
 
+Base.@ccallable function kf_set_initial_cover(frac_ptr::Ptr{Float32}, n::Int32)::Int32
+    n != Int32(5) && return Int32(-1)
+    f1 = unsafe_load(frac_ptr, 1)
+    f2 = unsafe_load(frac_ptr, 2)
+    f3 = unsafe_load(frac_ptr, 3)
+    f4 = unsafe_load(frac_ptr, 4)
+    f5 = unsafe_load(frac_ptr, 5)
+    _group_fraction_ref[] = (f1, f2, f3, f4, f5)
+    return Int32(0)
+end
+
+Base.@ccallable function kf_set_dhw_trajectory(vals_ptr::Ptr{Float32}, n::Int32)::Int32
+    if n <= Int32(0)
+        _dhw_override_ref[] = nothing
+        return Int32(0)
+    end
+    v = Vector{Float32}(undef, Int(n))
+    GC.@preserve v unsafe_copyto!(pointer(v), vals_ptr, Int(n))
+    _dhw_override_ref[] = v
+    return Int32(0)
+end
+
 Base.@ccallable function kf_new_dhw_trajectory()::Int32
     _dhw_ref[] = nothing
+    # A freshly requested seed trajectory supersedes any custom override.
+    _dhw_override_ref[] = nothing
     return Int32(0)
 end
 
@@ -214,6 +259,9 @@ Base.@ccallable function kf_run_reef(
     lower_out::Ptr{Float32},
     median_out::Ptr{Float32},
     upper_out::Ptr{Float32},
+    tol_lower_out::Ptr{Float32},
+    tol_median_out::Ptr{Float32},
+    tol_upper_out::Ptr{Float32},
     stats_cap::Int32,
     n_ts_out::Ptr{Int64},
     n_valid_out::Ptr{Int64}
@@ -232,13 +280,19 @@ Base.@ccallable function kf_run_reef(
         # unless a new trajectory is explicitly requested via
         # kf_new_dhw_trajectory (which invalidates the cache; the seed for
         # the resulting regeneration is whatever this call passes in).
-        if _dhw_ref[] === nothing || _init_n_ts_ref[] != n_ts || _dhw_seed_ref[] != dhw_seed
-            @_write_stderr("[kf_run_reef] generate_example_dhw\n")
-            _init_n_ts_ref[] = n_ts
-            _dhw_seed_ref[] = dhw_seed
-            _dhw_ref[] = Kora.generate_example_dhw(n_ts, 1; rng=Xoshiro(Int(dhw_seed)))
+        _ov = _dhw_override_ref[]
+        if _ov !== nothing && length(_ov) == n_ts
+            @_write_stderr("[kf_run_reef] using custom DHW override\n")
+            dhw_mat = reshape(copy(_ov), n_ts, 1)
+        else
+            if _dhw_ref[] === nothing || _init_n_ts_ref[] != n_ts || _dhw_seed_ref[] != dhw_seed
+                @_write_stderr("[kf_run_reef] generate_example_dhw\n")
+                _init_n_ts_ref[] = n_ts
+                _dhw_seed_ref[] = dhw_seed
+                _dhw_ref[] = Kora.generate_example_dhw(n_ts, 1; rng=Xoshiro(Int(dhw_seed)))
+            end
+            dhw_mat = _dhw_ref[]::Matrix{Float32}
         end
-        dhw_mat = _dhw_ref[]::Matrix{Float32}
         unsafe_copyto!(dhw_out, pointer(dhw_mat[:, 1]), n_ts)
 
         @_write_stderr("[kf_run_reef] initialize_reef\n")
@@ -292,6 +346,25 @@ Base.@ccallable function kf_run_reef(
                 unsafe_store!(lower_out, lo, idx)
                 unsafe_store!(median_out, med, idx)
                 unsafe_store!(upper_out, hi, idx)
+            end
+        end
+
+        # Wild-population mean DHW tolerance per group per timestep. Same
+        # percentile pass across members; dim 4 = [mean, std], take mean (index 1).
+        for g in 1:n_groups
+            tol_data = results.wild_dhw_tolerances[:, 1, g, 1, :]
+            for t in 1:n_ts
+                vals = filter(!isnan, collect(tol_data[t, :]))
+                lo, med, hi = if isempty(vals)
+                    NaN32, NaN32, NaN32
+                else
+                    v = quantile(vals, [0.025, 0.5, 0.975])
+                    Float32(v[1]), Float32(v[2]), Float32(v[3])
+                end
+                idx = (g-1)*n_ts + t
+                unsafe_store!(tol_lower_out, lo, idx)
+                unsafe_store!(tol_median_out, med, idx)
+                unsafe_store!(tol_upper_out, hi, idx)
             end
         end
 

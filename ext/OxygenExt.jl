@@ -25,8 +25,8 @@ using UUIDs
 # ---------------------------------------------------------------------------
 # Wire sizes -- must stay in sync with build/worker_main.jl
 # ---------------------------------------------------------------------------
-const WORKER_PARAMS_BYTES = 48
-const WORKER_RESULT_BYTES = 34804
+const WORKER_PARAMS_BYTES = 372  # Part 3: +dhw_override[75] f32 +dhw_override_active u32
+const WORKER_RESULT_BYTES = 39304
 
 # ---------------------------------------------------------------------------
 # Session / worker-process registry
