@@ -9,31 +9,37 @@
 #
 # All text diagnostics go to stderr; stdout is purely binary.
 #
-# WorkerSimParams wire layout (little-endian, 48 bytes, no padding):
-#   reef_area_m2:         f32  offset  0
-#   init_cover_pct:       f32  offset  4
-#   deploy_volumes[5]:    u32  offset  8  (20 bytes)
-#   deploy_start_year:    u32  offset 28
-#   deploy_cadence_years: u32  offset 32
-#   depth_m:              u32  offset 36
-#   deploy_dhw_tolerance: f32  offset 40
-#   dhw_seed:             u32  offset 44
-#   Total: 48 bytes
+# WorkerSimParams wire layout (little-endian, 372 bytes, no padding):
+#   reef_area_m2:            f32  offset  0
+#   init_cover_pct:          f32  offset  4
+#   deploy_volumes[5]:       u32  offset  8  (20 bytes)
+#   deploy_start_year:       u32  offset 28
+#   deploy_cadence_years:    u32  offset 32
+#   depth_m:                 u32  offset 36
+#   deploy_dhw_tolerance:    f32  offset 40
+#   dhw_seed:                u32  offset 44
+#   init_group_fraction[5]:  f32  offset 48  (20 bytes)
+#   dhw_override[N_TIMESTEPS]: f32 offset 68 (300 bytes)   # Part 3, §6.2 option (b)
+#   dhw_override_active:     u32  offset 368 (4 bytes)
+#   Total: 372 bytes
 #
 # NOTE: WorkerSimParams is a superset of sim-types/src/wire.rs WireSimParams —
 # it adds depth_m and deploy_dhw_tolerance. wire.rs's WireSimParams matches
 # this layout as of kora-app's feat/web-backend branch.
 #
-# WorkerEnsembleResult wire layout (little-endian, 34804 bytes, no padding):
+# WorkerEnsembleResult wire layout (little-endian, 39304 bytes, no padding):
 #   n_valid_runs:                     u32  offset      0  (4 bytes)
 #   covers[MAX_RUNS * N_TIMESTEPS]:   f32  offset      4  (30000 bytes), run-major
 #   summary.lower[N_TIMESTEPS][N_GROUPS]:  f32  offset  30004  (1500 bytes)
 #   summary.median[N_TIMESTEPS][N_GROUPS]: f32  offset  31504  (1500 bytes)
 #   summary.upper[N_TIMESTEPS][N_GROUPS]:  f32  offset  33004  (1500 bytes)
 #   dhw[N_TIMESTEPS]:                 f32  offset  34504  (300 bytes)
-#   Total: 34804 bytes
+#   tolerance.lower[N_TIMESTEPS][N_GROUPS]:  f32  offset  34804  (1500 bytes)
+#   tolerance.median[N_TIMESTEPS][N_GROUPS]: f32  offset  36304  (1500 bytes)
+#   tolerance.upper[N_TIMESTEPS][N_GROUPS]:  f32  offset  37804  (1500 bytes)
+#   Total: 39304 bytes
 #
-# summary layout mirrors WireGroupSummary in wire.rs:
+# summary / tolerance layout mirrors WireGroupSummary in wire.rs:
 #   [[f32; N_GROUPS]; N_TIMESTEPS] = row-major with timestep as outer index.
 #
 # Usage:
@@ -52,11 +58,14 @@ const N_GROUPS = 5
 const N_TIMESTEPS = 75
 const MAX_RUNS = 100
 
-# 4 scalar fields (2x f32 + 5x u32 deploy_volumes + u32 start + u32 cadence) plus depth_m (u32), dhw_tol (f32), dhw_seed (u32)
-const WORKER_PARAMS_BYTES = 4 + 4 + N_GROUPS * 4 + 4 + 4 + 4 + 4 + 4   # = 48
+# 4 scalar fields (2x f32 + 5x u32 deploy_volumes + u32 start + u32 cadence) plus
+# depth_m (u32), dhw_tol (f32), dhw_seed (u32), init_group_fraction (5x f32),
+# dhw_override (N_TIMESTEPS x f32), dhw_override_active (u32).  # Part 3, §6.2 option (b)
+const WORKER_PARAMS_BYTES = 4 + 4 + N_GROUPS * 4 + 4 + 4 + 4 + 4 + 4 + N_GROUPS * 4 + N_TIMESTEPS * 4 + 4   # = 372
 
-# u32 n_valid + [MAX_RUNS * N_TIMESTEPS] f32 covers + [N_TIMESTEPS * N_GROUPS * 3] f32 summary + [N_TIMESTEPS] f32 dhw
-const WORKER_RESULT_BYTES = 4 + MAX_RUNS * N_TIMESTEPS * 4 + N_GROUPS * N_TIMESTEPS * 3 * 4 + N_TIMESTEPS * 4  # = 34804
+# u32 n_valid + [MAX_RUNS * N_TIMESTEPS] f32 covers + [N_TIMESTEPS * N_GROUPS * 3] f32 summary
+# + [N_TIMESTEPS] f32 dhw + [N_TIMESTEPS * N_GROUPS * 3] f32 tolerance
+const WORKER_RESULT_BYTES = 4 + MAX_RUNS * N_TIMESTEPS * 4 + N_GROUPS * N_TIMESTEPS * 3 * 4 + N_TIMESTEPS * 4 + N_GROUPS * N_TIMESTEPS * 3 * 4  # = 39304
 
 # ---------------------------------------------------------------------------
 # Global simulation state (same pattern as bridge_aot.jl)
@@ -109,7 +118,7 @@ function read_exact_stdin(n::Int)::Union{Vector{UInt8},Nothing}
 end
 
 # ---------------------------------------------------------------------------
-# Parse WorkerSimParams from 44 raw bytes (little-endian field order)
+# Parse WorkerSimParams from 372 raw bytes (little-endian field order)
 # ---------------------------------------------------------------------------
 function parse_params(bytes::Vector{UInt8})
     length(bytes) == WORKER_PARAMS_BYTES || error(
@@ -124,6 +133,9 @@ function parse_params(bytes::Vector{UInt8})
     depth_m = read(io, UInt32)
     deploy_dhw_tolerance = read(io, Float32)
     dhw_seed = read(io, UInt32)
+    init_group_fraction = ntuple(_ -> read(io, Float32), N_GROUPS)
+    dhw_override = ntuple(_ -> read(io, Float32), N_TIMESTEPS)
+    dhw_override_active = read(io, UInt32)
     return (;
         reef_area_m2,
         init_cover_pct,
@@ -132,7 +144,10 @@ function parse_params(bytes::Vector{UInt8})
         deploy_cadence_years,
         depth_m,
         deploy_dhw_tolerance,
-        dhw_seed
+        dhw_seed,
+        init_group_fraction,
+        dhw_override,
+        dhw_override_active
     )
 end
 
@@ -140,7 +155,8 @@ end
 # Simulation helpers (adapted from bridge_aot.jl)
 # ---------------------------------------------------------------------------
 function _build_ensemble_params(
-    area_m2::Float32, init_cover_pct::Float32, n_members::Int
+    area_m2::Float32, init_cover_pct::Float32, n_members::Int,
+    group_fraction::NTuple{5,Float32}
 )::Matrix{Float64}
     mean_cov = Float64(Kora.mean_colony_cover_m2())
     target_cover_m2 = (Float64(init_cover_pct) / 100.0) * Float64(area_m2)
@@ -148,7 +164,12 @@ function _build_ensemble_params(
     pop_density = Float64(target_pop) / Float64(area_m2)
     params = Matrix{Float64}(undef, 6, n_members)
     params[1, :] .= pop_density
-    params[2:6, :] .= 0.2
+    fr = collect(Float64.(group_fraction))
+    s = sum(fr)
+    fr = (s > 0 && isfinite(s)) ? fr ./ s : fill(0.2, 5)
+    for g in 1:5
+        params[1 + g, :] .= fr[g]
+    end
     return params
 end
 
@@ -181,12 +202,18 @@ function run_simulation(p)::Vector{UInt8}
     # regenerate-DHW endpoint, so a client asking for a different seed on an
     # otherwise ordinary /api/run_reef call is how "New DHW trajectory" is
     # expressed here).
-    if _dhw_ref[] === nothing || _init_n_ts_ref[] != n_ts || _dhw_seed_ref[] != p.dhw_seed
-        _init_n_ts_ref[] = n_ts
-        _dhw_seed_ref[] = p.dhw_seed
-        _dhw_ref[] = Kora.generate_example_dhw(n_ts, 1; rng=Xoshiro(Int(p.dhw_seed)))
+    # Part 3, §6.2 option (b): a custom DHW trajectory rides inline in every
+    # request. When active, use it verbatim and skip the seed cache entirely.
+    if p.dhw_override_active != 0
+        dhw_mat = reshape(collect(Float32.(p.dhw_override)), N_TIMESTEPS, 1)
+    else
+        if _dhw_ref[] === nothing || _init_n_ts_ref[] != n_ts || _dhw_seed_ref[] != p.dhw_seed
+            _init_n_ts_ref[] = n_ts
+            _dhw_seed_ref[] = p.dhw_seed
+            _dhw_ref[] = Kora.generate_example_dhw(n_ts, 1; rng=Xoshiro(Int(p.dhw_seed)))
+        end
+        dhw_mat = _dhw_ref[]::Matrix{Float32}
     end
-    dhw_mat = _dhw_ref[]::Matrix{Float32}
 
     reef = Kora.initialize_reef(;
         n_timesteps=n_ts,
@@ -203,7 +230,9 @@ function run_simulation(p)::Vector{UInt8}
     )
 
     n_members = 25
-    ensemble_params = _build_ensemble_params(p.reef_area_m2, p.init_cover_pct, n_members)
+    ensemble_params = _build_ensemble_params(
+        p.reef_area_m2, p.init_cover_pct, n_members, p.init_group_fraction
+    )
     results = Kora.run_ensemble!(
         reef, dhw_mat, ensemble_params; deploy_dhw_tol=p.deploy_dhw_tolerance
     )
@@ -231,6 +260,29 @@ function run_simulation(p)::Vector{UInt8}
                 lower_mat[t, g] = Float32(q[1])
                 median_mat[t, g] = Float32(q[2])
                 upper_mat[t, g] = Float32(q[3])
+            end
+        end
+    end
+
+    # Wild-population mean DHW tolerance per group per timestep, same percentile
+    # pass over ensemble members. results.wild_dhw_tolerances is
+    # (n_ts, n_locs, n_groups, 2, n_members) with dim 4 = [mean, std]; take mean.
+    tol_lower_mat = Matrix{Float32}(undef, n_ts, N_GROUPS)
+    tol_median_mat = Matrix{Float32}(undef, n_ts, N_GROUPS)
+    tol_upper_mat = Matrix{Float32}(undef, n_ts, N_GROUPS)
+
+    for g in 1:N_GROUPS
+        for t in 1:n_ts
+            vals = filter(!isnan, vec(results.wild_dhw_tolerances[t, 1, g, 1, :]))
+            if isempty(vals)
+                tol_lower_mat[t, g] = NaN32
+                tol_median_mat[t, g] = NaN32
+                tol_upper_mat[t, g] = NaN32
+            else
+                q = quantile(vals, (0.025, 0.5, 0.975))
+                tol_lower_mat[t, g] = Float32(q[1])
+                tol_median_mat[t, g] = Float32(q[2])
+                tol_upper_mat[t, g] = Float32(q[3])
             end
         end
     end
@@ -265,6 +317,16 @@ function run_simulation(p)::Vector{UInt8}
     # dhw[N_TIMESTEPS] f32 -- per-timestep DHW magnitude for the single simulated site
     for t in 1:n_ts
         write(buf, dhw_mat[t, 1])
+    end
+
+    # tolerance: lower, median, upper — same [[f32; N_GROUPS]; N_TIMESTEPS] row-major
+    # layout as summary, appended last so existing offsets don't move.
+    for stat_mat in (tol_lower_mat, tol_median_mat, tol_upper_mat)
+        for t in 1:n_ts
+            for g in 1:N_GROUPS
+                write(buf, stat_mat[t, g])
+            end
+        end
     end
 
     result = take!(buf)
