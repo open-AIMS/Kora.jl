@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "5559b3782087fa8ad9f6d33ac93d442cce25bea8"
+project_hash = "d2499e92eb5d16005576b5c75ced0eec99a46548"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -427,7 +427,7 @@ version = "1.2.0"
     [deps.Kora.extensions]
     ArrowExt = "Arrow"
     MakieExt = "Makie"
-    OxygenExt = ["Oxygen", "HTTP", "UUIDs"]
+    OxygenExt = ["Oxygen", "HTTP", "UUIDs", "NCDatasets"]
     Parquet2Ext = "Parquet2"
     UnicodePlotsExt = ["UnicodePlots", "Term"]
 
@@ -435,6 +435,7 @@ version = "1.2.0"
     Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
     HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
     Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+    NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
     Oxygen = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
     Parquet2 = "98572fba-bba0-415d-956f-fa77e587d26d"
     Term = "22787eb5-b846-44ae-b979-8e399b8463ab"
