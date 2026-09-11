@@ -734,7 +734,7 @@ cells instead of drawing each group from its full log-normal shape.
   (functional group, diameter bin) -- bin `b` spans
   `bin_edges()[grp, b] .. bin_edges()[grp, b + 1]` (`bin_widths()`'s 7 bins
   per group). Need not sum to 1; normalized internally over all 35 cells.
-  A zero (or non-finite) sum falls back to [`_default_size_class_weight`](@ref).
+  A zero (or non-finite) sum falls back to `_default_size_class_weight()`.
   Colony count per cell = `round(target_pop_size * normalized_weight)`;
   diameters for that cell are drawn **uniformly** within its bin's edges --
   unlike the per-group method, there is no log-normal shape left to
