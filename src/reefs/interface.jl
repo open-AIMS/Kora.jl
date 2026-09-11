@@ -25,12 +25,28 @@ end
     set_population!(reef_state::ReefState, x::Vector)::Nothing
 
 Set the initial population state.
+
+`length(x)`-based dispatch on the population-shape rows: `6` is the plain
+per-group case (rows 2:6 are `group_proportions`), `> 16` (and `!=
+6 + 5 * 7`) is the calibration size-distribution-override case (rows 7:16
+are per-group `(μ, σ)` pairs), and exactly `6 + 5 * 7 = 41` is the Part 5 v2
+size-class case (rows 7:41 are a flattened `(5, 7)` weight grid, dispatched
+to the size-class `initialize_coral_population!` overload instead).
 """
 function set_population!(reef_state::ReefState, x::Vector)::Nothing
     pop_density = x[1]
     total_initial_pop = ceil(
         Int64, floor(Int64, pop_density) * reef_state.carrying_capacity[1]
     )
+
+    if length(x) == 6 + 5 * 7
+        size_class_weight = Matrix{Float32}(undef, 5, 7)
+        for g in 1:5, b in 1:7
+            size_class_weight[g, b] = Float32(x[6 + (g - 1) * 7 + b])
+        end
+        initialize_coral_population!(reef_state, 1, total_initial_pop, size_class_weight)
+        return nothing
+    end
 
     if length(x) > 6
         # Get population size distribution

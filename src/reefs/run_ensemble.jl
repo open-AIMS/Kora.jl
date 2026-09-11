@@ -55,10 +55,13 @@ end
 Run an ensemble of simulations, one per column of `ensemble_params`, reusing
 `reef_state` across members (reset between each run via `set_population!`).
 
-When `ensemble_params` has more than 16 rows, rows 17 through
-`16 + n_groups(reef_state)` are interpreted as per-group location scalers passed
-to `assign_scalers!`, and the final two rows as `recruits` and `self_seed`
-parameters forwarded to `run_model!`.
+When `ensemble_params` has exactly `6 + 5 * 7 = 41` rows, rows 7:41 are the
+Part 5 v2 per-(group, size-class) composition weights that `set_population!`
+already dispatched on; `run_model!` runs with default recruitment, same as
+the plain 6-row case. Otherwise, when `ensemble_params` has more than 16
+rows, rows 17 through `16 + n_groups(reef_state)` are interpreted as
+per-group location scalers passed to `assign_scalers!`, and the final two
+rows as `recruits` and `self_seed` parameters forwarded to `run_model!`.
 
 `env_conditions` must be a 3D `DimArray` with axes
 `(Dim{:timestep}, Dim{:location}, Dim{:variable})` containing at minimum a
@@ -123,7 +126,12 @@ function run_ensemble!(
     for i in 1:n_ensemble
         params = ensemble_params[:, i]
         set_population!(reef_state, params)
-        if length(params) > 16
+        if length(params) == 6 + 5 * 7
+            # Part 5 v2 size-class case: set_population! already dispatched to
+            # the size-class initializer above; no scalers/recruitment rows
+            # here, so run with default recruitment like the plain 6-row case.
+            run_model!(reef_state, dhw; deploy_dhw_tol=deploy_dhw_tol, rng=rng)
+        elseif length(params) > 16
             expected = 16 + n_grps + 2
             length(params) == expected || throw(
                 ArgumentError(

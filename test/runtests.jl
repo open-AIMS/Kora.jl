@@ -200,6 +200,61 @@ end
         end
     end
 
+    @testset "Size-Class Initial Cover (Part 5 v2)" begin
+        if isnothing(Kora.growth_models) || isnothing(Kora.survival_models)
+            @warn "Skipping size-class initial cover tests: pre-fitted models not available"
+        else
+            edges = Kora.bin_edges()
+            n_bins = size(edges, 2) - 1
+
+            @test_throws ArgumentError Kora.initialize_coral_population!(
+                Kora.initialize_reef(; n_timesteps=5, n_locs=1, density=10, area=100.0),
+                1, 100, zeros(Float32, 3, 3)
+            )
+
+            # All weight on group 1 / bin 1: exactly that group is populated,
+            # and every sampled diameter falls within that bin's edges.
+            reef = Kora.initialize_reef(; n_timesteps=5, n_locs=1, density=10, area=100.0)
+            w = zeros(Float32, 5, n_bins)
+            w[1, 1] = 1.0f0
+            Kora.initialize_coral_population!(reef, 1, 200, w; rng=Xoshiro(1))
+            counts = length.(reef.wild_population[1, 1, :])
+            @test counts[1] == 200
+            @test all(iszero, counts[2:end])
+            diams = reef.wild_population[1, 1, 1]
+            @test all(d -> edges[1, 1] <= d <= edges[1, 2], diams)
+
+            # A zero (all-cells) weight matrix falls back to the log-normal
+            # default and still seeds the requested total colony count.
+            reef2 = Kora.initialize_reef(; n_timesteps=5, n_locs=1, density=10, area=100.0)
+            Kora.initialize_coral_population!(reef2, 1, 200, zeros(Float32, 5, n_bins); rng=Xoshiro(2))
+            # Per-cell rounding across 35 cells can drift the total by a few
+            # colonies either way -- not exact, but close to the requested total.
+            @test isapprox(sum(length.(reef2.wild_population[1, 1, :])), 200; atol=5)
+
+            # set_population!/run_ensemble! dispatch on the 41-row size-class
+            # case (6 + 5*7), without disturbing the pre-existing 6-row and
+            # 23-row (calibration) dispatch paths.
+            dhw = Kora.generate_example_dhw(5, 1; rng=Xoshiro(3))
+
+            reef3 = Kora.initialize_reef(; n_timesteps=5, n_locs=1, density=10, area=100.0)
+            p41 = Matrix{Float64}(undef, 6 + 5 * n_bins, 2)
+            p41[1, :] .= 3.0
+            p41[2:6, :] .= 0.2
+            sc = zeros(5 * n_bins); sc[1] = 1.0
+            p41[7:end, :] .= sc
+            res41 = Kora.run_ensemble!(reef3, dhw, p41; rng=Xoshiro(4))
+            @test size(res41.cover, 3) == 2
+
+            reef4 = Kora.initialize_reef(; n_timesteps=5, n_locs=1, density=10, area=100.0)
+            p6 = Matrix{Float64}(undef, 6, 2)
+            p6[1, :] .= 3.0
+            p6[2:6, :] .= 0.2
+            res6 = Kora.run_ensemble!(reef4, dhw, p6; rng=Xoshiro(5))
+            @test size(res6.cover, 3) == 2
+        end
+    end
+
     @testset "Environment Generation" begin
         rng = Xoshiro(123)
         n_years = 20
