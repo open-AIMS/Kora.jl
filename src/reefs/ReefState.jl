@@ -1457,11 +1457,11 @@ function generate_environment(dhw::Matrix{Float32}; start_year::Int64=2020)::Dim
             "instead of accumulated degree heating weeks."
     end
 
-    # Values above 40 DHW are approximately twice the ~20 DHW projected under SSP5-8.5
+    # Values above 60 DHW are approximately three times the ~20 DHW projected under SSP5-8.5
     # and are likely a data quality issue rather than an intentional scenario.
-    if maximum(dhw) > 40.0f0
-        @warn "DHW values exceed 40 (maximum = $(maximum(dhw))). This is roughly twice the " *
-            "~20 DHW projected under SSP5-8.5. Consider checking for data quality issues " *
+    if maximum(dhw) > 60.0f0
+        @warn "DHW values exceed 60 (maximum = $(maximum(dhw))). This is roughly three times " *
+            "the ~20 DHW projected under SSP5-8.5. Consider checking for data quality issues " *
             "or confirming the scenario is intentionally extreme."
     end
 
