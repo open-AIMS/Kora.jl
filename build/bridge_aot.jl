@@ -263,9 +263,17 @@ Base.@ccallable function kf_set_size_class_cover(weights_ptr::Ptr{Float32}, n::I
         return Int32(0)
     end
     n != Int32(_N_GROUPS * _N_SIZES) && return Int32(-1)
-    v = Vector{Float32}(undef, Int(n))
-    GC.@preserve v unsafe_copyto!(pointer(v), weights_ptr, Int(n))
-    _size_class_ref[] = NTuple{35,Float32}(v)
+    # Built directly from the pointer via `ntuple(f, Val(35))`, not
+    # `NTuple{35,Float32}(v)` on an intermediate `Vector` -- the latter goes
+    # through generic iteration/`Core._apply_iterate` machinery the trim/AOT
+    # verifier can't resolve ("unresolved call ... Base.setindex!(...,
+    # Core._apply_iterate(Base.iterate, Core.tuple, ...))"). `ntuple(f, 35)`
+    # (a runtime `Int` length) isn't safe either -- it falls back to
+    # `Base._ntuple`, equally unresolved. Only the `Val(35)` form statically
+    # unrolls to `(f(1), f(2), ..., f(35))` at compile time, which the
+    # verifier can trace, matching kf_set_initial_cover's explicit scalar
+    # tuple literal above in spirit.
+    _size_class_ref[] = ntuple(i -> unsafe_load(weights_ptr, i), Val(35))
     return Int32(0)
 end
 
