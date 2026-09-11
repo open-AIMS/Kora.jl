@@ -25,9 +25,32 @@ using Kora
 using Random: Xoshiro
 using Statistics: quantile
 
+# Raw fd-2 write, bypassing Julia's IO system entirely -- needed because this
+# runs from inside a trimmed/@ccallable exception handler where the ordinary
+# runtime (stderr, println) may not be safe to call into.
+#
+# The underlying libc symbol differs by platform: Windows' CRT (io.h) exposes
+# it as `_write(int fd, const void *buffer, unsigned int count)`; POSIX libc
+# (glibc/musl) exposes the unprefixed `write(int fd, const void *buf, size_t
+# count)` -- `_write` does not exist there and a ccall to it aborts the
+# process ("could not load symbol"), taking down the *original* exception
+# report with it. `@static if` resolves at parse/lowering time on whichever
+# host is doing the AOT compile (build.sh vs build.ps1), leaving a single
+# literal-symbol `ccall` in the compiled output -- `ccall`'s function-spec
+# argument must be a literal, so this can't be a runtime-selected variable.
+@static if Sys.iswindows()
+    @inline function _raw_write(fd::Cint, buf, n::Integer)::Cint
+        ccall(:_write, Cint, (Cint, Ptr{UInt8}, Cuint), fd, buf, Cuint(n))
+    end
+else
+    @inline function _raw_write(fd::Cint, buf, n::Integer)::Cint
+        ccall(:write, Cint, (Cint, Ptr{UInt8}, Csize_t), fd, buf, Csize_t(n))
+    end
+end
+
 macro _write_stderr(msg)
     n = ncodeunits(msg)
-    :(ccall(:_write, Cint, (Cint, Ptr{UInt8}, Cuint), Int32(2), $msg, Cuint($n)))
+    :(_raw_write(Int32(2), $msg, $n))
 end
 
 # Staging Ref: the exception is stored here before calling _kf_write_inner_exc,
@@ -43,7 +66,7 @@ macro _write_exception(e)
             _exc_stage[] = _e
             _tcstr = ccall(:jl_typeof_str, Ptr{UInt8}, (Any,), _e)
             _tlen = ccall(:strlen, Csize_t, (Ptr{UInt8},), _tcstr)
-            ccall(:_write, Cint, (Cint, Ptr{UInt8}, Cuint), Int32(2), _tcstr, Cuint(_tlen))
+            _raw_write(Int32(2), _tcstr, _tlen)
             # Direct Julia call (no Any args) — no verifier error, no Windows symbol
             # lookup issue.  The exception was already stored in _exc_stage above.
             _kf_write_inner_exc()
@@ -61,8 +84,8 @@ function _kf_write_inner_exc()::Nothing
         fn = (exc::MethodError).f
         fstr = ccall(:jl_typeof_str, Ptr{UInt8}, (Any,), fn)
         flen = ccall(:strlen, Csize_t, (Ptr{UInt8},), fstr)
-        ccall(:_write, Cint, (Cint, Ptr{UInt8}, Cuint), Int32(2), " on ", Cuint(4))
-        ccall(:_write, Cint, (Cint, Ptr{UInt8}, Cuint), Int32(2), fstr, Cuint(flen))
+        _raw_write(Int32(2), " on ", 4)
+        _raw_write(Int32(2), fstr, flen)
     elseif exc isa CompositeException
         excs = (exc::CompositeException).exceptions
         if !isempty(excs)
@@ -71,34 +94,16 @@ function _kf_write_inner_exc()::Nothing
                 inner = (tfe::TaskFailedException).task.result
                 icstr = ccall(:jl_typeof_str, Ptr{UInt8}, (Any,), inner)
                 ilen = ccall(:strlen, Csize_t, (Ptr{UInt8},), icstr)
-                ccall(
-                    :_write,
-                    Cint,
-                    (Cint, Ptr{UInt8}, Cuint),
-                    Int32(2),
-                    " [inner: ",
-                    Cuint(9)
-                )
-                ccall(
-                    :_write, Cint, (Cint, Ptr{UInt8}, Cuint), Int32(2), icstr, Cuint(ilen)
-                )
+                _raw_write(Int32(2), " [inner: ", 9)
+                _raw_write(Int32(2), icstr, ilen)
                 if inner isa MethodError
                     fn = (inner::MethodError).f
                     fstr = ccall(:jl_typeof_str, Ptr{UInt8}, (Any,), fn)
                     flen = ccall(:strlen, Csize_t, (Ptr{UInt8},), fstr)
-                    ccall(
-                        :_write, Cint, (Cint, Ptr{UInt8}, Cuint), Int32(2), " on ", Cuint(4)
-                    )
-                    ccall(
-                        :_write,
-                        Cint,
-                        (Cint, Ptr{UInt8}, Cuint),
-                        Int32(2),
-                        fstr,
-                        Cuint(flen)
-                    )
+                    _raw_write(Int32(2), " on ", 4)
+                    _raw_write(Int32(2), fstr, flen)
                 end
-                ccall(:_write, Cint, (Cint, Ptr{UInt8}, Cuint), Int32(2), "]", Cuint(1))
+                _raw_write(Int32(2), "]", 1)
             end
         end
     end
