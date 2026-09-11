@@ -9,7 +9,7 @@
 #
 # All text diagnostics go to stderr; stdout is purely binary.
 #
-# WorkerSimParams wire layout (little-endian, 516 bytes, no padding):
+# WorkerSimParams wire layout (little-endian, 1676 bytes, no padding):
 #   reef_area_m2:            f32  offset  0
 #   init_cover_pct:          f32  offset  4
 #   deploy_volumes[5]:       u32  offset  8  (20 bytes)
@@ -19,30 +19,36 @@
 #   deploy_dhw_tolerance:    f32  offset 40
 #   dhw_seed:                u32  offset 44
 #   init_group_fraction[5]:  f32  offset 48  (20 bytes)
-#   dhw_override[N_TIMESTEPS]: f32 offset 68 (300 bytes)   # Part 3, §6.2 option (b)
-#   dhw_override_active:     u32  offset 368 (4 bytes)
-#   init_size_class_fraction[35]: f32 offset 372 (140 bytes)   # Part 5 v2
-#   init_size_class_active:  u32  offset 512 (4 bytes)
-#   Total: 516 bytes
+#   dhw_override[MAX_TIMESTEPS]: f32 offset 68 (1200 bytes)   # Part 3, §6.2 option (b)
+#   dhw_override_active:     u32  offset 1268 (4 bytes)
+#   init_size_class_fraction[35]: f32 offset 1272 (140 bytes)   # Part 5 v2
+#   init_size_class_active:  u32  offset 1412 (4 bytes)
+#   n_timesteps:             u32  offset 1416 (4 bytes)   # Part 10 -- requested run length
+#   Total: 1420 bytes
 #
 # NOTE: WorkerSimParams is a superset of sim-types/src/wire.rs WireSimParams —
 # it adds depth_m and deploy_dhw_tolerance. wire.rs's WireSimParams matches
-# this layout as of kora-app's feat/web-backend branch.
+# this layout as of kora-app's feat/web-backend branch (Part 10: both now
+# size their time-indexed fields to MAX_TIMESTEPS and carry an explicit
+# n_timesteps -- see kora-app's `.claude/plans/revise-ui.md` §10, OQ-7 option (a)).
 #
-# WorkerEnsembleResult wire layout (little-endian, 39304 bytes, no padding):
-#   n_valid_runs:                     u32  offset      0  (4 bytes)
-#   covers[MAX_RUNS * N_TIMESTEPS]:   f32  offset      4  (30000 bytes), run-major
-#   summary.lower[N_TIMESTEPS][N_GROUPS]:  f32  offset  30004  (1500 bytes)
-#   summary.median[N_TIMESTEPS][N_GROUPS]: f32  offset  31504  (1500 bytes)
-#   summary.upper[N_TIMESTEPS][N_GROUPS]:  f32  offset  33004  (1500 bytes)
-#   dhw[N_TIMESTEPS]:                 f32  offset  34504  (300 bytes)
-#   tolerance.lower[N_TIMESTEPS][N_GROUPS]:  f32  offset  34804  (1500 bytes)
-#   tolerance.median[N_TIMESTEPS][N_GROUPS]: f32  offset  36304  (1500 bytes)
-#   tolerance.upper[N_TIMESTEPS][N_GROUPS]:  f32  offset  37804  (1500 bytes)
-#   Total: 39304 bytes
+# WorkerEnsembleResult wire layout (little-endian, no padding):
+#   n_valid_runs:                        u32  offset       0  (4 bytes)
+#   covers[MAX_RUNS * MAX_TIMESTEPS]:    f32  offset       4  (120000 bytes), run-major
+#   summary.lower[MAX_TIMESTEPS][N_GROUPS]:  f32  offset  120004  (6000 bytes)
+#   summary.median[MAX_TIMESTEPS][N_GROUPS]: f32  offset  126004  (6000 bytes)
+#   summary.upper[MAX_TIMESTEPS][N_GROUPS]:  f32  offset  132004  (6000 bytes)
+#   dhw[MAX_TIMESTEPS]:                   f32  offset  138004  (1200 bytes)
+#   tolerance.lower[MAX_TIMESTEPS][N_GROUPS]:  f32  offset  139204  (6000 bytes)
+#   tolerance.median[MAX_TIMESTEPS][N_GROUPS]: f32  offset  145204  (6000 bytes)
+#   tolerance.upper[MAX_TIMESTEPS][N_GROUPS]:  f32  offset  151204  (6000 bytes)
+#   n_timesteps:                          u32  offset  157204  (4 bytes)   # Part 10 -- actual run length
+#   Total: 157208 bytes
 #
 # summary / tolerance layout mirrors WireGroupSummary in wire.rs:
-#   [[f32; N_GROUPS]; N_TIMESTEPS] = row-major with timestep as outer index.
+#   [[f32; N_GROUPS]; MAX_TIMESTEPS] = row-major with timestep as outer index.
+#   Only the first n_timesteps rows/entries of every time-indexed field above
+#   are meaningful -- the rest is zero padding out to MAX_TIMESTEPS capacity.
 #
 # Usage:
 #   kora-worker <growth_model_path> <survival_model_path>
@@ -58,19 +64,25 @@ using Statistics: quantile
 # ---------------------------------------------------------------------------
 const N_GROUPS = 5
 const N_SIZES = 7  # Part 5 v2 -- must stay in sync with sim-types/src/results.rs N_SIZES
+# Default run length, used only as a defensive fallback when a request's
+# n_timesteps field is missing/zero (shouldn't happen from a current client).
 const N_TIMESTEPS = 75
+# Capacity every time-indexed wire field is sized to (Part 10). Must match
+# sim-types/src/results.rs::MAX_TIMESTEPS / wire.rs::WIRE_MAX_TIMESTEPS.
+const MAX_TIMESTEPS = 300
 const MAX_RUNS = 100
 
 # 4 scalar fields (2x f32 + 5x u32 deploy_volumes + u32 start + u32 cadence) plus
 # depth_m (u32), dhw_tol (f32), dhw_seed (u32), init_group_fraction (5x f32),
-# dhw_override (N_TIMESTEPS x f32), dhw_override_active (u32),
-# init_size_class_fraction (N_GROUPS*N_SIZES x f32), init_size_class_active (u32).
-const WORKER_PARAMS_BYTES = 4 + 4 + N_GROUPS * 4 + 4 + 4 + 4 + 4 + 4 + N_GROUPS * 4 + N_TIMESTEPS * 4 + 4 +
-                             N_GROUPS * N_SIZES * 4 + 4   # = 516
+# dhw_override (MAX_TIMESTEPS x f32), dhw_override_active (u32),
+# init_size_class_fraction (N_GROUPS*N_SIZES x f32), init_size_class_active (u32),
+# n_timesteps (u32).
+const WORKER_PARAMS_BYTES = 4 + 4 + N_GROUPS * 4 + 4 + 4 + 4 + 4 + 4 + N_GROUPS * 4 + MAX_TIMESTEPS * 4 + 4 +
+                             N_GROUPS * N_SIZES * 4 + 4 + 4   # = 1420
 
-# u32 n_valid + [MAX_RUNS * N_TIMESTEPS] f32 covers + [N_TIMESTEPS * N_GROUPS * 3] f32 summary
-# + [N_TIMESTEPS] f32 dhw + [N_TIMESTEPS * N_GROUPS * 3] f32 tolerance
-const WORKER_RESULT_BYTES = 4 + MAX_RUNS * N_TIMESTEPS * 4 + N_GROUPS * N_TIMESTEPS * 3 * 4 + N_TIMESTEPS * 4 + N_GROUPS * N_TIMESTEPS * 3 * 4  # = 39304
+# u32 n_valid + [MAX_RUNS * MAX_TIMESTEPS] f32 covers + [MAX_TIMESTEPS * N_GROUPS * 3] f32 summary
+# + [MAX_TIMESTEPS] f32 dhw + [MAX_TIMESTEPS * N_GROUPS * 3] f32 tolerance + u32 n_timesteps
+const WORKER_RESULT_BYTES = 4 + MAX_RUNS * MAX_TIMESTEPS * 4 + N_GROUPS * MAX_TIMESTEPS * 3 * 4 + MAX_TIMESTEPS * 4 + N_GROUPS * MAX_TIMESTEPS * 3 * 4 + 4  # = 157208
 
 # ---------------------------------------------------------------------------
 # Global simulation state (same pattern as bridge_aot.jl)
@@ -139,10 +151,11 @@ function parse_params(bytes::Vector{UInt8})
     deploy_dhw_tolerance = read(io, Float32)
     dhw_seed = read(io, UInt32)
     init_group_fraction = ntuple(_ -> read(io, Float32), N_GROUPS)
-    dhw_override = ntuple(_ -> read(io, Float32), N_TIMESTEPS)
+    dhw_override = ntuple(_ -> read(io, Float32), MAX_TIMESTEPS)
     dhw_override_active = read(io, UInt32)
     init_size_class_fraction = ntuple(_ -> read(io, Float32), N_GROUPS * N_SIZES)
     init_size_class_active = read(io, UInt32)
+    n_timesteps = read(io, UInt32)
     return (;
         reef_area_m2,
         init_cover_pct,
@@ -156,7 +169,8 @@ function parse_params(bytes::Vector{UInt8})
         dhw_override,
         dhw_override_active,
         init_size_class_fraction,
-        init_size_class_active
+        init_size_class_active,
+        n_timesteps
     )
 end
 
@@ -209,7 +223,10 @@ end
 # Simulation entry — returns WORKER_RESULT_BYTES raw bytes
 # ---------------------------------------------------------------------------
 function run_simulation(p)::Vector{UInt8}
-    n_ts = N_TIMESTEPS
+    # Part 10: run length now comes from the request, not a fixed constant.
+    # A zero/missing n_timesteps (shouldn't happen from a current client)
+    # falls back to the historical default rather than erroring.
+    n_ts = p.n_timesteps == 0 ? N_TIMESTEPS : clamp(Int(p.n_timesteps), 1, MAX_TIMESTEPS)
 
     gm = _growth_ref[]
     sm = _survival_ref[]
@@ -221,9 +238,10 @@ function run_simulation(p)::Vector{UInt8}
     # otherwise ordinary /api/run_reef call is how "New DHW trajectory" is
     # expressed here).
     # Part 3, §6.2 option (b): a custom DHW trajectory rides inline in every
-    # request. When active, use it verbatim and skip the seed cache entirely.
+    # request. When active, use the first n_ts entries verbatim and skip the
+    # seed cache entirely.
     if p.dhw_override_active != 0
-        dhw_mat = reshape(collect(Float32.(p.dhw_override)), N_TIMESTEPS, 1)
+        dhw_mat = reshape(collect(Float32.(p.dhw_override[1:n_ts])), n_ts, 1)
     else
         if _dhw_ref[] === nothing || _init_n_ts_ref[] != n_ts || _dhw_seed_ref[] != p.dhw_seed
             _init_n_ts_ref[] = n_ts
@@ -313,40 +331,48 @@ function run_simulation(p)::Vector{UInt8}
     # n_valid_runs (u32)
     write(buf, UInt32(n_valid))
 
-    # covers[MAX_RUNS * N_TIMESTEPS] f32, run-major, zero-padded for unused runs
-    covers_flat = zeros(Float32, MAX_RUNS * N_TIMESTEPS)
+    # covers[MAX_RUNS * MAX_TIMESTEPS] f32, run-major, zero-padded for unused
+    # runs AND for timesteps beyond n_ts (Part 10 capacity buffer).
+    covers_flat = zeros(Float32, MAX_RUNS * MAX_TIMESTEPS)
     for (col, r) in enumerate(valid_indices)
-        base = (col - 1) * N_TIMESTEPS
+        base = (col - 1) * MAX_TIMESTEPS
         for t in 1:n_ts
             covers_flat[base + t] = Float32(results.cover[t, 1, r])
         end
     end
     write(buf, covers_flat)
 
-    # summary: lower, median, upper — each [[f32; N_GROUPS]; N_TIMESTEPS] row-major
-    # i.e. [t=1,g=1..5], [t=2,g=1..5], ..., [t=N_TIMESTEPS,g=1..5]
+    # summary: lower, median, upper — each [[f32; N_GROUPS]; MAX_TIMESTEPS]
+    # row-major, i.e. [t=1,g=1..5], [t=2,g=1..5], ..., [t=MAX_TIMESTEPS,g=1..5].
+    # Rows beyond n_ts are zero padding out to capacity.
     for stat_mat in (lower_mat, median_mat, upper_mat)
-        for t in 1:n_ts
+        for t in 1:MAX_TIMESTEPS
             for g in 1:N_GROUPS
-                write(buf, stat_mat[t, g])
+                write(buf, t <= n_ts ? stat_mat[t, g] : 0f0)
             end
         end
     end
 
-    # dhw[N_TIMESTEPS] f32 -- per-timestep DHW magnitude for the single simulated site
-    for t in 1:n_ts
-        write(buf, dhw_mat[t, 1])
+    # dhw[MAX_TIMESTEPS] f32 -- per-timestep DHW magnitude for the single
+    # simulated site, zero-padded beyond n_ts.
+    for t in 1:MAX_TIMESTEPS
+        write(buf, t <= n_ts ? dhw_mat[t, 1] : 0f0)
     end
 
-    # tolerance: lower, median, upper — same [[f32; N_GROUPS]; N_TIMESTEPS] row-major
-    # layout as summary, appended last so existing offsets don't move.
+    # tolerance: lower, median, upper — same [[f32; N_GROUPS]; MAX_TIMESTEPS]
+    # row-major layout as summary, appended before n_timesteps so existing
+    # offsets don't move.
     for stat_mat in (tol_lower_mat, tol_median_mat, tol_upper_mat)
-        for t in 1:n_ts
+        for t in 1:MAX_TIMESTEPS
             for g in 1:N_GROUPS
-                write(buf, stat_mat[t, g])
+                write(buf, t <= n_ts ? stat_mat[t, g] : 0f0)
             end
         end
     end
+
+    # n_timesteps (u32) -- actual run length, appended last so existing
+    # offsets stay stable (Part 10).
+    write(buf, UInt32(n_ts))
 
     result = take!(buf)
     length(result) == WORKER_RESULT_BYTES || error(
