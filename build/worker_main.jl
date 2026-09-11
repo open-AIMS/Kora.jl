@@ -9,7 +9,7 @@
 #
 # All text diagnostics go to stderr; stdout is purely binary.
 #
-# WorkerSimParams wire layout (little-endian, 372 bytes, no padding):
+# WorkerSimParams wire layout (little-endian, 516 bytes, no padding):
 #   reef_area_m2:            f32  offset  0
 #   init_cover_pct:          f32  offset  4
 #   deploy_volumes[5]:       u32  offset  8  (20 bytes)
@@ -21,7 +21,9 @@
 #   init_group_fraction[5]:  f32  offset 48  (20 bytes)
 #   dhw_override[N_TIMESTEPS]: f32 offset 68 (300 bytes)   # Part 3, §6.2 option (b)
 #   dhw_override_active:     u32  offset 368 (4 bytes)
-#   Total: 372 bytes
+#   init_size_class_fraction[35]: f32 offset 372 (140 bytes)   # Part 5 v2
+#   init_size_class_active:  u32  offset 512 (4 bytes)
+#   Total: 516 bytes
 #
 # NOTE: WorkerSimParams is a superset of sim-types/src/wire.rs WireSimParams —
 # it adds depth_m and deploy_dhw_tolerance. wire.rs's WireSimParams matches
@@ -55,13 +57,16 @@ using Statistics: quantile
 # Wire layout constants — must stay in sync with sim-types/src/wire.rs
 # ---------------------------------------------------------------------------
 const N_GROUPS = 5
+const N_SIZES = 7  # Part 5 v2 -- must stay in sync with sim-types/src/results.rs N_SIZES
 const N_TIMESTEPS = 75
 const MAX_RUNS = 100
 
 # 4 scalar fields (2x f32 + 5x u32 deploy_volumes + u32 start + u32 cadence) plus
 # depth_m (u32), dhw_tol (f32), dhw_seed (u32), init_group_fraction (5x f32),
-# dhw_override (N_TIMESTEPS x f32), dhw_override_active (u32).  # Part 3, §6.2 option (b)
-const WORKER_PARAMS_BYTES = 4 + 4 + N_GROUPS * 4 + 4 + 4 + 4 + 4 + 4 + N_GROUPS * 4 + N_TIMESTEPS * 4 + 4   # = 372
+# dhw_override (N_TIMESTEPS x f32), dhw_override_active (u32),
+# init_size_class_fraction (N_GROUPS*N_SIZES x f32), init_size_class_active (u32).
+const WORKER_PARAMS_BYTES = 4 + 4 + N_GROUPS * 4 + 4 + 4 + 4 + 4 + 4 + N_GROUPS * 4 + N_TIMESTEPS * 4 + 4 +
+                             N_GROUPS * N_SIZES * 4 + 4   # = 516
 
 # u32 n_valid + [MAX_RUNS * N_TIMESTEPS] f32 covers + [N_TIMESTEPS * N_GROUPS * 3] f32 summary
 # + [N_TIMESTEPS] f32 dhw + [N_TIMESTEPS * N_GROUPS * 3] f32 tolerance
@@ -118,7 +123,7 @@ function read_exact_stdin(n::Int)::Union{Vector{UInt8},Nothing}
 end
 
 # ---------------------------------------------------------------------------
-# Parse WorkerSimParams from 372 raw bytes (little-endian field order)
+# Parse WorkerSimParams from 516 raw bytes (little-endian field order)
 # ---------------------------------------------------------------------------
 function parse_params(bytes::Vector{UInt8})
     length(bytes) == WORKER_PARAMS_BYTES || error(
@@ -136,6 +141,8 @@ function parse_params(bytes::Vector{UInt8})
     init_group_fraction = ntuple(_ -> read(io, Float32), N_GROUPS)
     dhw_override = ntuple(_ -> read(io, Float32), N_TIMESTEPS)
     dhw_override_active = read(io, UInt32)
+    init_size_class_fraction = ntuple(_ -> read(io, Float32), N_GROUPS * N_SIZES)
+    init_size_class_active = read(io, UInt32)
     return (;
         reef_area_m2,
         init_cover_pct,
@@ -147,7 +154,9 @@ function parse_params(bytes::Vector{UInt8})
         dhw_seed,
         init_group_fraction,
         dhw_override,
-        dhw_override_active
+        dhw_override_active,
+        init_size_class_fraction,
+        init_size_class_active
     )
 end
 
@@ -156,19 +165,28 @@ end
 # ---------------------------------------------------------------------------
 function _build_ensemble_params(
     area_m2::Float32, init_cover_pct::Float32, n_members::Int,
-    group_fraction::NTuple{5,Float32}
+    group_fraction::NTuple{5,Float32},
+    size_class_fraction::NTuple{35,Float32}, size_class_active::Bool
 )::Matrix{Float64}
     mean_cov = Float64(Kora.mean_colony_cover_m2())
     target_cover_m2 = (Float64(init_cover_pct) / 100.0) * Float64(area_m2)
     target_pop = max(5, ceil(Int64, target_cover_m2 / mean_cov))
     pop_density = Float64(target_pop) / Float64(area_m2)
-    params = Matrix{Float64}(undef, 6, n_members)
+
+    n_rows = size_class_active ? 6 + N_GROUPS * N_SIZES : 6
+    params = Matrix{Float64}(undef, n_rows, n_members)
     params[1, :] .= pop_density
     fr = collect(Float64.(group_fraction))
     s = sum(fr)
     fr = (s > 0 && isfinite(s)) ? fr ./ s : fill(0.2, 5)
     for g in 1:5
         params[1 + g, :] .= fr[g]
+    end
+    if size_class_active
+        sc = collect(Float64.(size_class_fraction))
+        for i in 1:(N_GROUPS * N_SIZES)
+            params[6 + i, :] .= sc[i]
+        end
     end
     return params
 end
@@ -231,7 +249,8 @@ function run_simulation(p)::Vector{UInt8}
 
     n_members = 25
     ensemble_params = _build_ensemble_params(
-        p.reef_area_m2, p.init_cover_pct, n_members, p.init_group_fraction
+        p.reef_area_m2, p.init_cover_pct, n_members, p.init_group_fraction,
+        p.init_size_class_fraction, p.init_size_class_active != 0
     )
     results = Kora.run_ensemble!(
         reef, dhw_mat, ensemble_params; deploy_dhw_tol=p.deploy_dhw_tolerance

@@ -675,6 +675,123 @@ function initialize_coral_population!(
 end
 
 """
+    _default_size_class_weight()::Matrix{Float32}
+
+Default Part 5 v2 per-(group, size-class) composition weights: group `g`'s
+row is that group's truncated-log-normal per-bin probability mass (see
+`size_distribution()` / `bin_edges()`), renormalized over just the 7
+`bin_widths()` bins (which exclude the `[0, bin_edges()[g, 1]]` span) and
+scaled by 0.2 -- the same equal-group default `initialize_coral_population!`
+uses. Used as the fallback when `initialize_coral_population!`'s
+`size_class_weight` argument sums to zero, so clearing it reproduces
+today's per-group log-normal output.
+"""
+function _default_size_class_weight()::Matrix{Float32}
+    dists = size_distribution()
+    edges = bin_edges()
+    n_bins = size(edges, 2) - 1
+    w = Matrix{Float32}(undef, 5, n_bins)
+    for grp in 1:5
+        μ, σ = Float64.(dists[grp])
+        bmax = Float64(maximum(edges[grp, :]))
+        f_bmax = _lognormal_cdf(bmax, μ, σ)
+        row = Vector{Float64}(undef, n_bins)
+        for b in 1:n_bins
+            lo, hi = Float64(edges[grp, b]), Float64(edges[grp, b + 1])
+            row[b] = (_lognormal_cdf(hi, μ, σ) - _lognormal_cdf(lo, μ, σ)) / f_bmax
+        end
+        row ./= sum(row)
+        w[grp, :] .= Float32.(row) .* 0.2f0
+    end
+    return w
+end
+
+function _lognormal_cdf(x::Float64, μ::Float64, σ::Float64)::Float64
+    x <= 0.0 && return 0.0
+    z = (log(x) - μ) / (σ * sqrt(2.0))
+    return 0.5 * (1.0 + rational_erf(z))
+end
+
+function _sample_uniform(lo::Float64, hi::Float64, n::Int64, rng::AbstractRNG)::Vector{Float32}
+    return Float32.(lo .+ (hi - lo) .* rand(rng, n))
+end
+
+"""
+    initialize_coral_population!(
+        reef_state::ReefState,
+        loc::Int64,
+        target_pop_size::Int64,
+        size_class_weight::Matrix{Float32};
+        rng::AbstractRNG=Random.GLOBAL_RNG
+    )::Nothing
+
+Seed the initial coral population like the group-proportion method, but
+distribute colonies across specific (functional group, diameter size-class)
+cells instead of drawing each group from its full log-normal shape.
+
+# Arguments
+- `size_class_weight` : `(5, 7)` matrix of relative weights over
+  (functional group, diameter bin) -- bin `b` spans
+  `bin_edges()[grp, b] .. bin_edges()[grp, b + 1]` (`bin_widths()`'s 7 bins
+  per group). Need not sum to 1; normalized internally over all 35 cells.
+  A zero (or non-finite) sum falls back to `_default_size_class_weight()`.
+  Colony count per cell = `round(target_pop_size * normalized_weight)`;
+  diameters for that cell are drawn **uniformly** within its bin's edges --
+  unlike the per-group method, there is no log-normal shape left to
+  preserve once the user has specified the within-group distribution
+  directly via the grid.
+
+# See Also
+[`initialize_coral_population!`](@ref) (per-group log-normal variant)
+"""
+function initialize_coral_population!(
+    reef_state::ReefState,
+    loc::Int64,
+    target_pop_size::Int64,
+    size_class_weight::Matrix{Float32};
+    rng::AbstractRNG=Random.GLOBAL_RNG
+)::Nothing
+    edges = bin_edges()
+    n_bins = size(edges, 2) - 1
+    size(size_class_weight) == (5, n_bins) || throw(ArgumentError(
+        "size_class_weight must be 5×$n_bins (groups × diameter bins), " *
+        "got $(size(size_class_weight))"
+    ))
+
+    total_w = sum(size_class_weight)
+    w = (total_w > 0 && isfinite(total_w)) ? size_class_weight : _default_size_class_weight()
+    total_w = sum(w)
+
+    for grp in 1:n_groups(reef_state)
+        diams = Float32[]
+        for b in 1:n_bins
+            n_cells = round(Int64, target_pop_size * (w[grp, b] / total_w))
+            n_cells <= 0 && continue
+            lo, hi = Float64(edges[grp, b]), Float64(edges[grp, b + 1])
+            append!(diams, _sample_uniform(lo, hi, n_cells, rng))
+        end
+        update_wild_sample!(reef_state, 1, loc, grp, diams)
+    end
+
+    # Explicit loops -- see the per-group method above for why (WasmTarget
+    # BoundsError avoidance); not relevant here but kept consistent.
+    n_locs = size(reef_state.wild_dhw_tolerances, 2)
+    for loc2 in 1:n_locs
+        reef_state.wild_dhw_tolerances[1, loc2, 1, 1] = 3.751612251  # tabular Acropora
+        reef_state.wild_dhw_tolerances[1, loc2, 2, 1] = 4.081622683  # corymbose Acropora
+        reef_state.wild_dhw_tolerances[1, loc2, 3, 1] = 4.487465256  # Pocillopora + non-Acropora corymbose
+        reef_state.wild_dhw_tolerances[1, loc2, 4, 1] = 6.165751937  # Small massives and encrusting
+        reef_state.wild_dhw_tolerances[1, loc2, 5, 1] = 7.153507902  # Large massives
+    end
+    founder_std = founder_dhw_tolerance_std()
+    for loc2 in 1:n_locs, grp in 1:5
+        reef_state.wild_dhw_tolerances[1, loc2, grp, 2] = founder_std[grp]
+    end
+
+    return nothing
+end
+
+"""
     deploy_corals!(reef_state, ts, loc, n, grp; rng=Random.GLOBAL_RNG)
 
 Seed `n` outplanted coral colonies of functional group `grp` at location `loc`

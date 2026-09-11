@@ -28,7 +28,8 @@ using NCDatasets
 # ---------------------------------------------------------------------------
 # Wire sizes -- must stay in sync with build/worker_main.jl
 # ---------------------------------------------------------------------------
-const WORKER_PARAMS_BYTES = 372  # Part 3: +dhw_override[75] f32 +dhw_override_active u32
+const WORKER_PARAMS_BYTES = 516  # Part 3: +dhw_override[75] f32 +dhw_override_active u32
+                                  # Part 5 v2: +init_size_class_fraction[35] f32 +init_size_class_active u32
 const WORKER_RESULT_BYTES = 39304
 
 # ---------------------------------------------------------------------------

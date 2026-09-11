@@ -10,6 +10,7 @@
 #                                     // call regenerates a fresh climate sequence
 #   int32_t kf_set_initial_cover(const float* group_fraction, int32_t n /* must be 5 */);
 #   int32_t kf_set_dhw_trajectory(const float* values, int32_t n /* n<=0 clears */);
+#   int32_t kf_set_size_class_cover(const float* weights, int32_t n /* 35 to set, <=0 clears */);
 #   int32_t kf_run_reef(float area_m2, float init_cover_pct, uint32_t n_runs,
 #                       uint32_t dhw_seed,
 #                       float* dhw_out, int32_t dhw_cap,
@@ -145,9 +146,21 @@ const _deploy_dhw_tol_ref = Ref{Float32}(0.0f0)
 # functional groups (need not sum to 1; normalized in _build_ensemble_params).
 const _group_fraction_ref = Ref{NTuple{5,Float32}}((0.2f0, 0.2f0, 0.2f0, 0.2f0, 0.2f0))
 
+# Part 5 v2: per-(group, size-class) composition weights, flattened row-major
+# (index (g-1)*7+b), set via kf_set_size_class_cover. `nothing` means
+# "inactive" -- fall back to `_group_fraction_ref`'s per-group-only
+# composition (the log-normal-shaped `initialize_coral_population!` path).
+const _N_SIZES = 7
+const _size_class_ref = Ref{Union{Nothing,NTuple{35,Float32}}}(nothing)
+
 # Build ensemble params where all members share the same initial conditions
 # (equal group proportions, cover-derived density) so CI-band spread at t=0
 # reflects stochastic dynamics only, not variation in initial setup.
+#
+# When `_size_class_ref` is active, the matrix grows from 6 to 6 + 35 = 41
+# rows -- rows 7:41 carry the flattened per-(group, size-class) weights (see
+# Kora.jl's `set_population!`, which dispatches on this width to the Part 5
+# v2 size-class initializer instead of the per-group log-normal one).
 function _build_ensemble_params(
     area_m2::Float32, init_cover_pct::Float32, n_members::Int
 )::Matrix{Float64}
@@ -155,13 +168,22 @@ function _build_ensemble_params(
     target_cover_m2 = (Float64(init_cover_pct) / 100.0) * Float64(area_m2)
     target_pop = max(5, ceil(Int64, target_cover_m2 / mean_cov))
     pop_density = Float64(target_pop) / Float64(area_m2)
-    params = Matrix{Float64}(undef, 6, n_members)
+
+    size_class = _size_class_ref[]
+    n_rows = size_class === nothing ? 6 : 6 + _N_GROUPS * _N_SIZES
+    params = Matrix{Float64}(undef, n_rows, n_members)
     params[1, :] .= pop_density
     fr = collect(Float64.(_group_fraction_ref[]))
     s = sum(fr)
     fr = (s > 0 && isfinite(s)) ? fr ./ s : fill(0.2, 5)
     for g in 1:5
         params[1 + g, :] .= fr[g]
+    end
+    if size_class !== nothing
+        sc = collect(Float64.(size_class))
+        for i in 1:(_N_GROUPS * _N_SIZES)
+            params[6 + i, :] .= sc[i]
+        end
     end
     return params
 end
@@ -199,6 +221,7 @@ Base.@ccallable function kf_load_models(
         _dhw_seed_ref[] = 0
         _dhw_override_ref[] = nothing
         _group_fraction_ref[] = (0.2f0, 0.2f0, 0.2f0, 0.2f0, 0.2f0)
+        _size_class_ref[] = nothing
         return Int32(0)
     catch e
         @_write_stderr("[bridge_aot] kf_load_models: ")
@@ -231,6 +254,18 @@ Base.@ccallable function kf_set_initial_cover(frac_ptr::Ptr{Float32}, n::Int32):
     f4 = unsafe_load(frac_ptr, 4)
     f5 = unsafe_load(frac_ptr, 5)
     _group_fraction_ref[] = (f1, f2, f3, f4, f5)
+    return Int32(0)
+end
+
+Base.@ccallable function kf_set_size_class_cover(weights_ptr::Ptr{Float32}, n::Int32)::Int32
+    if n <= Int32(0)
+        _size_class_ref[] = nothing
+        return Int32(0)
+    end
+    n != Int32(_N_GROUPS * _N_SIZES) && return Int32(-1)
+    v = Vector{Float32}(undef, Int(n))
+    GC.@preserve v unsafe_copyto!(pointer(v), weights_ptr, Int(n))
+    _size_class_ref[] = NTuple{35,Float32}(v)
     return Int32(0)
 end
 
