@@ -5,10 +5,12 @@
 # binary and the native desktop bridge are unaffected.
 #
 # Routes, per .claude/plans/web-app/kora-web-service.md Component 1:
-#   POST /api/session/start -> { session_token }
-#   POST /api/run_reef      -> WireSimParams bytes in, WireEnsembleResult bytes out
-#   POST /api/session/end   -> { ok: true }
-#   GET  /health             -> { status, version }
+#   POST /api/session/start   -> { session_token }
+#   POST /api/run_reef        -> WireSimParams bytes in, WireEnsembleResult bytes out
+#   POST /api/session/end     -> { ok: true }
+#   POST /api/dhw/parse_netcdf -> raw NetCDF/HDF5 bytes in, parsed DHW cube as JSON out
+#                                 (Part 3's wasm-NetCDF increment -- see below)
+#   GET  /health               -> { status, version }
 #
 # kora-server spawns one kora-worker subprocess per session (heap isolation;
 # a crash in one user's simulation cannot affect others) and talks to it over
@@ -21,6 +23,7 @@ using Kora
 using Oxygen
 using HTTP
 using UUIDs
+using NCDatasets
 
 # ---------------------------------------------------------------------------
 # Wire sizes -- must stay in sync with build/worker_main.jl
@@ -159,10 +162,166 @@ function _bearer_token(req::HTTP.Request)::Union{String,Nothing}
 end
 
 function _json_error(status::Int, msg::String)::HTTP.Response
+    # Every prior call site passed a fixed short literal (no quotes/control
+    # chars), so plain interpolation never mattered -- but /api/dhw/parse_netcdf
+    # forwards a `showerror` message that can contain anything (a quoted file
+    # path, an embedded newline), so escape properly here.
+    escaped = replace(msg, "\\" => "\\\\", "\"" => "\\\"", "\n" => "\\n", "\r" => "\\r")
     return HTTP.Response(
         status, ["Content-Type" => "application/json; charset=utf-8"],
-        body="{\"error\": \"$msg\"}"
+        body="{\"error\": \"$escaped\"}"
     )
+end
+
+# ---------------------------------------------------------------------------
+# /api/dhw/parse_netcdf -- Part 3's wasm-NetCDF increment. wasm can't link
+# libnetcdf directly (see kora-app's `dhw_netcdf.rs` header comment), so this
+# stateless endpoint does the parsing server-side with NCDatasets (the server
+# exe is untrimmed, so this is viable here -- see the plan doc's OQ-2
+# resolution) and hands back the (time, location) matrix as JSON. No session
+# token needed: this doesn't touch a kora-worker process.
+#
+# Dimension classification mirrors `dhw_netcdf.rs` exactly -- by *name*, never
+# position, since real ADRIA cubes declare `dhw(member, location, timesteps)`
+# on disk (see that file's header comment for why). NCDatasets already
+# presents `dimnames`/indexing in Julia's own (column-major) convention, so
+# unlike the Rust reader (which reads the raw C-order buffer by hand) no
+# manual byte-order reversal is needed here -- just axis bookkeeping.
+# ---------------------------------------------------------------------------
+const _DHW_TIMESTEP_DIM_NAMES = ("time", "timestep", "timesteps", "year", "years", "t")
+const _DHW_MEMBER_DIM_PATTERNS = ("member", "scenario", "draw", "ensemble", "realisation", "realization")
+const _DHW_LOCATION_LABEL_PREFERRED =
+    ("reef_siteid", "site_id", "siteid", "location", "locations", "site", "unique_id", "name", "id")
+
+_is_dhw_timestep_dim(name::AbstractString) = lowercase(name) in _DHW_TIMESTEP_DIM_NAMES
+_is_dhw_member_dim(name::AbstractString) =
+    any(p -> occursin(p, lowercase(name)), _DHW_MEMBER_DIM_PATTERNS)
+
+# The `dhw` (or `DHW`) variable, or -- failing that -- the sole floating-point
+# variable with 2 or 3 dimensions. Mirrors `find_dhw_variable` in dhw_netcdf.rs.
+function _find_dhw_variable(ds::NCDataset)::String
+    for name in ("dhw", "DHW")
+        haskey(ds, name) && return name
+    end
+    candidates = String[]
+    for name in keys(ds)
+        v = ds[name]
+        et = eltype(v)
+        et2 = et isa Union ? Base.uniontypes(et) : (et,)
+        is_float = any(t -> t <: AbstractFloat, et2)
+        if is_float && ndims(v) in (2, 3)
+            push!(candidates, name)
+        end
+    end
+    if length(candidates) == 1
+        return candidates[1]
+    elseif isempty(candidates)
+        error("no 'dhw' variable found, and no 2-D/3-D floating-point variable to fall back to")
+    else
+        error(
+            "no 'dhw' variable found, and $(length(candidates)) candidate floating-point " *
+            "variables are ambiguous (expected exactly one)"
+        )
+    end
+end
+
+# Location labels from whichever string-valued variable shares exactly the
+# location dimension, preferring the ADRIA-conventional names. `nothing` when
+# no such variable exists, or a read fails partway (a partial label set would
+# be more confusing than none) -- mirrors `find_location_labels`.
+function _find_dhw_location_labels(
+    ds::NCDataset, loc_dim_name::String, n_loc::Int
+)::Union{Vector{String},Nothing}
+    candidates = String[]
+    for name in keys(ds)
+        v = ds[name]
+        if dimnames(v) == (loc_dim_name,) && eltype(v) <: Union{AbstractString,Missing}
+            push!(candidates, name)
+        end
+    end
+    isempty(candidates) && return nothing
+    sort!(candidates; by=name -> something(
+        findfirst(==(lowercase(name)), _DHW_LOCATION_LABEL_PREFERRED),
+        length(_DHW_LOCATION_LABEL_PREFERRED) + 1,
+    ))
+    try
+        raw = ds[candidates[1]][:]
+        length(raw) == n_loc || return nothing
+        return [ismissing(x) ? "" : String(x) for x in raw]
+    catch
+        return nothing
+    end
+end
+
+# Parse a NetCDF/HDF5 DHW trajectory from raw bytes. Returns a `Dict` matching
+# `NetcdfDhwParseResponse` on the Rust side: `n_timesteps`, `n_locations`,
+# `location_labels` (`Vector{String}` or `nothing`), `values` (row-major
+# `(time, location)`, i.e. `values[t * n_locations + loc]`, 0-based, exactly
+# like `dhw_csv::parse_csv`/`dhw_netcdf::parse_netcdf`). Throws on any parse
+# error -- the caller turns that into a 400.
+function _parse_dhw_netcdf_bytes(bytes::Vector{UInt8})::Dict{String,Any}
+    tmppath = tempname() * ".nc"
+    write(tmppath, bytes)
+    try
+        NCDataset(tmppath) do ds
+            varname = _find_dhw_variable(ds)
+            var = ds[varname]
+            dnames = collect(dimnames(var))
+            nd = length(dnames)
+            if nd != 2 && nd != 3
+                error(
+                    "'$varname' has $nd dimensions ($(join(dnames, ", "))); expected 2 " *
+                    "(time, location) or 3 (time, location, member)"
+                )
+            end
+
+            time_idx = findfirst(_is_dhw_timestep_dim, dnames)
+            time_idx === nothing && error(
+                "could not find a timestep dimension on '$varname' (dims: $(join(dnames, ", ")))"
+            )
+
+            other = [i for i in 1:nd if i != time_idx]
+            local loc_idx, member_idx
+            if length(other) == 1
+                loc_idx, member_idx = other[1], nothing
+            else
+                mpos = findfirst(i -> _is_dhw_member_dim(dnames[i]), other)
+                mpos === nothing && error(
+                    "'$varname' has 3 dimensions but none of them look like a " *
+                    "member/scenario axis (expected a name containing 'member', " *
+                    "'scenario', 'draw' or 'ensemble'; dims: $(join(dnames, ", ")))"
+                )
+                member_idx = other[mpos]
+                loc_idx = other[mpos == 1 ? 2 : 1]
+            end
+
+            n_time = size(var, time_idx)
+            n_loc = size(var, loc_idx)
+            loc_dim_name = dnames[loc_idx]
+
+            idx = Any[Colon() for _ in 1:nd]
+            member_idx === nothing || (idx[member_idx] = 1)  # select member 0 (1-based here)
+            raw = Array(var[idx...])  # drops the member axis, if any
+
+            # Dropping (at most) the member axis preserves the relative order
+            # of the remaining two axes, so the pre-drop time_idx/loc_idx
+            # comparison still tells us whether `raw` is (time, location) or
+            # (location, time).
+            canon = Float32.(time_idx < loc_idx ? raw : permutedims(raw, (2, 1)))  # now (time, location)
+            values = [canon[t, loc] for t in 1:n_time for loc in 1:n_loc]  # row-major flatten
+
+            labels = _find_dhw_location_labels(ds, loc_dim_name, n_loc)
+
+            return Dict{String,Any}(
+                "n_timesteps" => n_time,
+                "n_locations" => n_loc,
+                "location_labels" => labels,
+                "values" => values,
+            )
+        end
+    finally
+        rm(tmppath; force=true)
+    end
 end
 
 # ---------------------------------------------------------------------------
@@ -233,6 +392,29 @@ function Kora.start_server(;
         return HTTP.Response(
             200, ["Content-Type" => "application/octet-stream"], body=result_bytes
         )
+    end
+
+    @post "/api/dhw/parse_netcdf" function(req::HTTP.Request)
+        # `Oxygen.binary` is declared to return `Vector{UInt8}` but actually
+        # returns `nothing` on a genuinely empty body -- a `TypeError` on the
+        # way out, not a value our `=== nothing` check below ever gets to see.
+        # Same latent bug as `/api/run_reef`'s equivalent check; caught here
+        # explicitly so an empty request gets a clean 400 instead of a 500.
+        bytes = try
+            Oxygen.binary(req)
+        catch
+            nothing
+        end
+        if bytes === nothing || isempty(bytes)
+            return _json_error(400, "empty_body")
+        end
+        result = try
+            _parse_dhw_netcdf_bytes(bytes)
+        catch e
+            msg = sprint(showerror, e)
+            return _json_error(400, "parse_failed: $msg")
+        end
+        return result
     end
 
     @post "/api/session/end" function(req::HTTP.Request)
