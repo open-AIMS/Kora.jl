@@ -151,9 +151,15 @@ function parse_params(bytes::Vector{UInt8})
     deploy_dhw_tolerance = read(io, Float32)
     dhw_seed = read(io, UInt32)
     init_group_fraction = ntuple(_ -> read(io, Float32), N_GROUPS)
-    dhw_override = ntuple(_ -> read(io, Float32), MAX_TIMESTEPS)
+    # `Val(...)` (not a plain Integer) is required above 10 elements -- Base's
+    # `ntuple(f, n::Integer)` only stays inferrable as a concrete `NTuple` for
+    # n<=10 (an unrolled fast path); past that it returns the abstract
+    # `Tuple{Vararg{T}}`, which juliac's --trim=safe verifier can't resolve a
+    # downstream call against (caught by the AOT build, not by `julia --check-bounds`
+    # or the test suite -- neither exercises trim verification).
+    dhw_override = ntuple(_ -> read(io, Float32), Val(MAX_TIMESTEPS))
     dhw_override_active = read(io, UInt32)
-    init_size_class_fraction = ntuple(_ -> read(io, Float32), N_GROUPS * N_SIZES)
+    init_size_class_fraction = ntuple(_ -> read(io, Float32), Val(N_GROUPS * N_SIZES))
     init_size_class_active = read(io, UInt32)
     n_timesteps = read(io, UInt32)
     return (;
@@ -241,7 +247,15 @@ function run_simulation(p)::Vector{UInt8}
     # request. When active, use the first n_ts entries verbatim and skip the
     # seed cache entirely.
     if p.dhw_override_active != 0
-        dhw_mat = reshape(collect(Float32.(p.dhw_override[1:n_ts])), n_ts, 1)
+        # Runtime-range slicing a fixed-size tuple (`p.dhw_override[1:n_ts]`)
+        # can't stay concretely typed -- n_ts isn't known until runtime, so
+        # juliac's --trim=safe verifier rejects it. Element-at-a-time Int
+        # indexing into the tuple stays concrete regardless of n_ts.
+        dhw_vec = Vector{Float32}(undef, n_ts)
+        for t in 1:n_ts
+            dhw_vec[t] = p.dhw_override[t]
+        end
+        dhw_mat = reshape(dhw_vec, n_ts, 1)
     else
         if _dhw_ref[] === nothing || _init_n_ts_ref[] != n_ts || _dhw_seed_ref[] != p.dhw_seed
             _init_n_ts_ref[] = n_ts
