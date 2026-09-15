@@ -433,7 +433,18 @@ function Kora.start_server(;
 
     _start_idle_sweeper(idle_timeout_s)
 
-    cors = Oxygen.Cors(; allowed_origins=cors_allowed_origins)
+    # Oxygen.Cors' `allowed_headers` defaults to ["*"], but the CORS spec
+    # carves out an exception for wildcards: "*" never authorizes the
+    # `Authorization` header (fetch spec 3.2.5 / whatwg). run_reef and
+    # session/end send `Authorization: Bearer <token>`, so browsers silently
+    # block those requests at the preflight stage with a bare CORS failure
+    # (Firefox: "NetworkError when attempting to fetch resource"; Chrome:
+    # "Failed to fetch") even though curl/non-browser clients work fine.
+    # List the actual headers instead of relying on the wildcard.
+    cors = Oxygen.Cors(;
+        allowed_origins=cors_allowed_origins,
+        allowed_headers=["Authorization", "Content-Type"],
+    )
 
     Oxygen.serve(; host=host, port=port, middleware=[cors], async=false)
 end
