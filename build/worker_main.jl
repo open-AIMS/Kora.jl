@@ -98,21 +98,27 @@ const _dhw_seed_ref = Ref{UInt32}(0)
 # ---------------------------------------------------------------------------
 
 # libuv (which spawns this process when run as a coordinator's child, e.g.
-# from kora-server) sets pipe stdio to O_NONBLOCK. A blocking-style raw
-# ccall(:read) on fd 0 would then intermittently see EAGAIN (errno -11)
-# before the coordinator's next write arrives -- indistinguishable from EOF
-# (ret <= 0) unless we either check errno or just clear O_NONBLOCK once up
-# front. The latter is simpler and keeps read_exact_stdin's "ret <= 0 means
-# EOF" logic correct for both invocation styles (`< file` redirection, where
-# the fd was already blocking, and a live coordinator pipe).
-function _ensure_blocking_stdin()::Nothing
+# from kora-server) sets pipe stdio to O_NONBLOCK on BOTH ends -- stdin (fd
+# 0) and stdout (fd 1). A blocking-style raw ccall(:read)/ccall(:write) would
+# then intermittently see EAGAIN (errno -11): on fd 0, indistinguishable from
+# EOF (ret <= 0) unless we either check errno or just clear O_NONBLOCK once
+# up front; on fd 1, a write() larger than the pipe's buffer capacity (65536
+# bytes on Linux -- WORKER_RESULT_BYTES is 157208) does a partial write and
+# then EAGAINs on the retry for the remainder instead of blocking until the
+# reader drains it, which write_exact_stdout's retry loop can't tell apart
+# from a real fatal write error. Clearing O_NONBLOCK once up front keeps both
+# read_exact_stdin's "ret <= 0 means EOF" and write_exact_stdout's "ret <= 0
+# means fatal" logic correct for both invocation styles (`< file` / `> file`
+# redirection, where the fd was already blocking, and a live coordinator
+# pipe).
+function _ensure_blocking_fd(fd::Cint)::Nothing
     F_GETFL = Cint(3)
     F_SETFL = Cint(4)
     O_NONBLOCK = Cint(0o4000)
-    flags = ccall(:fcntl, Cint, (Cint, Cint), Cint(0), F_GETFL)
+    flags = ccall(:fcntl, Cint, (Cint, Cint), fd, F_GETFL)
     flags >= 0 || return nothing
     if (flags & O_NONBLOCK) != 0
-        ccall(:fcntl, Cint, (Cint, Cint, Cint), Cint(0), F_SETFL, flags & ~O_NONBLOCK)
+        ccall(:fcntl, Cint, (Cint, Cint, Cint), fd, F_SETFL, flags & ~O_NONBLOCK)
     end
     return nothing
 end
@@ -132,6 +138,32 @@ function read_exact_stdin(n::Int)::Union{Vector{UInt8},Nothing}
         total += Int(ret)
     end
     return buf
+end
+
+# Mirrors read_exact_stdin: a raw write(2) to a pipe is only guaranteed to
+# accept up to the pipe's buffer capacity (65536 bytes on Linux) in one call
+# -- for a payload larger than that (WORKER_RESULT_BYTES is 157208), the
+# kernel does a partial write and the caller must retry with the remainder.
+# `write(Core.stdout, result)` doesn't loop for this: Core.stdout resolves to
+# a bare-bones IO under --trim=safe (same reason read_exact_stdin can't use
+# ordinary `read(stdin, ...)`), and a single un-retried write silently
+# truncates output at the pipe capacity boundary. The caller then loops back
+# to read_exact_stdin waiting for the next request, so the truncation isn't
+# even visible here -- it surfaces only as the client hanging forever short
+# of WORKER_RESULT_BYTES.
+function write_exact_stdout(bytes::Vector{UInt8})::Nothing
+    n = length(bytes)
+    total = 0
+    while total < n
+        ret = GC.@preserve bytes ccall(
+            :write, Cssize_t,
+            (Cint, Ptr{UInt8}, Csize_t),
+            Cint(1), pointer(bytes, total + 1), Csize_t(n - total)
+        )
+        ret <= Cssize_t(0) && error("write to stdout failed")
+        total += Int(ret)
+    end
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -414,7 +446,8 @@ function run(args::Vector{String})::Cint
         return Cint(1)
     end
 
-    _ensure_blocking_stdin()
+    _ensure_blocking_fd(Cint(0))
+    _ensure_blocking_fd(Cint(1))
 
     # Load models once at startup
     try
@@ -447,8 +480,7 @@ function run(args::Vector{String})::Cint
             error_result()
         end
 
-        write(Core.stdout, result)
-        flush(Core.stdout)
+        write_exact_stdout(result)
     end
 
     println(Core.stderr, "[kora-worker] stdin closed, exiting")
