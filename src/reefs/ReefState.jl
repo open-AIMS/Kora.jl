@@ -622,6 +622,10 @@ function initialize_coral_population!(
     target_pop_size::Int64;
     group_proportions::Vector{Float32}=[0.1f0, 0.2f0, 0.25f0, 0.2f0, 0.25f0],
     size_dist=size_distribution(),
+    init_dhw_tol_mean::Vector{Float32}=Float32[
+        3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0
+    ],
+    init_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
     rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
     # Verify proportions sum to 1
@@ -648,17 +652,12 @@ function initialize_coral_population!(
     # per-timestep quantity that the simulation loop carries forward (and
     # narrows/widens) itself; pre-filling every ts would just be stale data
     # masquerading as state.
-    for loc in 1:n_locs
-        reef_state.wild_dhw_tolerances[1, loc, 1, 1] = 3.751612251  # tabular Acropora
-        reef_state.wild_dhw_tolerances[1, loc, 2, 1] = 4.081622683  # corymbose Acropora
-        reef_state.wild_dhw_tolerances[1, loc, 3, 1] = 4.487465256  # Pocillopora + non-Acropora corymbose
-        reef_state.wild_dhw_tolerances[1, loc, 4, 1] = 6.165751937  # Small massives and encrusting
-        reef_state.wild_dhw_tolerances[1, loc, 5, 1] = 7.153507902  # Large massives
+    for loc in 1:n_locs, grp in 1:5
+        reef_state.wild_dhw_tolerances[1, loc, grp, 1] = init_dhw_tol_mean[grp]
     end
 
-    founder_std = founder_dhw_tolerance_std()
     for loc in 1:n_locs, grp in 1:5
-        reef_state.wild_dhw_tolerances[1, loc, grp, 2] = founder_std[grp]
+        reef_state.wild_dhw_tolerances[1, loc, grp, 2] = init_dhw_tol_std[grp]
     end
 
     return nothing
@@ -749,6 +748,10 @@ function initialize_coral_population!(
     loc::Int64,
     target_pop_size::Int64,
     size_class_weight::Matrix{Float32};
+    init_dhw_tol_mean::Vector{Float32}=Float32[
+        3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0
+    ],
+    init_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
     rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
     edges = bin_edges()
@@ -776,16 +779,11 @@ function initialize_coral_population!(
     # Explicit loops -- see the per-group method above for why (WasmTarget
     # BoundsError avoidance); not relevant here but kept consistent.
     n_locs = size(reef_state.wild_dhw_tolerances, 2)
-    for loc2 in 1:n_locs
-        reef_state.wild_dhw_tolerances[1, loc2, 1, 1] = 3.751612251  # tabular Acropora
-        reef_state.wild_dhw_tolerances[1, loc2, 2, 1] = 4.081622683  # corymbose Acropora
-        reef_state.wild_dhw_tolerances[1, loc2, 3, 1] = 4.487465256  # Pocillopora + non-Acropora corymbose
-        reef_state.wild_dhw_tolerances[1, loc2, 4, 1] = 6.165751937  # Small massives and encrusting
-        reef_state.wild_dhw_tolerances[1, loc2, 5, 1] = 7.153507902  # Large massives
-    end
-    founder_std = founder_dhw_tolerance_std()
     for loc2 in 1:n_locs, grp in 1:5
-        reef_state.wild_dhw_tolerances[1, loc2, grp, 2] = founder_std[grp]
+        reef_state.wild_dhw_tolerances[1, loc2, grp, 1] = init_dhw_tol_mean[grp]
+    end
+    for loc2 in 1:n_locs, grp in 1:5
+        reef_state.wild_dhw_tolerances[1, loc2, grp, 2] = init_dhw_tol_std[grp]
     end
 
     return nothing

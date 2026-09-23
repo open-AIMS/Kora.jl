@@ -33,7 +33,14 @@ are per-group `(μ, σ)` pairs), and exactly `6 + 5 * 7 = 41` is the Part 5 v2
 size-class case (rows 7:41 are a flattened `(5, 7)` weight grid, dispatched
 to the size-class `initialize_coral_population!` overload instead).
 """
-function set_population!(reef_state::ReefState, x::Vector)::Nothing
+function set_population!(
+    reef_state::ReefState,
+    x::Vector;
+    init_dhw_tol_mean::Vector{Float32}=Float32[
+        3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0
+    ],
+    init_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std()
+)::Nothing
     pop_density = x[1]
     total_initial_pop = ceil(
         Int64, floor(Int64, pop_density) * reef_state.carrying_capacity[1]
@@ -44,7 +51,10 @@ function set_population!(reef_state::ReefState, x::Vector)::Nothing
         for g in 1:5, b in 1:7
             size_class_weight[g, b] = Float32(x[6 + (g - 1) * 7 + b])
         end
-        initialize_coral_population!(reef_state, 1, total_initial_pop, size_class_weight)
+        initialize_coral_population!(
+            reef_state, 1, total_initial_pop, size_class_weight;
+            init_dhw_tol_mean=init_dhw_tol_mean, init_dhw_tol_std=init_dhw_tol_std
+        )
         return nothing
     end
 
@@ -65,7 +75,8 @@ function set_population!(reef_state::ReefState, x::Vector)::Nothing
     # Proportion of each functional group
     proportions = Float32.(x[2:6])
     initialize_coral_population!(
-        reef_state, 1, total_initial_pop; group_proportions=proportions, size_dist=size_dist
+        reef_state, 1, total_initial_pop; group_proportions=proportions, size_dist=size_dist,
+        init_dhw_tol_mean=init_dhw_tol_mean, init_dhw_tol_std=init_dhw_tol_std
     )
 
     return nothing

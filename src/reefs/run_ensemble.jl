@@ -98,6 +98,10 @@ function run_ensemble!(
     env_conditions::DimArray,
     ensemble_params::Matrix{Float64};
     deploy_dhw_tol::Float32=0.0f0,
+    init_dhw_tol_mean::Vector{Float32}=Float32[
+        3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0
+    ],
+    init_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
     rng::AbstractRNG=Random.GLOBAL_RNG
 )
     return run_ensemble!(
@@ -105,6 +109,8 @@ function run_ensemble!(
         Matrix{Float32}(env_conditions[:, :, At(:dhw)].data),
         ensemble_params;
         deploy_dhw_tol=deploy_dhw_tol,
+        init_dhw_tol_mean=init_dhw_tol_mean,
+        init_dhw_tol_std=init_dhw_tol_std,
         rng=rng
     )
 end
@@ -114,6 +120,10 @@ function run_ensemble!(
     dhw::Matrix{Float32},
     ensemble_params::Matrix{Float64};
     deploy_dhw_tol::Float32=0.0f0,
+    init_dhw_tol_mean::Vector{Float32}=Float32[
+        3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0
+    ],
+    init_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
     rng::AbstractRNG=Random.GLOBAL_RNG
 )
     n_ensemble = size(ensemble_params, 2)
@@ -125,12 +135,18 @@ function run_ensemble!(
 
     for i in 1:n_ensemble
         params = ensemble_params[:, i]
-        set_population!(reef_state, params)
+        set_population!(
+            reef_state, params;
+            init_dhw_tol_mean=init_dhw_tol_mean, init_dhw_tol_std=init_dhw_tol_std
+        )
         if length(params) == 6 + 5 * 7
             # Part 5 v2 size-class case: set_population! already dispatched to
             # the size-class initializer above; no scalers/recruitment rows
             # here, so run with default recruitment like the plain 6-row case.
-            run_model!(reef_state, dhw; deploy_dhw_tol=deploy_dhw_tol, rng=rng)
+            run_model!(
+                reef_state, dhw;
+                deploy_dhw_tol=deploy_dhw_tol, founder_dhw_tol_std=init_dhw_tol_std, rng=rng
+            )
         elseif length(params) > 16
             expected = 16 + n_grps + 2
             length(params) == expected || throw(
@@ -144,10 +160,14 @@ function run_ensemble!(
                 recruits=Float32(params[end - 1]),
                 self_seed=Float32(params[end]),
                 deploy_dhw_tol=deploy_dhw_tol,
+                founder_dhw_tol_std=init_dhw_tol_std,
                 rng=rng
             )
         else
-            run_model!(reef_state, dhw; deploy_dhw_tol=deploy_dhw_tol, rng=rng)
+            run_model!(
+                reef_state, dhw;
+                deploy_dhw_tol=deploy_dhw_tol, founder_dhw_tol_std=init_dhw_tol_std, rng=rng
+            )
         end
         _collect_member!(ec, egc, ejc, ewdt, reef_state, i, n_ts, n_locs, n_grps)
     end

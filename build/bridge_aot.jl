@@ -11,6 +11,7 @@
 #   int32_t kf_set_initial_cover(const float* group_fraction, int32_t n /* must be 5 */);
 #   int32_t kf_set_dhw_trajectory(const float* values, int32_t n /* n<=0 clears */);
 #   int32_t kf_set_size_class_cover(const float* weights, int32_t n /* 35 to set, <=0 clears */);
+#   int32_t kf_set_initial_tolerance(const float* mean, const float* std, int32_t n /* must be 5 */);
 #   int32_t kf_run_reef(float area_m2, float init_cover_pct, uint32_t n_runs,
 #                       uint32_t dhw_seed,
 #                       float* dhw_out, int32_t dhw_cap,
@@ -153,6 +154,17 @@ const _group_fraction_ref = Ref{NTuple{5,Float32}}((0.2f0, 0.2f0, 0.2f0, 0.2f0, 
 const _N_SIZES = 7
 const _size_class_ref = Ref{Union{Nothing,NTuple{35,Float32}}}(nothing)
 
+# Part 13: initial wild population's per-functional-group DHW-tolerance
+# mean/std — set via kf_set_initial_tolerance before kf_run_reef. Defaults
+# mirror ReefState.jl's/founder_dhw_tolerance_std()'s hardcoded literals so
+# an unedited run is bit-for-bit unchanged.
+const _init_tol_mean_ref = Ref{NTuple{5,Float32}}(
+    (3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0)
+)
+const _init_tol_std_ref = Ref{NTuple{5,Float32}}(
+    NTuple{5,Float32}(Kora.founder_dhw_tolerance_std())
+)
+
 # Build ensemble params where all members share the same initial conditions
 # (equal group proportions, cover-derived density) so CI-band spread at t=0
 # reflects stochastic dynamics only, not variation in initial setup.
@@ -222,6 +234,10 @@ Base.@ccallable function kf_load_models(
         _dhw_override_ref[] = nothing
         _group_fraction_ref[] = (0.2f0, 0.2f0, 0.2f0, 0.2f0, 0.2f0)
         _size_class_ref[] = nothing
+        _init_tol_mean_ref[] = (
+            3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0
+        )
+        _init_tol_std_ref[] = NTuple{5,Float32}(Kora.founder_dhw_tolerance_std())
         return Int32(0)
     catch e
         @_write_stderr("[bridge_aot] kf_load_models: ")
@@ -274,6 +290,25 @@ Base.@ccallable function kf_set_size_class_cover(weights_ptr::Ptr{Float32}, n::I
     # verifier can trace, matching kf_set_initial_cover's explicit scalar
     # tuple literal above in spirit.
     _size_class_ref[] = ntuple(i -> unsafe_load(weights_ptr, i), Val(35))
+    return Int32(0)
+end
+
+Base.@ccallable function kf_set_initial_tolerance(
+    mean_ptr::Ptr{Float32}, std_ptr::Ptr{Float32}, n::Int32
+)::Int32
+    n != Int32(5) && return Int32(-1)
+    m1 = unsafe_load(mean_ptr, 1)
+    m2 = unsafe_load(mean_ptr, 2)
+    m3 = unsafe_load(mean_ptr, 3)
+    m4 = unsafe_load(mean_ptr, 4)
+    m5 = unsafe_load(mean_ptr, 5)
+    _init_tol_mean_ref[] = (m1, m2, m3, m4, m5)
+    s1 = unsafe_load(std_ptr, 1)
+    s2 = unsafe_load(std_ptr, 2)
+    s3 = unsafe_load(std_ptr, 3)
+    s4 = unsafe_load(std_ptr, 4)
+    s5 = unsafe_load(std_ptr, 5)
+    _init_tol_std_ref[] = (s1, s2, s3, s4, s5)
     return Int32(0)
 end
 
@@ -363,7 +398,12 @@ Base.@ccallable function kf_run_reef(
         ensemble_params = _build_ensemble_params(area_m2, init_cover_pct, n_members)
 
         @_write_stderr("[kf_run_reef] run_ensemble!\n")
-        results = Kora.run_ensemble!(reef, dhw_mat, ensemble_params; deploy_dhw_tol=dhw_tol)
+        results = Kora.run_ensemble!(
+            reef, dhw_mat, ensemble_params;
+            deploy_dhw_tol=dhw_tol,
+            init_dhw_tol_mean=collect(_init_tol_mean_ref[]),
+            init_dhw_tol_std=collect(_init_tol_std_ref[])
+        )
         @_write_stderr("[kf_run_reef] post-processing\n")
 
         valid_mask = [!any(isnan, results.cover[:, 1, r]) for r in 1:n_members]

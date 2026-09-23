@@ -158,12 +158,14 @@ function update_coral_tolerances!(
     loc::Int64,
     grp::Int64,
     n_recruits::Int64;
-    h²::Float32=0.3f0
+    h²::Float32=0.3f0,
+    founder_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std()
 )::Nothing
     # Fast path: if no deployed corals exist, skip mixing calculations
     if all(iszero, reef_state.deployed_population)
         return _update_coral_tolerances_wild_only!(
-            reef_state, ts, loc, grp, n_recruits, h²
+            reef_state, ts, loc, grp, n_recruits, h²;
+            founder_dhw_tol_std=founder_dhw_tol_std
         )
     end
 
@@ -218,7 +220,7 @@ function update_coral_tolerances!(
     # corals share the wild stdev (see `apply_bleaching!`), so `ts1`'s wild
     # stdev is the correct "existing population" spread to blend from here.
     std_prev = reef_state.wild_dhw_tolerances[ts1, loc, grp, 2]
-    founder_std = founder_dhw_tolerance_std()[grp]
+    founder_std = founder_dhw_tol_std[grp]
     new_grp_std = Float32((founder_std * prop) + (std_prev * (1.0 - prop)))
 
     return update_dhw_tol_std!(reef_state, ts, loc, grp, new_grp_std)
@@ -230,7 +232,8 @@ function _update_coral_tolerances_wild_only!(
     loc::Int64,
     grp::Int64,
     n_recruits::Int64,
-    h²::Float32
+    h²::Float32;
+    founder_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std()
 )::Nothing
     ts2 = ts - 2
     if ts2 <= 0
@@ -263,7 +266,7 @@ function _update_coral_tolerances_wild_only!(
     # toward the founder stdev rather than carrying the (possibly narrowed)
     # existing stdev forward unchanged.
     std_prev = reef_state.wild_dhw_tolerances[ts1, loc, grp, 2]
-    founder_std = founder_dhw_tolerance_std()[grp]
+    founder_std = founder_dhw_tol_std[grp]
     new_grp_std = Float32((founder_std * prop) + (std_prev * (1.0 - prop)))
 
     return update_dhw_tol_std!(reef_state, ts, loc, grp, new_grp_std)

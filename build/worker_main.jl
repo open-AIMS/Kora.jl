@@ -9,7 +9,7 @@
 #
 # All text diagnostics go to stderr; stdout is purely binary.
 #
-# WorkerSimParams wire layout (little-endian, 1676 bytes, no padding):
+# WorkerSimParams wire layout (little-endian, 1460 bytes, no padding):
 #   reef_area_m2:            f32  offset  0
 #   init_cover_pct:          f32  offset  4
 #   deploy_volumes[5]:       u32  offset  8  (20 bytes)
@@ -24,7 +24,9 @@
 #   init_size_class_fraction[35]: f32 offset 1272 (140 bytes)   # Part 5 v2
 #   init_size_class_active:  u32  offset 1412 (4 bytes)
 #   n_timesteps:             u32  offset 1416 (4 bytes)   # Part 10 -- requested run length
-#   Total: 1420 bytes
+#   init_dhw_tol_mean[5]:    f32  offset 1420 (20 bytes)   # Part 13 -- initial wild pop tolerance mean
+#   init_dhw_tol_std[5]:     f32  offset 1440 (20 bytes)   # Part 13 -- initial wild pop tolerance std
+#   Total: 1460 bytes
 #
 # NOTE: WorkerSimParams is a superset of sim-types/src/wire.rs WireSimParams —
 # it adds depth_m and deploy_dhw_tolerance. wire.rs's WireSimParams matches
@@ -76,9 +78,10 @@ const MAX_RUNS = 100
 # depth_m (u32), dhw_tol (f32), dhw_seed (u32), init_group_fraction (5x f32),
 # dhw_override (MAX_TIMESTEPS x f32), dhw_override_active (u32),
 # init_size_class_fraction (N_GROUPS*N_SIZES x f32), init_size_class_active (u32),
-# n_timesteps (u32).
+# n_timesteps (u32), init_dhw_tol_mean (N_GROUPS x f32), init_dhw_tol_std (N_GROUPS x f32).
 const WORKER_PARAMS_BYTES = 4 + 4 + N_GROUPS * 4 + 4 + 4 + 4 + 4 + 4 + N_GROUPS * 4 + MAX_TIMESTEPS * 4 + 4 +
-                             N_GROUPS * N_SIZES * 4 + 4 + 4   # = 1420
+                             N_GROUPS * N_SIZES * 4 + 4 + 4 +
+                             N_GROUPS * 4 + N_GROUPS * 4   # = 1460
 
 # u32 n_valid + [MAX_RUNS * MAX_TIMESTEPS] f32 covers + [MAX_TIMESTEPS * N_GROUPS * 3] f32 summary
 # + [MAX_TIMESTEPS] f32 dhw + [MAX_TIMESTEPS * N_GROUPS * 3] f32 tolerance + u32 n_timesteps
@@ -194,6 +197,8 @@ function parse_params(bytes::Vector{UInt8})
     init_size_class_fraction = ntuple(_ -> read(io, Float32), Val(N_GROUPS * N_SIZES))
     init_size_class_active = read(io, UInt32)
     n_timesteps = read(io, UInt32)
+    init_dhw_tol_mean = ntuple(_ -> read(io, Float32), N_GROUPS)
+    init_dhw_tol_std = ntuple(_ -> read(io, Float32), N_GROUPS)
     return (;
         reef_area_m2,
         init_cover_pct,
@@ -208,7 +213,9 @@ function parse_params(bytes::Vector{UInt8})
         dhw_override_active,
         init_size_class_fraction,
         init_size_class_active,
-        n_timesteps
+        n_timesteps,
+        init_dhw_tol_mean,
+        init_dhw_tol_std
     )
 end
 
@@ -317,7 +324,10 @@ function run_simulation(p)::Vector{UInt8}
         p.init_size_class_fraction, p.init_size_class_active != 0
     )
     results = Kora.run_ensemble!(
-        reef, dhw_mat, ensemble_params; deploy_dhw_tol=p.deploy_dhw_tolerance
+        reef, dhw_mat, ensemble_params;
+        deploy_dhw_tol=p.deploy_dhw_tolerance,
+        init_dhw_tol_mean=collect(p.init_dhw_tol_mean),
+        init_dhw_tol_std=collect(p.init_dhw_tol_std)
     )
 
     valid_mask = [!any(isnan, results.cover[:, 1, r]) for r in 1:n_members]
