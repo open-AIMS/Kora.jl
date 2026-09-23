@@ -41,12 +41,14 @@ function run_model!(
     recruits=0.06f0,
     self_seed=0.3f0,
     deploy_dhw_tol::Float32=0.0f0,
+    founder_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
     rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
     dhw = Matrix{Float32}(env_conditions[:, :, At(:dhw)].data)
     return run_model!(
         reef_state, dhw;
-        recruits=recruits, self_seed=self_seed, deploy_dhw_tol=deploy_dhw_tol, rng=rng
+        recruits=recruits, self_seed=self_seed, deploy_dhw_tol=deploy_dhw_tol,
+        founder_dhw_tol_std=founder_dhw_tol_std, rng=rng
     )
 end
 
@@ -56,6 +58,7 @@ function run_model!(
     recruits=0.06f0,
     self_seed=0.3f0,
     deploy_dhw_tol::Float32=0.0f0,
+    founder_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
     rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
     reset!(reef_state)
@@ -211,7 +214,10 @@ function run_model!(
                 recruits[loc, grp] = rand_truncated_normal(
                     rng, recruit_μ, recruit_σ, 0.5f0, 2.5f0, n_loc_recruits
                 )
-                update_coral_tolerances!(reef_state, ts, loc, grp, n_loc_recruits)
+                update_coral_tolerances!(
+                    reef_state, ts, loc, grp, n_loc_recruits;
+                    founder_dhw_tol_std=founder_dhw_tol_std
+                )
             else
                 # Copy previous tolerance when no recruits (no Breeder's equation applied)
                 reef_state.wild_dhw_tolerances[ts, loc, grp, 1] = reef_state.wild_dhw_tolerances[
