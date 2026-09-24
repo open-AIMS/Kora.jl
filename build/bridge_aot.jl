@@ -12,6 +12,7 @@
 #   int32_t kf_set_dhw_trajectory(const float* values, int32_t n /* n<=0 clears */);
 #   int32_t kf_set_size_class_cover(const float* weights, int32_t n /* 35 to set, <=0 clears */);
 #   int32_t kf_set_initial_tolerance(const float* mean, const float* std, int32_t n /* must be 5 */);
+#   int32_t kf_set_heritability(float h2);
 #   int32_t kf_run_reef(float area_m2, float init_cover_pct, uint32_t n_runs,
 #                       uint32_t dhw_seed,
 #                       float* dhw_out, int32_t dhw_cap,
@@ -165,6 +166,11 @@ const _init_tol_std_ref = Ref{NTuple{5,Float32}}(
     NTuple{5,Float32}(Kora.founder_dhw_tolerance_std())
 )
 
+# Part 14: breeder's-equation heritability h² -- set via kf_set_heritability
+# before kf_run_reef. Default mirrors run_model!'s h² default so an unedited
+# run is bit-for-bit unchanged.
+const _heritability_ref = Ref{Float32}(0.3f0)
+
 # Build ensemble params where all members share the same initial conditions
 # (equal group proportions, cover-derived density) so CI-band spread at t=0
 # reflects stochastic dynamics only, not variation in initial setup.
@@ -238,6 +244,7 @@ Base.@ccallable function kf_load_models(
             3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0
         )
         _init_tol_std_ref[] = NTuple{5,Float32}(Kora.founder_dhw_tolerance_std())
+        _heritability_ref[] = 0.3f0
         return Int32(0)
     catch e
         @_write_stderr("[bridge_aot] kf_load_models: ")
@@ -309,6 +316,12 @@ Base.@ccallable function kf_set_initial_tolerance(
     s4 = unsafe_load(std_ptr, 4)
     s5 = unsafe_load(std_ptr, 5)
     _init_tol_std_ref[] = (s1, s2, s3, s4, s5)
+    return Int32(0)
+end
+
+Base.@ccallable function kf_set_heritability(h2::Float32)::Int32
+    (isfinite(h2) && h2 >= 0.0f0 && h2 <= 1.0f0) || return Int32(-1)
+    _heritability_ref[] = h2
     return Int32(0)
 end
 
@@ -402,7 +415,8 @@ Base.@ccallable function kf_run_reef(
             reef, dhw_mat, ensemble_params;
             deploy_dhw_tol=dhw_tol,
             init_dhw_tol_mean=collect(_init_tol_mean_ref[]),
-            init_dhw_tol_std=collect(_init_tol_std_ref[])
+            init_dhw_tol_std=collect(_init_tol_std_ref[]),
+            h²=_heritability_ref[]
         )
         @_write_stderr("[kf_run_reef] post-processing\n")
 
