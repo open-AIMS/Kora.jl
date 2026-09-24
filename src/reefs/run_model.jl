@@ -103,7 +103,7 @@ function run_model!(
         if reef_state.deployment_times[1, loc, grp] > 0
             n_deploy = Int64(reef_state.deployment_times[1, loc, grp])
             deploy_corals!(reef_state, 1, loc, n_deploy, grp; rng=rng)
-            new_mean = deploy_dhw_tol > 0.0f0 ? deploy_dhw_tol : reef_state.wild_dhw_tolerances[1, loc, grp, 1]
+            new_mean = reef_state.wild_dhw_tolerances[1, loc, grp, 1] + deploy_dhw_tol
             reef_state.deployed_dhw_tolerances[1, loc, grp, 1] = new_mean
         end
     end
@@ -240,7 +240,7 @@ function run_model!(
             if reef_state.deployment_times[ts, loc, grp] > 0
                 n_deploy = Int64(reef_state.deployment_times[ts, loc, grp])
                 n_existing = length(deployed_population(reef_state, prev_ts, loc, grp))
-                new_deploy_mean = deploy_dhw_tol > 0.0f0 ? deploy_dhw_tol : reef_state.wild_dhw_tolerances[ts, loc, grp, 1]
+                new_deploy_mean = reef_state.wild_dhw_tolerances[ts, loc, grp, 1] + deploy_dhw_tol
                 deploy_corals!(reef_state, ts, loc, n_deploy, grp; rng=rng)
                 # Population-size-weighted blend with the surviving deployed
                 # cohort (mirrors update_coral_tolerances!'s recruit-mixing
