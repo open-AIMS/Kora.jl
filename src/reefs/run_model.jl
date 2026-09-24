@@ -25,6 +25,8 @@ so calling `run_model!` a second time on the same object produces a fresh result
   the reef each timestep (default: `0.06`).
 - `self_seed` : Fraction of recruitment attributed to self-seeding from the
   local population (default: `0.3`).
+- `h²` : Narrow-sense heritability applied by the breeder's equation to each
+  recruit cohort's tolerance (default: `0.3`).
 - `rng` : Random number generator. Use `Random.default_rng()` for standard
     runs (default: `Random.GLOBAL_RNG`).
 
@@ -42,13 +44,14 @@ function run_model!(
     self_seed=0.3f0,
     deploy_dhw_tol::Float32=0.0f0,
     founder_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
+    h²::Float32=0.3f0,
     rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
     dhw = Matrix{Float32}(env_conditions[:, :, At(:dhw)].data)
     return run_model!(
         reef_state, dhw;
         recruits=recruits, self_seed=self_seed, deploy_dhw_tol=deploy_dhw_tol,
-        founder_dhw_tol_std=founder_dhw_tol_std, rng=rng
+        founder_dhw_tol_std=founder_dhw_tol_std, h²=h², rng=rng
     )
 end
 
@@ -59,6 +62,7 @@ function run_model!(
     self_seed=0.3f0,
     deploy_dhw_tol::Float32=0.0f0,
     founder_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
+    h²::Float32=0.3f0,
     rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
     reset!(reef_state)
@@ -216,7 +220,7 @@ function run_model!(
                 )
                 update_coral_tolerances!(
                     reef_state, ts, loc, grp, n_loc_recruits;
-                    founder_dhw_tol_std=founder_dhw_tol_std
+                    h²=h², founder_dhw_tol_std=founder_dhw_tol_std
                 )
             else
                 # Copy previous tolerance when no recruits (no Breeder's equation applied)

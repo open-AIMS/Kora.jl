@@ -28,10 +28,11 @@ using NCDatasets
 # ---------------------------------------------------------------------------
 # Wire sizes -- must stay in sync with build/worker_main.jl
 # ---------------------------------------------------------------------------
-const WORKER_PARAMS_BYTES = 1460  # Part 3: +dhw_override[75] f32 +dhw_override_active u32
+const WORKER_PARAMS_BYTES = 1464  # Part 3: +dhw_override[75] f32 +dhw_override_active u32
                                    # Part 5 v2: +init_size_class_fraction[35] f32 +init_size_class_active u32
                                    # Part 10: dhw_override grown 75->MAX_TIMESTEPS(300) f32, +n_timesteps u32
                                    # Part 13: +init_dhw_tol_mean[5] f32 +init_dhw_tol_std[5] f32
+                                   # Part 14: +recruit_heritability f32
 const WORKER_RESULT_BYTES = 157208  # Part 10: every time-indexed field grown to MAX_TIMESTEPS(300)
                                      # capacity, +trailing n_timesteps u32 -- see worker_main.jl's header
 

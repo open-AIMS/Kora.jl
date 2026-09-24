@@ -102,6 +102,7 @@ function run_ensemble!(
         3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0
     ],
     init_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
+    h²::Float32=0.3f0,
     rng::AbstractRNG=Random.GLOBAL_RNG
 )
     return run_ensemble!(
@@ -111,6 +112,7 @@ function run_ensemble!(
         deploy_dhw_tol=deploy_dhw_tol,
         init_dhw_tol_mean=init_dhw_tol_mean,
         init_dhw_tol_std=init_dhw_tol_std,
+        h²=h²,
         rng=rng
     )
 end
@@ -124,6 +126,7 @@ function run_ensemble!(
         3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0
     ],
     init_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
+    h²::Float32=0.3f0,
     rng::AbstractRNG=Random.GLOBAL_RNG
 )
     n_ensemble = size(ensemble_params, 2)
@@ -145,7 +148,7 @@ function run_ensemble!(
             # here, so run with default recruitment like the plain 6-row case.
             run_model!(
                 reef_state, dhw;
-                deploy_dhw_tol=deploy_dhw_tol, founder_dhw_tol_std=init_dhw_tol_std, rng=rng
+                deploy_dhw_tol=deploy_dhw_tol, founder_dhw_tol_std=init_dhw_tol_std, h²=h², rng=rng
             )
         elseif length(params) > 16
             expected = 16 + n_grps + 2
@@ -161,12 +164,13 @@ function run_ensemble!(
                 self_seed=Float32(params[end]),
                 deploy_dhw_tol=deploy_dhw_tol,
                 founder_dhw_tol_std=init_dhw_tol_std,
+                h²=h²,
                 rng=rng
             )
         else
             run_model!(
                 reef_state, dhw;
-                deploy_dhw_tol=deploy_dhw_tol, founder_dhw_tol_std=init_dhw_tol_std, rng=rng
+                deploy_dhw_tol=deploy_dhw_tol, founder_dhw_tol_std=init_dhw_tol_std, h²=h², rng=rng
             )
         end
         _collect_member!(ec, egc, ejc, ewdt, reef_state, i, n_ts, n_locs, n_grps)
