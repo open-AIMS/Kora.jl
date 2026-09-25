@@ -87,6 +87,12 @@ end
 
 Fit survival models to grouped coral data using logistic regression.
 
+The polynomial is fitted against `log(diam)`, the colony size at the start of the
+observation interval. This matches how the size classes are built
+(`train_test_split!`) and how the model is used in simulation, where survival is
+applied to the current size before growth. `diam_mort` (size at the next survey) is
+not used, as it includes growth for surviving colonies.
+
 # Returns
 Tuple of (models, mcfadden_r2_scores, log_likelihood_scores, brier_scores)
 """
@@ -107,9 +113,10 @@ function fit_survival_models(
 
         sub_df = df[df[!, TRAIN_CLASS] .> 0, :]
 
-        # Fit model based on observed size at time of mortality (`diam_mort`)
-        x_idx = sortperm(sub_df.diam_mort)
-        xi = Float32.(sub_df.diam_mort[x_idx])
+        # Fit against size at the START of the interval (`diam`): the size classes are built
+        # on `diam`, and the simulation applies survival before growth, at the current size.
+        x_idx = sortperm(sub_df.diam)
+        xi = Float32.(sub_df.diam[x_idx])
         yi = Float32.(sub_df[x_idx, TRAIN_CLASS_MEAN_ID])
 
         # Fit model (coefficients coerced to Float32 to keep the model concrete)
@@ -129,8 +136,8 @@ function fit_survival_models(
 
         # Repeat above for test data
         sub_df = df[df.class_test .> 0, :]
-        x_idx = sortperm(sub_df.diam_mort)
-        xi = sub_df.diam_mort[x_idx]
+        x_idx = sortperm(sub_df.diam)
+        xi = sub_df.diam[x_idx]
         yi = sub_df.class_test_mean[x_idx]
         prediction = model.(xi)
 

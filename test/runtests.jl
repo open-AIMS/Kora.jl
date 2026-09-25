@@ -160,6 +160,26 @@ end
             end
         end
     end
+
+    @testset "fit_survival_models fits against start-of-interval size" begin
+        n = 200
+        diam = Float32.(exp.(range(log(1.0), log(50.0); length=n)))
+        target = Float32.(0.5 .+ 0.08 .* log.(diam))
+        df = DataFrame(;
+            diam=diam,
+            diam_mort=1.5f0 .* diam,  # surviving colonies have grown by the next survey
+            class_train=fill(1, n),
+            class_train_mean=target,
+            class_test=fill(1, n),
+            class_test_mean=target
+        )
+        fit = Kora.fit_survival_models(Kora.OrderedDict("g" => df); degree=1)
+        model = fit.models[1]
+        # Fitting against diam_mort would shift the curve by 0.08 * log(1.5) = 0.032
+        for d in (2.0f0, 10.0f0, 40.0f0)
+            @test model(d) ≈ 0.5f0 + 0.08f0 * log(d) atol = 1.0f-3
+        end
+    end
 end
 
 @testset "ReefState and Environment" begin

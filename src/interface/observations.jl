@@ -268,7 +268,7 @@ function get_survival_entries(standardized_data::DataFrame)::DataFrame
     for_survival[invalid_days] .= false
 
     # If data is "missing" in the sizenext column, fill with data in `size` column
-    # survival predictions use `diam_mort` (based on `sizenext`)
+    # `diam_mort` is derived from `sizenext`; survival models are fitted on `diam` (start size)
     # Missing entries are filled from `size`
     missing_sizenext = ismissing.(standardized_data.sizenext)
     standardized_data[missing_sizenext, :sizenext] .= standardized_data[
