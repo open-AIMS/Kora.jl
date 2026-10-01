@@ -11,6 +11,7 @@ function Kora.viz.survival_performance_plots(
     save_path=nothing
 )
     bin_id_col = Kora.BIN_ID
+    group_display_names = Dict(zip(Kora.TARGET_GROUPS, Kora.GROUP_NAMES))
 
     for group_id in eachindex(target_groups)
         group_df = groupings[target_groups[group_id]]
@@ -98,7 +99,7 @@ function Kora.viz.survival_performance_plots(
 
         plot_handles = []
 
-        group_name = replace(titlecase(target_groups[group_id]), "_" => " ")
+        group_name = group_display_names[target_groups[group_id]]
         for (col_idx, (observed_means, std_full, mean_full, data_type, performance)) in
             enumerate(plot_data)
             ax = Axis(fig[1, col_idx];
@@ -137,11 +138,17 @@ function Kora.viz.survival_performance_plots(
     end
 end
 
+const METRIC_DISPLAY_NAMES = Dict("R2" => "R²")
+const FIGURE_TITLE_METRICS = ["RMSE", "pearson", "spearman"]
+
 function build_metric_display(results::NamedTuple, idx::Int64)
     res_text = []
     for m in Kora.ALL_METRICS
+        name = string(m)
+        name in FIGURE_TITLE_METRICS || continue
+        display_name = get(METRIC_DISPLAY_NAMES, name, name)
         _s = getfield(results, Symbol(m))[idx]
-        push!(res_text, "$(string(m)): $(round(_s; digits=3))")
+        push!(res_text, "$(display_name): $(round(_s; digits=3))")
     end
 
     return join(res_text, " | ")
@@ -158,6 +165,8 @@ function Kora.viz.growth_performance_plots(
     save_path=nothing,
     alpha=0.6
 )
+    group_display_names = Dict(zip(Kora.TARGET_GROUPS, Kora.GROUP_NAMES))
+
     for group_id in eachindex(target_groups)
         group_df = groupings[target_groups[group_id]]
 
@@ -183,7 +192,7 @@ function Kora.viz.growth_performance_plots(
         fig = Figure(; size=figsize)
 
         # Training plot
-        group_name = replace(titlecase(target_groups[group_id]), "_" => " ")
+        group_name = group_display_names[target_groups[group_id]]
         ax1 = Axis(fig[1, 1];
             title="$(group_name) - Training Data\n$(build_metric_display(model_fits.performance.train, group_id))",
             xlabel="Diameter [cm]",
@@ -237,18 +246,21 @@ function Kora.viz.model_dashboard(
     save_path=nothing
 )
     fig = Figure(; size=figsize)
+    group_display_names = Dict(zip(Kora.TARGET_GROUPS, Kora.GROUP_NAMES))
 
     for (i, group) in enumerate(target_groups)
+        group_name = group_display_names[group]
+
         # Create survival subplot
         ax_surv = Axis(fig[i, 1];
-            title="$(group) - Survival",
+            title="$(group_name) - Survival",
             xlabel="Diameter Bin",
             ylabel="Survival Probability"
         )
 
         # Create growth subplot
         ax_growth = Axis(fig[i, 2];
-            title="$(group) - Growth",
+            title="$(group_name) - Growth",
             xlabel="Diameter [cm]",
             ylabel="Diameter at t+1 [cm]"
         )

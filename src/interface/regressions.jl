@@ -90,7 +90,7 @@ Fit survival models to grouped coral data using logistic regression.
 The polynomial is fitted against `log(diam)`, the colony size at the start of the
 observation interval. This matches how the size classes are built
 (`train_test_split!`) and how the model is used in simulation, where survival is
-applied to the current size before growth. `diam_mort` (size at the next survey) is
+applied to the current size before growth. `diam_next` (size at the next survey) is
 not used, as it includes growth for surviving colonies.
 
 # Returns
