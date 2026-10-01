@@ -229,8 +229,8 @@ Rows are kept when `survival_use == true` and the observation interval
 (same-day duplicate observations, or a data-entry error placing `t2` before
 `t1`) cannot be annualised and is excluded, mirroring the equivalent guard in
 [`get_growth_entries`](@ref). For rows where `sizenext` is missing or zero,
-the `size` column is used as a fallback so that the `diam_mort` column (size
-at the mortality event) is always populated.
+the `size` column is used as a fallback so that the `diam_next` column (size
+at the next observation) is always populated.
 
 **Assumption:** a `sizenext` of exactly `0.0` is treated as "no second
 measurement was recorded" (a data-entry convention), not as a genuine
@@ -241,8 +241,9 @@ true zero-area observation, this fallback would silently overwrite it with
 
 The returned DataFrame adds the following derived columns:
 - `diam`: equivalent circle diameter at observation time (cm)
-- `diam_mort`: equivalent circle diameter at next observation or mortality
-  event (cm), derived from `sizenext`
+- `diam_next`: equivalent circle diameter at next observation (cm), derived
+  from `sizenext`. Not used for fitting; survival models are fit against
+  `diam` (start-of-interval size), matching the size-class bins.
 - `logdiam`: natural log of `diam`
 
 # Arguments
@@ -268,7 +269,7 @@ function get_survival_entries(standardized_data::DataFrame)::DataFrame
     for_survival[invalid_days] .= false
 
     # If data is "missing" in the sizenext column, fill with data in `size` column
-    # `diam_mort` is derived from `sizenext`; survival models are fitted on `diam` (start size)
+    # `diam_next` is derived from `sizenext`; survival models are fitted on `diam` (start size)
     # Missing entries are filled from `size`
     missing_sizenext = ismissing.(standardized_data.sizenext)
     standardized_data[missing_sizenext, :sizenext] .= standardized_data[
@@ -286,7 +287,7 @@ function get_survival_entries(standardized_data::DataFrame)::DataFrame
 
     # Insert diameter column
     survival_data[!, :diam] .= area_to_diam.(survival_data.size)
-    survival_data[!, :diam_mort] .= area_to_diam.(survival_data.sizenext)
+    survival_data[!, :diam_next] .= area_to_diam.(survival_data.sizenext)
 
     # Add log diameter column
     survival_data[!, :logdiam] .= log.(survival_data.diam)
