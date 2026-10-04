@@ -22,9 +22,10 @@ function assign_scalers!(reef_state::ReefState, x::Vector)::Nothing
 end
 
 """
-    set_population!(reef_state::ReefState, x::Vector)::Nothing
+    set_population!(reef_state::ReefState, x::Vector; rng=Random.GLOBAL_RNG)::Nothing
 
-Set the initial population state.
+Set the initial population state. Initial colony diameters are drawn with `rng`; pass a
+seeded RNG for reproducible initial populations.
 
 `length(x)`-based dispatch on the population-shape rows: `6` is the plain
 per-group case (rows 2:6 are `group_proportions`), `> 16` (and `!=
@@ -39,7 +40,8 @@ function set_population!(
     init_dhw_tol_mean::Vector{Float32}=Float32[
         3.751612251f0, 4.081622683f0, 4.487465256f0, 6.165751937f0, 7.153507902f0
     ],
-    init_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std()
+    init_dhw_tol_std::Vector{Float32}=founder_dhw_tolerance_std(),
+    rng::AbstractRNG=Random.GLOBAL_RNG
 )::Nothing
     pop_density = x[1]
     total_initial_pop = ceil(
@@ -53,7 +55,8 @@ function set_population!(
         end
         initialize_coral_population!(
             reef_state, 1, total_initial_pop, size_class_weight;
-            init_dhw_tol_mean=init_dhw_tol_mean, init_dhw_tol_std=init_dhw_tol_std
+            init_dhw_tol_mean=init_dhw_tol_mean, init_dhw_tol_std=init_dhw_tol_std,
+            rng=rng
         )
         return nothing
     end
@@ -76,7 +79,8 @@ function set_population!(
     proportions = Float32.(x[2:6])
     initialize_coral_population!(
         reef_state, 1, total_initial_pop; group_proportions=proportions, size_dist=size_dist,
-        init_dhw_tol_mean=init_dhw_tol_mean, init_dhw_tol_std=init_dhw_tol_std
+        init_dhw_tol_mean=init_dhw_tol_mean, init_dhw_tol_std=init_dhw_tol_std,
+        rng=rng
     )
 
     return nothing
