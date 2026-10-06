@@ -22,7 +22,7 @@ end
     process_growth_models(
         ecorrap_data_file::String,
         functional_group_file::String;
-        region::String = "Offshore_Central",
+        region::String = "offshore_central",
         degree::Int = 2,
         save_model::Bool = true,
         output_dir::String = ".",
@@ -36,7 +36,7 @@ Process EcoRRAP data to create growth models for coral functional groups.
 # Arguments
 - `ecorrap_data_file::String`: Path to the EcoRRAP CSV data file
 - `functional_group_file::String`: Path to the functional group mapping CSV file
-- `region::String`: Region to process (default: "Offshore_Central")
+- `region::String`: Region to process (default: "offshore_central")
 - `degree::Int`: Polynomial degree for growth models (default: 2)
 - `plot_validation::Bool=true`: Whether to plot model performance (default: `true`)
 - `save_model::Bool`: Whether to serialize model to disk (default: true)
@@ -51,9 +51,9 @@ Process EcoRRAP data to create growth models for coral functional groups.
 # Example
 ```julia
 results = process_growth_models(
-    "EcoRRAP data for IPM_250510.csv",
-    "ecorrap to cscape species.csv";
-    region="Offshore_Central"
+    "ecorrap_unified.parquet",
+    "ecorrap_to_groups.csv";
+    region="offshore_central"
 )
 
 growth_models = results.growth_fits
@@ -62,7 +62,7 @@ growth_models = results.growth_fits
 function process_growth_models(
     ecorrap_data_file::String,
     functional_group_file::String;
-    region::String="Offshore_Central",
+    region::String="offshore_central",
     reef::Union{String,Nothing}=nothing,
     degree::Int64=2,
     plot_validation::Bool=false,
@@ -77,6 +77,9 @@ function process_growth_models(
     if isnothing(rng)
         rng = Random.seed!(seed)
     end
+
+    # Cluster names are lowercased by `standardize_ecorrap_data!`
+    region = lowercase(region)
 
     # Load and process EcoRRAP data
     @info "Loading EcoRRAP data from: $ecorrap_data_file"
@@ -143,7 +146,7 @@ end
     process_survival_models(
         ecorrap_data_file::String,
         functional_group_file::String;
-        region::String="Offshore_Central",
+        region::String="offshore_central",
         degree::Int64=2,
         save_model::Bool=true,
         output_dir::String=".",
@@ -158,7 +161,7 @@ Process EcoRRAP data to create survival models for coral functional groups.
 # Arguments
 - `ecorrap_data_file::String`: Path to the EcoRRAP CSV data file
 - `functional_group_file::String`: Path to the functional group mapping CSV file
-- `region::String`: Region to process (default: "Offshore_Central")
+- `region::String`: Region to process (default: "offshore_central")
 - `degree::Int`: Polynomial degree for survival models (default: 2)
 - `save_model::Bool`: Whether to serialize model to disk (default: true)
 - `output_dir::String`: Directory to save model (default: Kora package assets)
@@ -173,9 +176,9 @@ Process EcoRRAP data to create survival models for coral functional groups.
 # Example
 ```julia
 results = process_survival_models(
-    "EcoRRAP data for IPM_250510.csv",
-    "ecorrap to cscape species.csv";
-    region = "Offshore_Central",
+    "ecorrap_unified.parquet",
+    "ecorrap_to_groups.csv";
+    region = "offshore_central",
     plot_validation = true
 )
 
@@ -185,7 +188,7 @@ survival_models = results.survival_fits
 function process_survival_models(
     ecorrap_data_file::String,
     functional_group_file::String;
-    region::String="Offshore_Central",
+    region::String="offshore_central",
     reef::Union{String,Nothing}=nothing,
     degree::Int=2,
     save_model::Bool=true,
@@ -200,6 +203,9 @@ function process_survival_models(
     if rng === nothing
         rng = Random.seed!(seed)
     end
+
+    # Cluster names are lowercased by `standardize_ecorrap_data!`
+    region = lowercase(region)
 
     # Load and process EcoRRAP data
     @info "Loading EcoRRAP data from: $ecorrap_data_file"
@@ -266,7 +272,7 @@ end
     process_ecorrap_models(
         ecorrap_data_file::String,
         functional_group_file::String;
-        region::String="Offshore_Central",
+        region::String="offshore_central",
         reef=nothing,
         growth_degree::Int=2,
         survival_degree::Int=2,
@@ -284,7 +290,7 @@ This function combines the individual model creation functions for convenience.
 # Arguments
 - `ecorrap_data_file::String`: Path to the EcoRRAP CSV data file
 - `functional_group_file::String`: Path to the functional group mapping CSV file
-- `region::String`: Region to process (default: "Offshore_Central")
+- `region::String`: Region to process (default: "offshore_central")
 - `reef`: Reef to process
 - `growth_degree::Int`: Polynomial degree for growth models (default: 2)
 - `survival_degree::Int`: Polynomial degree for survival models (default: 2)
@@ -301,9 +307,9 @@ This function combines the individual model creation functions for convenience.
 # Example
 ```julia
 results = process_ecorrap_models(
-    "EcoRRAP data for IPM_250510.csv",
-    "ecorrap to cscape species.csv";
-    region = "Offshore_Central",
+    "ecorrap_unified.parquet",
+    "ecorrap_to_groups.csv";
+    region = "offshore_central",
     plot_validation = true
 )
 
@@ -315,7 +321,7 @@ survival_models = results.survival_fits
 function process_ecorrap_models(
     ecorrap_data_file::String,
     functional_group_file::String;
-    region::String="Offshore_Central",
+    region::String="offshore_central",
     reef=nothing,
     growth_degree::Int=2,
     survival_degree::Int=2,
