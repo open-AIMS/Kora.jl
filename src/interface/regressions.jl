@@ -85,7 +85,11 @@ end
         groupings::OrderedDict{String, DataFrame}; degree=2
     )
 
-Fit survival models to grouped coral data using logistic regression.
+Fit polynomial survival models to grouped coral data using least squares.
+
+The response is the annualized survival probability estimated for each training
+size bin. Predictions are clamped to `[0, 1]`; no logistic or complementary
+log-log link is applied.
 
 The polynomial is fitted against `log(diam)`, the colony size at the start of the
 observation interval. This matches how the size classes are built
@@ -94,7 +98,8 @@ applied to the current size before growth. `diam_next` (size at the next survey)
 not used, as it includes growth for surviving colonies.
 
 # Returns
-Tuple of (models, mcfadden_r2_scores, log_likelihood_scores, brier_scores)
+A `PolySurvivalModel` containing one fitted function per functional group and
+train/test performance metrics for all [`ALL_METRICS`](@ref).
 """
 function fit_survival_models(
     groupings::OrderedDict{String,DataFrame}; degree::Int64=2

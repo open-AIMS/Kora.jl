@@ -59,7 +59,7 @@ Growth and survival are represented as polynomial functions fitted to EcoRRAP su
 
 Growth is a function of current colony diameter. The polynomial maps $\log(d)$ to expected diameter increment per year. Growth slows as reef-wide cover approaches the carrying capacity, which is determined by reef area and the `density` parameter.
 
-Survival is modelled using a complementary log-log regression of colony diameter against annual survival probability. Larger colonies have higher survival probability.
+Survival is modelled using a least-squares polynomial regression of annualized, size-binned survival probability against $\log(d)$, where $d$ is colony diameter at the start of the observation interval. Predictions are clamped to $[0, 1]$; no logistic or complementary log-log link is applied. The fitted polynomial does not enforce increasing survival with colony size.
 
 Location-specific parameters can be supplied via alternative model sets loaded with `load_models`. The `growth_models` and `survival_models` arguments to `initialize_reef` accept any fitted model collection that implements the required interface.
 

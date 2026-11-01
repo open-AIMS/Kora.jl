@@ -226,7 +226,7 @@ struct PolySurvivalFunction{T<:AbstractFloat,P<:Polynomial} <: Function
     end
 end
 
-# Make it callable using complementary log-log link
+# Evaluate the polynomial in log-diameter and bound the survival probability.
 function (f::PolySurvivalFunction)(x::T)::Float32 where T<:AbstractFloat
     return clamp(f.poly(log(x)), 0.0f0, 1.0f0)
 end
